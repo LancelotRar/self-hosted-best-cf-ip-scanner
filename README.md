@@ -1,6 +1,6 @@
 <div align="center">
 
-# Best CF IP Scanner
+# Best CF IP Scanner（Docker 版）
 
 *从 Cloudflare IPv4 段中筛出可用作代理节点的优选 IP*
 
@@ -39,21 +39,14 @@ curl -fsSLO https://raw.githubusercontent.com/LancelotRar/best-cf-ip-scanner-doc
 curl -fsSLo .env  https://raw.githubusercontent.com/LancelotRar/best-cf-ip-scanner-docker/main/.env.example
 ```
 
-### 2. 最少设置
+### 2. 最小设置
 
 `.env` 中填写以下一项即可运行：
 
-<table align="center">
-<thead>
-<tr>
-<th align="center">变量</th>
-<th align="center">取值</th>
-</tr>
-</thead>
-<tbody>
-<tr><td align="center"><code>PROBE_HOST</code></td><td align="center">你自己的、已开启 Cloudflare 代理的域名</td></tr>
-</tbody>
-</table>
+```dotenv
+# 必填：你自己的、已开启 Cloudflare 代理的域名
+PROBE_HOST=probe.example.com
+```
 
 其余参数保持默认：每 6 小时第 30 分扫描一轮、每个 /24 抽 1 个代表 IP、TCP 握手
 3 次中成功 2 次即合格、端口 443、默认生成 `GLOBAL20/50/100/200/400` 五个全量列表，国家列表默认关闭；只在本地产出。
@@ -87,7 +80,20 @@ TCP 握手测量：合格 2673，淘汰 1488（每候选 3 次，至少成功 2 
 本轮完成：5 个订阅列表 + 1 个明细表 -> /output  总耗时 123.2s
 ```
 
-### 产物
+需要立刻跑一轮、不等下一个 cron 时点（例如刚改完 `.env`）：
+
+```bash
+docker compose run --rm scan-once
+```
+
+它复用同一份镜像、配置与挂载，以非 root 身份执行，跑完即退出；如果定时任务正在跑，
+本轮会提示「已有一轮扫描在运行」并跳过，不会并发写产物。临时改参数也可以直接透传：
+
+```bash
+docker compose run --rm -e MAX_CANDIDATES=200 scan-once
+```
+
+### 4. 产物
 
 每轮在 `./output/` 下生成：
 
@@ -122,20 +128,20 @@ TCP 握手测量：合格 2673，淘汰 1488（每候选 3 次，至少成功 2 
 
 ## 工作原理
 
-1. **解析地址库**：每行支持网段 / 单个 IP / `IP:端口`；带端口的条目原样保留，
-   不参与采样、端口不被替换。
-2. **合并 + 网格采样**：重叠与相邻网段合并为连续区间；按地址网格每 `SAMPLE_STRIDE`
-   个地址抽 1 个代表 IP（取 256 即每个 /24 抽一个）。采样种子按北京小时轮换：
-   同一小时可复现，跨小时逐步覆盖不同代表与端口组合。
-3. **TCP 握手测量（初筛）**：每个候选做 `TCP_ATTEMPTS` 次握手计时，统计成功次数、
-   丢包率、最小/平均/最大往返时延；成功次数低于 `TCP_MIN_SUCCESS` 淘汰。选它作基准，
-   是因为这些 IP 最终当代理节点用，代理客户端展示的「TCP 延迟」就是该口径。
-4. **边缘端点校验（终筛）**：达标者经 curl `RESOLVE` 把 `PROBE_HOST` 钉到候选
-   `IP:端口`——SNI 与证书校验保持有效，但 TCP/TLS 实际直连候选地址——请求
-   `PROBE_PATH`。**通过条件：HTTP 200 且响应体含合法 `colo`**。
-5. **产出**：生成明细表与订阅列表，按「丢包率 → 平均延迟 → IP 数值」相对排名取前 N，
-   不设绝对延迟阈值。
-6. **发布（可选）**：浅克隆目标仓库 → 覆盖产物目录 → 有变化则提交推送。
+- **解析地址库**：每行支持网段 / 单个 IP / `IP:端口`；带端口的条目原样保留，
+  不参与采样、端口不被替换。
+- **合并 + 网格采样**：重叠与相邻网段合并为连续区间；按地址网格每 `SAMPLE_STRIDE`
+  个地址抽 1 个代表 IP（取 256 即每个 /24 抽一个）。采样种子按北京小时轮换：
+  同一小时可复现，跨小时逐步覆盖不同代表与端口组合。
+- **TCP 握手测量（初筛）**：每个候选做 `TCP_ATTEMPTS` 次握手计时，统计成功次数、
+  丢包率、最小/平均/最大往返时延；成功次数低于 `TCP_MIN_SUCCESS` 淘汰。选它作基准，
+  是因为这些 IP 最终当代理节点用，代理客户端展示的「TCP 延迟」就是该口径。
+- **边缘端点校验（终筛）**：达标者经 curl `RESOLVE` 把 `PROBE_HOST` 钉到候选
+  `IP:端口`——SNI 与证书校验保持有效，但 TCP/TLS 实际直连候选地址——请求
+  `PROBE_PATH`。**通过条件：HTTP 200 且响应体含合法 `colo`**。
+- **产出**：生成明细表与订阅列表，按「丢包率 → 平均延迟 → IP 数值」相对排名取前 N，
+  不设绝对延迟阈值。
+- **发布（可选）**：浅克隆目标仓库 → 覆盖产物目录 → 有变化则提交推送。
 
 ### 为什么探测域名必须是自己的域名
 
@@ -154,7 +160,7 @@ Cloudflare 上的域名**。
 
 ## 文档导航
 
-### 部署与运行
+<h3 align="center">部署与运行</h3>
 
 <table align="center">
 <thead>
@@ -170,7 +176,7 @@ Cloudflare 上的域名**。
 </tbody>
 </table>
 
-### 配置与数据
+<h3 align="center">配置与数据</h3>
 
 <table align="center">
 <thead>
@@ -187,7 +193,7 @@ Cloudflare 上的域名**。
 </tbody>
 </table>
 
-### 排障
+<h3 align="center">排障</h3>
 
 <table align="center">
 <thead>
