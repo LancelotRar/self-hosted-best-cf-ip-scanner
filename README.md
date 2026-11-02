@@ -81,7 +81,7 @@ docker compose logs -f
 ```bash
 docker compose ps                 # 状态应为 Up (healthy)
 docker compose logs --tail=30     # 应能看到「本轮完成」
-ls output                         # 应看到 detail.csv 与 top*.txt
+ls output                         # 应看到 detail.csv 与 GLOBAL*.txt
 ```
 
 一轮完整的日志形如：
