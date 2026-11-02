@@ -7,11 +7,20 @@
 
 ## 前置条件
 
-| 需要 | 用途 | 是否必需 |
-| --- | --- | --- |
-| 一个自己托管在 Cloudflare、且已开启代理（小黄云）的域名 | `PROBE_HOST`，边缘端点校验域名 | **必需** |
-| Docker 24+（含 compose v2）与可出网的机器 | 运行容器 | **必需** |
-| 一个 Git 仓库 + 具备 `contents:write` 的访问令牌 | 自动发布产物 | 可选 |
+<table align="center">
+<thead>
+<tr>
+<th align="center">需要</th>
+<th align="center">用途</th>
+<th align="center">是否必需</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center">一个自己托管在 Cloudflare、且已开启代理（小黄云）的域名</td><td align="center"><code>PROBE_HOST</code>，边缘端点校验域名</td><td align="center"><strong>必需</strong></td></tr>
+<tr><td align="center">Docker 24+（含 compose v2）与可出网的机器</td><td align="center">运行容器</td><td align="center"><strong>必需</strong></td></tr>
+<tr><td align="center">一个 Git 仓库 + 具备 <code>contents:write</code> 的访问令牌</td><td align="center">自动发布产物</td><td align="center">可选</td></tr>
+</tbody>
+</table>
 
 `PROBE_HOST` 不能省：它决定「哪些 IP 算合格的 Cloudflare 边缘」，选型理由见
 [README 的工作原理](../README.md#为什么探测域名必须是自己的域名)。
@@ -27,18 +36,34 @@ curl -fsSLo .env  https://raw.githubusercontent.com/LancelotRar/best-cf-ip-scann
 
 得到两个文件：
 
-| 文件 | 作用 |
-| --- | --- |
-| `compose.yaml` | 容器编排：镜像、挂载、权限、健康检查 |
-| `.env` | 全部可调参数（由 `.env.example` 复制而来） |
+<table align="center">
+<thead>
+<tr>
+<th align="center">文件</th>
+<th align="center">作用</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center"><code>compose.yaml</code></td><td align="center">容器编排：镜像、挂载、权限、健康检查</td></tr>
+<tr><td align="center"><code>.env</code></td><td align="center">全部可调参数（由 <code>.env.example</code> 复制而来）</td></tr>
+</tbody>
+</table>
 
 ## 2. 配置 `.env`
 
 最少只需一项：
 
-| 变量 | 取值 |
-| --- | --- |
-| `PROBE_HOST` | 你自己的、已开启 Cloudflare 代理的域名 |
+<table align="center">
+<thead>
+<tr>
+<th align="center">变量</th>
+<th align="center">取值</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center"><code>PROBE_HOST</code></td><td align="center">你自己的、已开启 Cloudflare 代理的域名</td></tr>
+</tbody>
+</table>
 
 其余参数都有默认值：每 6 小时第 30 分扫描一轮、每个 /24 抽 1 个代表 IP、TCP 握手
 3 次中成功 2 次即合格、端口 443、默认生成 `GLOBAL20/50/100/200/400` 五个全量列表；国家列表由 `COUNTRY_FILTERS`
@@ -101,11 +126,21 @@ TCP 握手测量：合格 2673，淘汰 1488（每候选 3 次，至少成功 2 
 
 升级用 `docker compose pull && docker compose up -d`；**不要**在部署目录 `git pull`。
 
-| 宿主机 | 容器内 | 内容 | 说明 |
-| --- | --- | --- | --- |
-| `./data` | `/data` | `ip-library.txt` + `locations.json` | 首次启动写入内置默认值，之后可直接编辑 |
-| `./output` | `/output` | `detail.csv` + 订阅列表 | 每轮全量重写（镜像语义） |
-| `./cache/repo` | `/cache/repo` | 目标仓库浅克隆 | 删掉即可让下一轮重新克隆 |
+<table align="center">
+<thead>
+<tr>
+<th align="center">宿主机</th>
+<th align="center">容器内</th>
+<th align="center">内容</th>
+<th align="center">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center"><code>./data</code></td><td align="center"><code>/data</code></td><td align="center"><code>ip-library.txt</code> + <code>locations.json</code></td><td align="center">首次启动写入内置默认值，之后可直接编辑</td></tr>
+<tr><td align="center"><code>./output</code></td><td align="center"><code>/output</code></td><td align="center"><code>detail.csv</code> + 订阅列表</td><td align="center">每轮全量重写（镜像语义）</td></tr>
+<tr><td align="center"><code>./cache/repo</code></td><td align="center"><code>/cache/repo</code></td><td align="center">目标仓库浅克隆</td><td align="center">删掉即可让下一轮重新克隆</td></tr>
+</tbody>
+</table>
 
 三个目录都以 bind mount 挂载，产物与地址库直接在宿主机可见、可编辑。文件属主是
 `PUID:PGID`（默认 `1000:1000`）；宿主机用户不是 1000 时，把 `.env` 的

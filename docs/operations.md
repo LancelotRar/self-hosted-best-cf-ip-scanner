@@ -61,11 +61,20 @@ docker compose logs --no-color > scanner.log   # 导出
 
 ## 数据与清理
 
-| 目录 | 内容 | 清理方式 |
-| --- | --- | --- |
-| `./data` | 候选地址库、机房映射 | **不要删**，删了会重新播种内置默认值 |
-| `./output` | 明细表与订阅列表 | 可随时删除，下一轮重新生成 |
-| `./cache/repo` | 目标仓库浅克隆 | 可删除，下一轮重新克隆 |
+<table align="center">
+<thead>
+<tr>
+<th align="center">目录</th>
+<th align="center">内容</th>
+<th align="center">清理方式</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center"><code>./data</code></td><td align="center">候选地址库、机房映射</td><td align="center"><strong>不要删</strong>，删了会重新播种内置默认值</td></tr>
+<tr><td align="center"><code>./output</code></td><td align="center">明细表与订阅列表</td><td align="center">可随时删除，下一轮重新生成</td></tr>
+<tr><td align="center"><code>./cache/repo</code></td><td align="center">目标仓库浅克隆</td><td align="center">可删除，下一轮重新克隆</td></tr>
+</tbody>
+</table>
 
 ```bash
 rm -rf ./cache/repo        # 发布状态异常时重置

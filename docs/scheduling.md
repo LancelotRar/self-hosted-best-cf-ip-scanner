@@ -7,23 +7,40 @@
 
 ## 变量
 
-| 变量 | 默认值 | 说明 |
-| --- | --- | --- |
-| `CRON_SCHEDULE` | `30 */6 * * *` | 标准 5 段 cron：分 时 日 月 周 |
-| `RUN_ON_START` | `true` | 容器启动后立即执行一轮，再进入调度 |
-| `TZ` | `Asia/Shanghai` | 调度与提交信息时区；产物中的扫描时间固定为北京时间 |
+<table align="center">
+<thead>
+<tr>
+<th align="center">变量</th>
+<th align="center">默认值</th>
+<th align="center">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center"><code>CRON_SCHEDULE</code></td><td align="center"><code>30 */6 * * *</code></td><td align="center">标准 5 段 cron：分 时 日 月 周</td></tr>
+<tr><td align="center"><code>RUN_ON_START</code></td><td align="center"><code>true</code></td><td align="center">容器启动后立即执行一轮，再进入调度</td></tr>
+<tr><td align="center"><code>TZ</code></td><td align="center"><code>Asia/Shanghai</code></td><td align="center">调度与提交信息时区；产物中的扫描时间固定为北京时间</td></tr>
+</tbody>
+</table>
 
 ## 常用写法
 
-| 需求 | 取值 |
-| --- | --- |
-| 每 6 小时的第 30 分（默认） | `30 */6 * * *` |
-| 每 2 小时整点 | `0 */2 * * *` |
-| 每小时整点 | `0 * * * *` |
-| 每天 03:00 | `0 3 * * *` |
-| 每天 03:00 与 15:00 | `0 3,15 * * *` |
-| 工作日 08:00 | `0 8 * * 1-5` |
-| 每 15 分钟 | `*/15 * * * *` |
+<table align="center">
+<thead>
+<tr>
+<th align="center">需求</th>
+<th align="center">取值</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center">每 6 小时的第 30 分（默认）</td><td align="center"><code>30 */6 * * *</code></td></tr>
+<tr><td align="center">每 2 小时整点</td><td align="center"><code>0 */2 * * *</code></td></tr>
+<tr><td align="center">每小时整点</td><td align="center"><code>0 * * * *</code></td></tr>
+<tr><td align="center">每天 03:00</td><td align="center"><code>0 3 * * *</code></td></tr>
+<tr><td align="center">每天 03:00 与 15:00</td><td align="center"><code>0 3,15 * * *</code></td></tr>
+<tr><td align="center">工作日 08:00</td><td align="center"><code>0 8 * * 1-5</code></td></tr>
+<tr><td align="center">每 15 分钟</td><td align="center"><code>*/15 * * * *</code></td></tr>
+</tbody>
+</table>
 
 需要秒级精度时可写 6 段（秒 分 时 日 月 周），如 `*/30 * * * * *` 表示每 30 秒。
 

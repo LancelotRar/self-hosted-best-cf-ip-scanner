@@ -18,11 +18,20 @@
 # 172.68.0.0/24         # 行首 # = 注释，不参与扫描
 ```
 
-| 写法 | 体积 | 用途 |
-| --- | --- | --- |
-| 网段 | 大 | 常规维护：逐 `/24` 列举，便于增删 |
-| 单个 IP | 小 | 精确加入某个地址 |
-| `IP:端口` | 小 | 精确指定地址与端口，优先级最高 |
+<table align="center">
+<thead>
+<tr>
+<th align="center">写法</th>
+<th align="center">体积</th>
+<th align="center">用途</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center">网段</td><td align="center">大</td><td align="center">常规维护：逐 <code>/24</code> 列举，便于增删</td></tr>
+<tr><td align="center">单个 IP</td><td align="center">小</td><td align="center">精确加入某个地址</td></tr>
+<tr><td align="center"><code>IP:端口</code></td><td align="center">小</td><td align="center">精确指定地址与端口，优先级最高</td></tr>
+</tbody>
+</table>
 
 空行、`#` 开头的行、`cidr` / `ip` 这类表头行会被跳过。无法解析的行不会中断扫描，
 只在日志里计数（`跳过 N 行无法解析的条目`）。

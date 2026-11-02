@@ -7,13 +7,21 @@
 
 ## 配置
 
-| 变量 | 取值 |
-| --- | --- |
-| `GIT_PUSH_ENABLED` | `true` |
-| `GIT_REPO_URL` | 目标仓库 HTTPS 地址，如 `https://github.com/OWNER/REPO.git` |
-| `GIT_TOKEN` | 具备该仓库 `contents:write` 权限的令牌 |
-| `GIT_BRANCH` | 目标分支，默认 `main` |
-| `GIT_OUTPUT_SUBDIR` | 产物在目标仓库中的目录，默认 `result` |
+<table align="center">
+<thead>
+<tr>
+<th align="center">变量</th>
+<th align="center">取值</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center"><code>GIT_PUSH_ENABLED</code></td><td align="center"><code>true</code></td></tr>
+<tr><td align="center"><code>GIT_REPO_URL</code></td><td align="center">目标仓库 HTTPS 地址，如 <code>https://github.com/OWNER/REPO.git</code></td></tr>
+<tr><td align="center"><code>GIT_TOKEN</code></td><td align="center">具备该仓库 <code>contents:write</code> 权限的令牌</td></tr>
+<tr><td align="center"><code>GIT_BRANCH</code></td><td align="center">目标分支，默认 <code>main</code></td></tr>
+<tr><td align="center"><code>GIT_OUTPUT_SUBDIR</code></td><td align="center">产物在目标仓库中的目录，默认 <code>result</code></td></tr>
+</tbody>
+</table>
 
 改完生效：
 

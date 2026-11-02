@@ -6,10 +6,19 @@
 > 本工具同时产生两类方向相反的流量，必须分开处理。配置错误时**不会报错**，只会产出
 > 一批看似正常但整体无效的结果。
 
-| 流量 | 典型目标 | 是否走代理 |
-| --- | --- | --- |
-| 出网（工具链） | `git push`、拉取镜像、下载依赖 | 大陆通常**需要**代理 |
-| 探测（被测量对象） | TCP 握手到候选 `IP:端口`、端点校验到 `PROBE_HOST` | **必须直连** |
+<table align="center">
+<thead>
+<tr>
+<th align="center">流量</th>
+<th align="center">典型目标</th>
+<th align="center">是否走代理</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center">出网（工具链）</td><td align="center"><code>git push</code>、拉取镜像、下载依赖</td><td align="center">大陆通常<strong>需要</strong>代理</td></tr>
+<tr><td align="center">探测（被测量对象）</td><td align="center">TCP 握手到候选 <code>IP:端口</code>、端点校验到 <code>PROBE_HOST</code></td><td align="center"><strong>必须直连</strong></td></tr>
+</tbody>
+</table>
 
 测量的是「你这台机器 → 这个 Cloudflare IP」的真实握手时延与落点。探测一旦走了代理，
 测到的就是「你 → 代理 → 目标」：典型表现是所有候选集中到同一机房、延迟挤在很窄的区间。
@@ -61,11 +70,19 @@ no_proxy=localhost,127.0.0.1,::1,192.168.0.0/16,172.16.0.0/12,probe.example.com
 docker compose exec scanner /usr/local/bin/doctor.sh | sed -n '/网络与连通性/,/IP 库/p'
 ```
 
-| 现象 | 结论 |
-| --- | --- |
-| 两次 HTTP 状态与返回内容一致 | 探测未走代理，正常 |
-| 强制直连失败、默认路径成功 | 出网依赖代理，探测被代理接管 |
-| 两次客户端 IP 或返回内容不同 | 代理在接管探测流量 |
+<table align="center">
+<thead>
+<tr>
+<th align="center">现象</th>
+<th align="center">结论</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center">两次 HTTP 状态与返回内容一致</td><td align="center">探测未走代理，正常</td></tr>
+<tr><td align="center">强制直连失败、默认路径成功</td><td align="center">出网依赖代理，探测被代理接管</td></tr>
+<tr><td align="center">两次客户端 IP 或返回内容不同</td><td align="center">代理在接管探测流量</td></tr>
+</tbody>
+</table>
 
 运行结果还有另一个指纹：正常一轮通常包含多个机房、延迟有明显跨度；被劫持时集中在
 单一机房。

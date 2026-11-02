@@ -195,12 +195,20 @@ IMAGE_TAG=latest
 
 ## 取值规则
 
-| 规则 | 说明 |
-| --- | --- |
-| 留空 | 视为未配置，使用镜像内默认值 |
-| 布尔 | `true` / `false`（也接受 yes/no/on/off/1/0） |
-| 列表 | 英文逗号分隔，不加空格、不加引号，如 `443,2053` |
-| 非法值 | 启动即报错退出并在日志写明原因（不静默回退） |
+<table align="center">
+<thead>
+<tr>
+<th align="center">规则</th>
+<th align="center">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center">留空</td><td align="center">视为未配置，使用镜像内默认值</td></tr>
+<tr><td align="center">布尔</td><td align="center"><code>true</code> / <code>false</code>（也接受 yes/no/on/off/1/0）</td></tr>
+<tr><td align="center">列表</td><td align="center">英文逗号分隔，不加空格、不加引号，如 <code>443,2053</code></td></tr>
+<tr><td align="center">非法值</td><td align="center">启动即报错退出并在日志写明原因（不静默回退）</td></tr>
+</tbody>
+</table>
 
 三类"配错会静默出错"的情况由启动校验拦截，进程直接退出：
 
@@ -216,21 +224,30 @@ IMAGE_TAG=latest
 
 少数参数的"空值"或特定值有专门语义，单独列出：
 
-| 参数 | 留空 / 特定值 | 实际行为 |
-| --- | --- | --- |
-| `PROBE_HOST` | 留空 | **无默认值，启动直接报错退出**（不会进入调度） |
-| `OVERALL_TOPS` | 留空 | 不生成全量列表 |
-| `OVERALL_TOPS` | `20,50,100` | 每个数字生成一个文件：`GLOBAL20.txt` / `GLOBAL50.txt` / `GLOBAL100.txt` |
-| `COUNTRY_FILTERS` | `false`（默认） | **不生成国家列表**，所有 `TOP_<国家>` 数值被忽略 |
-| `COUNTRY_FILTERS` | `true` | 按 `TOP_<国家>` 的数值生成国家列表 |
-| `TOP_US` / `TOP_JP` / … | `0` 或留空 | 该国不生成（需开关为 `true`） |
-| `MAX_CANDIDATES` | `0` | 不限制候选量（全量扫描） |
-| `TRACE_ATTEMPTS` | `1` | 不重试；`2` = 重试一次（默认） |
-| `TCP_MIN_SUCCESS` | 等于 `TCP_ATTEMPTS` | 要求零丢包才合格 |
-| `GIT_PUSH_ENABLED` | 留空 | 默认为 `false`，只在本地产出 |
-| `GIT_TOKEN` | 留空 | 只在 HTTP(S) 远端发布时报错；`file://` / 本地路径不需要 |
-| `HTTP_PROXY` / `HTTPS_PROXY` | 留空 | 直连；配了其中之一就必须同时豁免 `PROBE_HOST` |
-| `PROBE_USER_AGENT` | 留空 | 使用镜像内置的浏览器指纹 |
+<table align="center">
+<thead>
+<tr>
+<th align="center">参数</th>
+<th align="center">留空 / 特定值</th>
+<th align="center">实际行为</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center"><code>PROBE_HOST</code></td><td align="center">留空</td><td align="center"><strong>无默认值，启动直接报错退出</strong>（不会进入调度）</td></tr>
+<tr><td align="center"><code>OVERALL_TOPS</code></td><td align="center">留空</td><td align="center">不生成全量列表</td></tr>
+<tr><td align="center"><code>OVERALL_TOPS</code></td><td align="center"><code>20,50,100</code></td><td align="center">每个数字生成一个文件：<code>GLOBAL20.txt</code> / <code>GLOBAL50.txt</code> / <code>GLOBAL100.txt</code></td></tr>
+<tr><td align="center"><code>COUNTRY_FILTERS</code></td><td align="center"><code>false</code>（默认）</td><td align="center"><strong>不生成国家列表</strong>，所有 <code>TOP_&lt;国家代码&gt;</code> 数值被忽略</td></tr>
+<tr><td align="center"><code>COUNTRY_FILTERS</code></td><td align="center"><code>true</code></td><td align="center">按 <code>TOP_&lt;国家代码&gt;</code> 的数值生成国家列表</td></tr>
+<tr><td align="center"><code>TOP_US</code> / <code>TOP_JP</code> / …</td><td align="center"><code>0</code> 或留空</td><td align="center">该国不生成（需开关为 <code>true</code>）</td></tr>
+<tr><td align="center"><code>MAX_CANDIDATES</code></td><td align="center"><code>0</code></td><td align="center">不限制候选量（全量扫描）</td></tr>
+<tr><td align="center"><code>TRACE_ATTEMPTS</code></td><td align="center"><code>1</code></td><td align="center">不重试；<code>2</code> = 重试一次（默认）</td></tr>
+<tr><td align="center"><code>TCP_MIN_SUCCESS</code></td><td align="center">等于 <code>TCP_ATTEMPTS</code></td><td align="center">要求零丢包才合格</td></tr>
+<tr><td align="center"><code>GIT_PUSH_ENABLED</code></td><td align="center">留空</td><td align="center">默认为 <code>false</code>，只在本地产出</td></tr>
+<tr><td align="center"><code>GIT_TOKEN</code></td><td align="center">留空</td><td align="center">只在 HTTP(S) 远端发布时报错；<code>file://</code> / 本地路径不需要</td></tr>
+<tr><td align="center"><code>HTTP_PROXY</code> / <code>HTTPS_PROXY</code></td><td align="center">留空</td><td align="center">直连；配了其中之一就必须同时豁免 <code>PROBE_HOST</code></td></tr>
+<tr><td align="center"><code>PROBE_USER_AGENT</code></td><td align="center">留空</td><td align="center">使用镜像内置的浏览器指纹</td></tr>
+</tbody>
+</table>
 
 注意：`0` 并不是"关闭"的通用写法——只有 `MAX_CANDIDATES` 用 `0` 表示不限，其余数值型
 参数取 `0` 会被校验拒绝（例如 `TCP_TIMEOUT=0`、`PROBE_CONCURRENCY=0`）。
@@ -239,11 +256,21 @@ IMAGE_TAG=latest
 
 配置错误分三类，处理时机与容器行为不同：
 
-| 类别 | 例子 | 发生时机 | 表现 |
-| --- | --- | --- | --- |
-| 语法错误 | `PROBE_CONCURRENCY=abc`、`OVERALL_TOPS=abc`、`PROBE_PORTS=abc` | 进程导入配置时 | 打印 `[错误] 环境变量 X=... 非法：期望...`，退出码 1 |
-| 语义错误 | 缺 `PROBE_HOST`、`PROBE_HOST` 带协议/端口、`PROBE_PORTS` 为空、条数为负、`TCP_MIN_SUCCESS > TCP_ATTEMPTS`、代理未豁免探测域名 | 容器启动时（`check-config.py`） | 打印编号问题清单，退出码 1，**容器不进入调度** |
-| 运行期失败 | 本轮 TCP 握手全灭、端点校验无合格候选、发布失败 | 每轮任务 | 该轮任务失败（日志说明原因），**容器继续运行**，下一轮照常 |
+<table align="center">
+<thead>
+<tr>
+<th align="center">类别</th>
+<th align="center">例子</th>
+<th align="center">发生时机</th>
+<th align="center">表现</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center">语法错误</td><td align="center"><code>PROBE_CONCURRENCY=abc</code>、<code>OVERALL_TOPS=abc</code>、<code>PROBE_PORTS=abc</code></td><td align="center">进程导入配置时</td><td align="center">打印 <code>[错误] 环境变量 X=... 非法：期望...</code>，退出码 1</td></tr>
+<tr><td align="center">语义错误</td><td align="center">缺 <code>PROBE_HOST</code>、<code>PROBE_HOST</code> 带协议/端口、<code>PROBE_PORTS</code> 为空、条数为负、<code>TCP_MIN_SUCCESS > TCP_ATTEMPTS</code>、代理未豁免探测域名</td><td align="center">容器启动时（<code>check-config.py</code>）</td><td align="center">打印编号问题清单，退出码 1，<strong>容器不进入调度</strong></td></tr>
+<tr><td align="center">运行期失败</td><td align="center">本轮 TCP 握手全灭、端点校验无合格候选、发布失败</td><td align="center">每轮任务</td><td align="center">该轮任务失败（日志说明原因），<strong>容器继续运行</strong>，下一轮照常</td></tr>
+</tbody>
+</table>
 
 关键区别：
 
@@ -269,94 +296,203 @@ IMAGE_TAG=latest
 
 ### 必填（1 项，不填无法运行）
 
-| 变量 | 默认值 | 说明 |
-| --- | --- | --- |
-| `PROBE_HOST` | 无 | 边缘端点校验域名。必须是你自己托管在 Cloudflare、且已开启代理（小黄云）的域名 |
+<table align="center">
+<thead>
+<tr>
+<th align="center">变量</th>
+<th align="center">默认值</th>
+<th align="center">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center"><code>PROBE_HOST</code></td><td align="center">无</td><td align="center">边缘端点校验域名。必须是你自己托管在 Cloudflare、且已开启代理（小黄云）的域名</td></tr>
+</tbody>
+</table>
 
 ### 调度
 
-| 变量 | 默认值 | 级别 | 说明 |
-| --- | --- | --- | --- |
-| `CRON_SCHEDULE` | `30 */6 * * *` | 建议 | 标准 cron（分 时 日 月 周），时区由 `TZ` 决定 |
-| `RUN_ON_START` | `true` | 可选 | 容器启动后是否立即执行一轮 |
-| `TZ` | `Asia/Shanghai` | 可选 | 调度与提交信息时区；产物中的扫描时间固定为北京时间 |
+<table align="center">
+<thead>
+<tr>
+<th align="center">变量</th>
+<th align="center">默认值</th>
+<th align="center">级别</th>
+<th align="center">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center"><code>CRON_SCHEDULE</code></td><td align="center"><code>30 */6 * * *</code></td><td align="center">建议</td><td align="center">标准 cron（分 时 日 月 周），时区由 <code>TZ</code> 决定</td></tr>
+<tr><td align="center"><code>RUN_ON_START</code></td><td align="center"><code>true</code></td><td align="center">可选</td><td align="center">容器启动后是否立即执行一轮</td></tr>
+<tr><td align="center"><code>TZ</code></td><td align="center"><code>Asia/Shanghai</code></td><td align="center">可选</td><td align="center">调度与提交信息时区；产物中的扫描时间固定为北京时间</td></tr>
+</tbody>
+</table>
 
 ### 运行身份
 
-| 变量 | 默认值 | 级别 | 说明 |
-| --- | --- | --- | --- |
-| `PUID` | `1000` | 建议 | 业务进程 uid；入口会把 `./data ./output ./cache` 属主对齐到它 |
-| `PGID` | `1000` | 建议 | 业务进程 gid；同上 |
+<table align="center">
+<thead>
+<tr>
+<th align="center">变量</th>
+<th align="center">默认值</th>
+<th align="center">级别</th>
+<th align="center">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center"><code>PUID</code></td><td align="center"><code>1000</code></td><td align="center">建议</td><td align="center">业务进程 uid；入口会把 <code>./data ./output ./cache</code> 属主对齐到它</td></tr>
+<tr><td align="center"><code>PGID</code></td><td align="center"><code>1000</code></td><td align="center">建议</td><td align="center">业务进程 gid；同上</td></tr>
+</tbody>
+</table>
 
 ### 探测端点
 
-| 变量 | 默认值 | 级别 | 说明 |
-| --- | --- | --- | --- |
-| `PROBE_HOST` | 无 | **必填** | 见上表 |
-| `PROBE_PATH` | `/cdn-cgi/trace` | 可选 | 端点校验路径，由 CF 边缘直接应答，一般不改 |
-| `PROBE_USER_AGENT` | 内置浏览器 UA | 可选 | 端点校验请求的 User-Agent |
+<table align="center">
+<thead>
+<tr>
+<th align="center">变量</th>
+<th align="center">默认值</th>
+<th align="center">级别</th>
+<th align="center">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center"><code>PROBE_HOST</code></td><td align="center">无</td><td align="center"><strong>必填</strong></td><td align="center">见上表</td></tr>
+<tr><td align="center"><code>PROBE_PATH</code></td><td align="center"><code>/cdn-cgi/trace</code></td><td align="center">可选</td><td align="center">端点校验路径，由 CF 边缘直接应答，一般不改</td></tr>
+<tr><td align="center"><code>PROBE_USER_AGENT</code></td><td align="center">内置浏览器 UA</td><td align="center">可选</td><td align="center">端点校验请求的 User-Agent</td></tr>
+</tbody>
+</table>
 
 ### 探测参数
 
-| 变量 | 默认值 | 级别 | 说明 |
-| --- | --- | --- | --- |
-| `PROBE_PORTS` | `443` | 建议 | 候选端口集合，每个候选随机分配一个 |
-| `PROBE_CONCURRENCY` | `200` | 建议 | 并发线程数（两阶段共用） |
-| `TCP_ATTEMPTS` | `3` | 可选 | 每候选 TCP 握手次数 |
-| `TCP_MIN_SUCCESS` | `2` | 可选 | 握手合格门槛（不得大于 `TCP_ATTEMPTS`） |
-| `TCP_TIMEOUT` | `3.0` | 可选 | 单次握手超时（秒） |
-| `TRACE_TIMEOUT` | `5` | 可选 | 单次端点校验超时（秒） |
-| `TRACE_ATTEMPTS` | `2` | 可选 | 端点校验最大尝试次数（含首次） |
+<table align="center">
+<thead>
+<tr>
+<th align="center">变量</th>
+<th align="center">默认值</th>
+<th align="center">级别</th>
+<th align="center">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center"><code>PROBE_PORTS</code></td><td align="center"><code>443</code></td><td align="center">建议</td><td align="center">候选端口集合，每个候选随机分配一个</td></tr>
+<tr><td align="center"><code>PROBE_CONCURRENCY</code></td><td align="center"><code>200</code></td><td align="center">建议</td><td align="center">并发线程数（两阶段共用）</td></tr>
+<tr><td align="center"><code>TCP_ATTEMPTS</code></td><td align="center"><code>3</code></td><td align="center">可选</td><td align="center">每候选 TCP 握手次数</td></tr>
+<tr><td align="center"><code>TCP_MIN_SUCCESS</code></td><td align="center"><code>2</code></td><td align="center">可选</td><td align="center">握手合格门槛（不得大于 <code>TCP_ATTEMPTS</code>）</td></tr>
+<tr><td align="center"><code>TCP_TIMEOUT</code></td><td align="center"><code>3.0</code></td><td align="center">可选</td><td align="center">单次握手超时（秒）</td></tr>
+<tr><td align="center"><code>TRACE_TIMEOUT</code></td><td align="center"><code>5</code></td><td align="center">可选</td><td align="center">单次端点校验超时（秒）</td></tr>
+<tr><td align="center"><code>TRACE_ATTEMPTS</code></td><td align="center"><code>2</code></td><td align="center">可选</td><td align="center">端点校验最大尝试次数（含首次）</td></tr>
+</tbody>
+</table>
 
 ### 采样
 
-| 变量 | 默认值 | 级别 | 说明 |
-| --- | --- | --- | --- |
-| `SAMPLE_STRIDE` | `256` | 可选 | 每 N 个地址抽 1 个；256 = 每个 /24 一个 |
-| `MAX_CANDIDATES` | `0` | 建议 | 候选总量上限，0 = 不限 |
-| `SAMPLE_SEED` | `42` | 可选 | 采样基础种子，按北京小时自动轮换 |
+<table align="center">
+<thead>
+<tr>
+<th align="center">变量</th>
+<th align="center">默认值</th>
+<th align="center">级别</th>
+<th align="center">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center"><code>SAMPLE_STRIDE</code></td><td align="center"><code>256</code></td><td align="center">可选</td><td align="center">每 N 个地址抽 1 个；256 = 每个 /24 一个</td></tr>
+<tr><td align="center"><code>MAX_CANDIDATES</code></td><td align="center"><code>0</code></td><td align="center">建议</td><td align="center">候选总量上限，0 = 不限</td></tr>
+<tr><td align="center"><code>SAMPLE_SEED</code></td><td align="center"><code>42</code></td><td align="center">可选</td><td align="center">采样基础种子，按北京小时自动轮换</td></tr>
+</tbody>
+</table>
 
 ### 输入
 
-| 变量 | 默认值 | 级别 | 说明 |
-| --- | --- | --- | --- |
-| `LIBRARY_FILE` | `ip-library.txt` | 可选 | 候选地址库文件名（相对 `./data`） |
-| `SKIP_LOCATIONS` | `false` | 可选 | 调试用：跳过机房映射 |
+<table align="center">
+<thead>
+<tr>
+<th align="center">变量</th>
+<th align="center">默认值</th>
+<th align="center">级别</th>
+<th align="center">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center"><code>LIBRARY_FILE</code></td><td align="center"><code>ip-library.txt</code></td><td align="center">可选</td><td align="center">候选地址库文件名（相对 <code>./data</code>）</td></tr>
+<tr><td align="center"><code>SKIP_LOCATIONS</code></td><td align="center"><code>false</code></td><td align="center">可选</td><td align="center">调试用：跳过机房映射</td></tr>
+</tbody>
+</table>
 
 ### 输出
 
-| 变量 | 默认值 | 级别 | 说明 |
-| --- | --- | --- | --- |
-| `DETAIL_CSV_NAME` | `detail` | 可选 | 明细表文件名（不含扩展名） |
-| `OVERALL_TOPS` | `20,50,100,200,400` | 建议 | 全量列表条数（逗号分隔，任意正整数）→ 每项一个 `GLOBAL{N}.txt` |
-| `COUNTRY_FILTERS` | `false` | 建议 | 国家列表总开关；`true` 才按各国数值生成 |
-| `TOP_US` / `TOP_JP` / `TOP_SG` / `TOP_DE` / `TOP_NL` / `TOP_FR` | `100` | 可选 | 各国列表条数 → `{国家代码}{N}.txt`；仅开关为 `true` 时生效 |
+<table align="center">
+<thead>
+<tr>
+<th align="center">变量</th>
+<th align="center">默认值</th>
+<th align="center">级别</th>
+<th align="center">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center"><code>DETAIL_CSV_NAME</code></td><td align="center"><code>detail</code></td><td align="center">可选</td><td align="center">明细表文件名（不含扩展名）</td></tr>
+<tr><td align="center"><code>OVERALL_TOPS</code></td><td align="center"><code>20,50,100,200,400</code></td><td align="center">建议</td><td align="center">全量列表条数（逗号分隔，任意正整数）→ 每项一个 <code>GLOBAL{N}.txt</code></td></tr>
+<tr><td align="center"><code>COUNTRY_FILTERS</code></td><td align="center"><code>false</code></td><td align="center">建议</td><td align="center">国家列表总开关；<code>true</code> 才按各国数值生成</td></tr>
+<tr><td align="center"><code>TOP_US</code> / <code>TOP_JP</code> / <code>TOP_SG</code> / <code>TOP_DE</code> / <code>TOP_NL</code> / <code>TOP_FR</code></td><td align="center"><code>100</code></td><td align="center">可选</td><td align="center">各国列表条数 → <code>{国家代码}{N}.txt</code>；仅开关为 <code>true</code> 时生效</td></tr>
+</tbody>
+</table>
 
 ### 产物发布（可选）
 
-| 变量 | 默认值 | 级别 | 说明 |
-| --- | --- | --- | --- |
-| `GIT_PUSH_ENABLED` | `false` | 建议 | 是否需要把产物推到 Git 仓库 |
-| `GIT_REPO_URL` | 空 | 建议 | 目标仓库 HTTPS 地址 |
-| `GIT_BRANCH` | `main` | 可选 | 目标分支 |
-| `GIT_TOKEN` | 空 | 建议 | `contents:write` 权限令牌（HTTP(S) 远端必填） |
-| `GIT_OUTPUT_SUBDIR` | `result` | 可选 | 产物在目标仓库中的目录 |
-| `GIT_AUTHOR_NAME` / `GIT_AUTHOR_EMAIL` | `cf-ip-scanner-bot` / `…@users.noreply.github.com` | 可选 | 提交作者 |
-| `GIT_RETRY_MAX` / `GIT_RETRY_BASE_DELAY` | `3` / `10` | 可选 | 推送失败重试次数与初始退避秒数 |
+<table align="center">
+<thead>
+<tr>
+<th align="center">变量</th>
+<th align="center">默认值</th>
+<th align="center">级别</th>
+<th align="center">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center"><code>GIT_PUSH_ENABLED</code></td><td align="center"><code>false</code></td><td align="center">建议</td><td align="center">是否需要把产物推到 Git 仓库</td></tr>
+<tr><td align="center"><code>GIT_REPO_URL</code></td><td align="center">空</td><td align="center">建议</td><td align="center">目标仓库 HTTPS 地址</td></tr>
+<tr><td align="center"><code>GIT_BRANCH</code></td><td align="center"><code>main</code></td><td align="center">可选</td><td align="center">目标分支</td></tr>
+<tr><td align="center"><code>GIT_TOKEN</code></td><td align="center">空</td><td align="center">建议</td><td align="center"><code>contents:write</code> 权限令牌（HTTP(S) 远端必填）</td></tr>
+<tr><td align="center"><code>GIT_OUTPUT_SUBDIR</code></td><td align="center"><code>result</code></td><td align="center">可选</td><td align="center">产物在目标仓库中的目录</td></tr>
+<tr><td align="center"><code>GIT_AUTHOR_NAME</code> / <code>GIT_AUTHOR_EMAIL</code></td><td align="center"><code>cf-ip-scanner-bot</code> / <code>…@users.noreply.github.com</code></td><td align="center">可选</td><td align="center">提交作者</td></tr>
+<tr><td align="center"><code>GIT_RETRY_MAX</code> / <code>GIT_RETRY_BASE_DELAY</code></td><td align="center"><code>3</code> / <code>10</code></td><td align="center">可选</td><td align="center">推送失败重试次数与初始退避秒数</td></tr>
+</tbody>
+</table>
 
 ### 网络代理
 
-| 变量 | 默认值 | 级别 | 说明 |
-| --- | --- | --- | --- |
-| `HTTP_PROXY` / `HTTPS_PROXY` | 空 | 建议 | 容器出网代理（也用于镜像构建） |
-| `NO_PROXY` / `no_proxy` | 见模板 | 建议 | **必须豁免 `PROBE_HOST`**，否则启动被拒绝 |
+<table align="center">
+<thead>
+<tr>
+<th align="center">变量</th>
+<th align="center">默认值</th>
+<th align="center">级别</th>
+<th align="center">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center"><code>HTTP_PROXY</code> / <code>HTTPS_PROXY</code></td><td align="center">空</td><td align="center">建议</td><td align="center">容器出网代理（也用于镜像构建）</td></tr>
+<tr><td align="center"><code>NO_PROXY</code> / <code>no_proxy</code></td><td align="center">见模板</td><td align="center">建议</td><td align="center"><strong>必须豁免 <code>PROBE_HOST</code></strong>，否则启动被拒绝</td></tr>
+</tbody>
+</table>
 
 ### 容器与镜像
 
-| 变量 | 默认值 | 级别 | 说明 |
-| --- | --- | --- | --- |
-| `CONTAINER_NAME` | `best-cf-ip-scanner` | 可选 | 容器名 |
-| `IMAGE_NAME` / `IMAGE_TAG` | `ghcr.io/lancelotrar/best-cf-ip-scanner-docker` / `latest` | 可选 | 镜像坐标与版本 |
+<table align="center">
+<thead>
+<tr>
+<th align="center">变量</th>
+<th align="center">默认值</th>
+<th align="center">级别</th>
+<th align="center">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center"><code>CONTAINER_NAME</code></td><td align="center"><code>best-cf-ip-scanner</code></td><td align="center">可选</td><td align="center">容器名</td></tr>
+<tr><td align="center"><code>IMAGE_NAME</code> / <code>IMAGE_TAG</code></td><td align="center"><code>ghcr.io/lancelotrar/best-cf-ip-scanner-docker</code> / <code>latest</code></td><td align="center">可选</td><td align="center">镜像坐标与版本</td></tr>
+</tbody>
+</table>
 
 ---
 
