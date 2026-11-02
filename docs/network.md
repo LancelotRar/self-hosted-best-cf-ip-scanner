@@ -91,9 +91,9 @@ docker compose exec scanner /usr/local/bin/doctor.sh | sed -n '/网络与连通�
 
 需要同时改三处，缺一不可：
 
-1. `.env` 的 `PROBE_HOST`；
-2. `.env` 的 `NO_PROXY` / `no_proxy`；
-3. 该域名在 Cloudflare 上的代理（小黄云）状态。
+- `.env` 的 `PROBE_HOST`；
+- `.env` 的 `NO_PROXY` / `no_proxy`；
+- 该域名在 Cloudflare 上的代理（小黄云）状态。
 
 改完执行 `docker compose up -d --force-recreate`，并看启动摘要里的
 「代理 → NO_PROXY 豁免探测域名: 是」。

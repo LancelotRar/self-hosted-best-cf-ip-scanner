@@ -65,10 +65,10 @@ docker compose exec scanner /usr/local/bin/doctor.sh
 
 ## 提 issue 请附上
 
-1. 完整日志：`docker compose logs --no-color > scanner.log`（不要只截片段）；
-2. `doctor.sh` 输出；
-3. 相关配置行（**删除 `GIT_TOKEN` 等敏感信息**）；
-4. 宿主机架构与 Docker 版本：
+- 完整日志：`docker compose logs --no-color > scanner.log`（不要只截片段）；
+- `doctor.sh` 输出；
+- 相关配置行（**删除 `GIT_TOKEN` 等敏感信息**）；
+- 宿主机架构与 Docker 版本：
 
 ```bash
 uname -m && docker version --format '{{.Server.Version}}'

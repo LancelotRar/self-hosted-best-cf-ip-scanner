@@ -212,9 +212,9 @@ IMAGE_TAG=latest
 
 三类"配错会静默出错"的情况由启动校验拦截，进程直接退出：
 
-1. `PROBE_HOST` 未配置；
-2. 配了出网代理，但 `NO_PROXY` / `no_proxy` 未豁免 `PROBE_HOST`；
-3. 数值型参数越界（如 `TCP_MIN_SUCCESS` 大于 `TCP_ATTEMPTS`、`PROBE_CONCURRENCY` 为 0）。
+- `PROBE_HOST` 未配置；
+- 配了出网代理，但 `NO_PROXY` / `no_proxy` 未豁免 `PROBE_HOST`；
+- 数值型参数越界（如 `TCP_MIN_SUCCESS` 大于 `TCP_ATTEMPTS`、`PROBE_CONCURRENCY` 为 0）。
 
 ---
 
@@ -503,10 +503,10 @@ IMAGE_TAG=latest
 边缘端点校验域名。工具会把该域名"钉"到候选 `IP:端口` 上请求一次
 `/cdn-cgi/trace`，因此这个域名必须满足：
 
-1. 由 Cloudflare 边缘代理（小黄云开启），证书覆盖该域名；
-2. `PROBE_PATH` 能返回 `colo=`（机场码）字段；
-3. `PROBE_PORTS` 里启用的端口它都能服务；
-4. **是你自己 zone 的域名**，不能是 `speed.cloudflare.com` 这类 CF 自有域名。
+- 由 Cloudflare 边缘代理（小黄云开启），证书覆盖该域名；
+- `PROBE_PATH` 能返回 `colo=`（机场码）字段；
+- `PROBE_PORTS` 里启用的端口它都能服务；
+- **是你自己 zone 的域名**，不能是 `speed.cloudflare.com` 这类 CF 自有域名。
 
 第 4 点决定筛选口径：用 CF 自有域名时，EIV 受限子池（专属/静态/BYOIP 地址）也会返回
 `colo` 被误判为合格，但它们实际只在所属账号的 zone 上可用。详见 [为什么探测域名必须是自己的域名](../README.md#为什么探测域名必须是自己的域名)。

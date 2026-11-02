@@ -84,9 +84,9 @@ docker compose logs -f
 
 首次启动会做三件事：
 
-1. 创建并授权宿主目录 `./data`、`./output`、`./cache`（属主对齐到 `PUID:PGID`）；
-2. 把镜像内置的候选地址库与机房映射播种到 `./data`（已存在的文件不覆盖）；
-3. `RUN_ON_START=true` 时先跑一轮，再交给 cron 调度。
+- 创建并授权宿主目录 `./data`、`./output`、`./cache`（属主对齐到 `PUID:PGID`）；
+- 把镜像内置的候选地址库与机房映射播种到 `./data`（已存在的文件不覆盖）；
+- `RUN_ON_START=true` 时先跑一轮，再交给 cron 调度。
 
 ## 4. 验证部署
 
