@@ -1,8 +1,8 @@
 <div align="center">
 
-# Best CF IP Scanner（Docker 版）
+# Self-hosted Best CF IP Scanner
 
-*从 Cloudflare IPv4 段中筛出可用作代理节点的优选 IP*
+*以自建容器方式，从 Cloudflare IPv4 段中定时筛出可用作代理节点的优选 IP*
 
 [![CI](https://github.com/LancelotRar/best-cf-ip-scanner-docker/actions/workflows/ci.yml/badge.svg)](https://github.com/LancelotRar/best-cf-ip-scanner-docker/actions/workflows/ci.yml)
 [![Image](https://img.shields.io/badge/image-ghcr.io-2496ed?logo=docker&logoColor=white&style=flat-square)](https://github.com/LancelotRar/best-cf-ip-scanner-docker/pkgs/container/best-cf-ip-scanner-docker)
@@ -16,7 +16,7 @@
 Cloudflare 边缘、淘汰 EIV 受限子池、取回边缘机房代码），定时产出可订阅的优选 IP 列表。
 
 > [!NOTE]
-> 测量的是 TCP 握手往返时延与边缘落点，不是带宽。结果反映**部署这台机器的网络视角**
+> 测量的是 TCP 握手往返时延与边缘落点，非速度测试。结果反映**部署这台机器的网络视角**
 > ——同一份配置换到另一个网络，机房分布与延迟会完全不同，这是预期行为。
 
 ## 特性
@@ -58,6 +58,21 @@ PROBE_HOST=probe.example.com
 
 ### 3. 启动并验证
 
+- 单次手动运行
+
+```bash
+docker compose run --rm scan-once
+```
+
+它复用同一份镜像、配置与挂载，以非 root 身份执行，跑完即退出；如果定时任务正在跑，
+本轮会提示「已有一轮扫描在运行」并跳过，不会并发写产物。临时改参数也可以直接透传：
+
+```bash
+docker compose run --rm -e MAX_CANDIDATES=200 scan-once
+```
+
+- 长期定时运行
+
 ```bash
 docker compose up -d
 docker compose logs -f
@@ -78,19 +93,6 @@ best-cf-ip-scanner 生效配置
 TCP 握手测量：合格 2673，淘汰 1488（每候选 3 次，至少成功 2 次，超时 3.0s，耗时 78.3s）
 边缘端点校验：合格 2328，淘汰 345（TCP 握手达标 2673/4161；耗时 35.9s）
 本轮完成：5 个订阅列表 + 1 个明细表 -> /output  总耗时 123.2s
-```
-
-需要立刻跑一轮、不等下一个 cron 时点（例如刚改完 `.env`）：
-
-```bash
-docker compose run --rm scan-once
-```
-
-它复用同一份镜像、配置与挂载，以非 root 身份执行，跑完即退出；如果定时任务正在跑，
-本轮会提示「已有一轮扫描在运行」并跳过，不会并发写产物。临时改参数也可以直接透传：
-
-```bash
-docker compose run --rm -e MAX_CANDIDATES=200 scan-once
 ```
 
 ### 4. 产物
