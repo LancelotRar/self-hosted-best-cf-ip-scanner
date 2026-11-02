@@ -25,7 +25,7 @@ ARG TARGETARCH=amd64
 # 元数据：发布流水线会用 metadata-action 覆盖，本地构建也带上，便于 docker inspect。
 LABEL org.opencontainers.image.title="best-cf-ip-scanner" \
       org.opencontainers.image.description="Cloudflare 优选 IP 扫描器：TCP 握手测量 + 边缘端点校验" \
-      org.opencontainers.image.source="https://github.com/LancelotRar/best-cf-ip-scanner-docker" \
+      org.opencontainers.image.source="https://github.com/LancelotRar/self-hosted-best-cf-ip-scanner" \
       org.opencontainers.image.licenses="MIT"
 
 # git      —— 发布产物到 Git 仓库（HTTPS + 令牌头部注入）

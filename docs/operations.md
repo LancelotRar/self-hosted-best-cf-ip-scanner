@@ -57,7 +57,7 @@ docker compose pull && docker compose up -d
 确认拉到的确实是新版本（镜像内置了源码提交号，便于核对）：
 
 ```bash
-docker inspect ghcr.io/lancelotrar/best-cf-ip-scanner-docker:latest   --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}'
+docker inspect ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner:latest   --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}'
 ```
 
 > [!NOTE]

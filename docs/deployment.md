@@ -30,8 +30,8 @@
 ```bash
 mkdir best-cf-ip-scanner && cd best-cf-ip-scanner
 
-curl -fsSLO https://raw.githubusercontent.com/LancelotRar/best-cf-ip-scanner-docker/main/compose.example.yaml
-curl -fsSLO https://raw.githubusercontent.com/LancelotRar/best-cf-ip-scanner-docker/main/.env.example
+curl -fsSLO https://raw.githubusercontent.com/LancelotRar/self-hosted-best-cf-ip-scanner/main/compose.example.yaml
+curl -fsSLO https://raw.githubusercontent.com/LancelotRar/self-hosted-best-cf-ip-scanner/main/.env.example
 
 cp compose.example.yaml compose.yaml
 cp .env.example .env
@@ -169,7 +169,7 @@ name: best-cf-ip-scanner
 # 两个服务（常驻调度 / 一次性执行）共用同一份运行配置，避免参数漂移
 x-scanner-common: &scanner-common
   # 官方镜像（多架构 amd64/arm64）。锁定版本可把 IMAGE_TAG 改成 sha-xxxxxxx 或 1.2.3
-  image: ${IMAGE_NAME:-ghcr.io/lancelotrar/best-cf-ip-scanner-docker}:${IMAGE_TAG:-latest}
+  image: ${IMAGE_NAME:-ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner}:${IMAGE_TAG:-latest}
   # 全部运行参数来自 .env（改完 up -d --force-recreate 生效）
   env_file:
     - .env

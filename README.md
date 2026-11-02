@@ -4,8 +4,8 @@
 
 *以自建容器方式，从 Cloudflare IPv4 段中定时筛出可用作代理节点的优选 IP*
 
-[![CI](https://github.com/LancelotRar/best-cf-ip-scanner-docker/actions/workflows/ci.yml/badge.svg)](https://github.com/LancelotRar/best-cf-ip-scanner-docker/actions/workflows/ci.yml)
-[![Image](https://img.shields.io/badge/image-ghcr.io-2496ed?logo=docker&logoColor=white&style=flat-square)](https://github.com/LancelotRar/best-cf-ip-scanner-docker/pkgs/container/best-cf-ip-scanner-docker)
+[![CI](https://github.com/LancelotRar/self-hosted-best-cf-ip-scanner/actions/workflows/ci.yml/badge.svg)](https://github.com/LancelotRar/self-hosted-best-cf-ip-scanner/actions/workflows/ci.yml)
+[![Image](https://img.shields.io/badge/image-ghcr.io-2496ed?logo=docker&logoColor=white&style=flat-square)](https://github.com/LancelotRar/self-hosted-best-cf-ip-scanner/pkgs/container/self-hosted-best-cf-ip-scanner)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 
 [文档导航](#文档导航) • [快速开始](#快速开始) • [工作原理](#工作原理)
@@ -57,8 +57,8 @@ Cloudflare 边缘、淘汰 EIV 受限子池、取回边缘机房代码），定�
 ```bash
 mkdir best-cf-ip-scanner && cd best-cf-ip-scanner
 
-curl -fsSLO https://raw.githubusercontent.com/LancelotRar/best-cf-ip-scanner-docker/main/compose.example.yaml
-curl -fsSLO https://raw.githubusercontent.com/LancelotRar/best-cf-ip-scanner-docker/main/.env.example
+curl -fsSLO https://raw.githubusercontent.com/LancelotRar/self-hosted-best-cf-ip-scanner/main/compose.example.yaml
+curl -fsSLO https://raw.githubusercontent.com/LancelotRar/self-hosted-best-cf-ip-scanner/main/.env.example
 
 cp compose.example.yaml compose.yaml   # 容器编排
 cp .env.example .env                   # 环境变量

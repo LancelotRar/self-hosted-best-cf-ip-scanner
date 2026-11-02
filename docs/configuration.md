@@ -189,7 +189,7 @@ no_proxy=localhost,127.0.0.1,::1,192.168.0.0/16,172.16.0.0/12,your-probe-domain.
 CONTAINER_NAME=best-cf-ip-scanner
 # 镜像坐标：默认使用官方多架构镜像，无需本地构建。
 # 锁定版本可把 IMAGE_TAG 改成 sha-xxxxxxx 或 1.2.3。
-IMAGE_NAME=ghcr.io/lancelotrar/best-cf-ip-scanner-docker
+IMAGE_NAME=ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner
 IMAGE_TAG=latest
 ```
 
@@ -354,7 +354,7 @@ IMAGE_TAG=latest
 <tr><th rowspan="2" align="center">网络代理</th><td align="center"><code>HTTP_PROXY</code> / <code>HTTPS_PROXY</code></td><td align="center">空</td><td align="center">建议</td><td align="center">容器出网代理（也用于镜像构建）</td></tr>
 <tr><td align="center"><code>NO_PROXY</code> / <code>no_proxy</code></td><td align="center">见模板</td><td align="center">建议</td><td align="center"><strong>必须豁免 <code>PROBE_HOST</code></strong>，否则启动被拒绝</td></tr>
 <tr><th rowspan="2" align="center">容器与镜像</th><td align="center"><code>CONTAINER_NAME</code></td><td align="center"><code>best-cf-ip-scanner</code></td><td align="center">可选</td><td align="center">容器名</td></tr>
-<tr><td align="center"><code>IMAGE_NAME</code> / <code>IMAGE_TAG</code></td><td align="center"><code>ghcr.io/lancelotrar/best-cf-ip-scanner-docker</code> / <code>latest</code></td><td align="center">可选</td><td align="center">镜像坐标与版本</td></tr>
+<tr><td align="center"><code>IMAGE_NAME</code> / <code>IMAGE_TAG</code></td><td align="center"><code>ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner</code> / <code>latest</code></td><td align="center">可选</td><td align="center">镜像坐标与版本</td></tr>
 </tbody>
 </table>
 
