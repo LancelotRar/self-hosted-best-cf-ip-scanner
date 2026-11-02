@@ -47,7 +47,7 @@ mv .env.example .env
 </tr>
 </thead>
 <tbody>
-<tr><td align="center"><code>compose.example.yaml</code> → <code>compose.yaml</code></td><td align="center">容器编排：镜像、挂载、权限、健康检查</td></tr>
+<tr><td align="center"><code>compose.yaml</code></td><td align="center">容器编排：镜像、挂载、权限、健康检查</td></tr>
 <tr><td align="center"><code>.env</code></td><td align="center">全部可调参数（由 <code>.env.example</code> 复制而来）</td></tr>
 </tbody>
 </table>
@@ -149,7 +149,7 @@ TCP 握手测量：合格 2673，淘汰 1488（每候选 3 次，至少成功 2 
 `PUID:PGID`（默认 `1000:1000`）；宿主机用户不是 1000 时，把 `.env` 的
 `PUID` / `PGID` 改成 `id -u` / `id -g`。
 
-## 6. compose.example.yaml 全文
+## 6. compose.example.yaml 默认配置
 
 ```yaml
 # best-cf-ip-scanner —— 运行配置（官方镜像）
