@@ -8,7 +8,7 @@
 [![Image](https://img.shields.io/badge/image-ghcr.io-2496ed?logo=docker&logoColor=white&style=flat-square)](https://github.com/LancelotRar/best-cf-ip-scanner-docker/pkgs/container/best-cf-ip-scanner-docker)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 
-[快速开始](#快速开始) • [工作原理](#工作原理) • [文档导航](#文档导航)
+[文档导航](#文档导航) • [快速开始](#快速开始) • [工作原理](#工作原理)
 
 </div>
 
@@ -27,6 +27,52 @@ Cloudflare 边缘、淘汰 EIV 受限子池、取回边缘机房代码），定�
 - **失败不覆盖**：任一筛选阶段全灭时进程返回非零、不写新产物，目标仓库保留上一轮结果。
 - **轻量且最小权限**：Alpine + Python 3.13 多阶段构建，约 120MB；业务进程非 root、只读根文件系统。
 - **日志面向排障**：启动打印生效配置，每轮打印阶段耗时与失败原因 top-5，另有 `doctor.sh` 一键自检。
+
+## 文档导航
+
+<table align="center">
+<thead>
+<tr><th colspan="2" align="center">部署与运行</th></tr>
+<tr>
+<th align="center">文档</th>
+<th align="center">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center"><a href="docs/deployment.md">部署详解</a></td><td align="center">前置条件、完整 compose 文件、目录与持久化、启动与验证、本地构建</td></tr>
+<tr><td align="center"><a href="docs/scheduling.md">定时设置</a></td><td align="center">cron 表达式写法、启动即执行、暂停与恢复</td></tr>
+<tr><td align="center"><a href="docs/operations.md">日常运维</a></td><td align="center">手动执行一轮、应用配置、更新镜像、日志与清理</td></tr>
+</tbody>
+</table>
+
+<table align="center">
+<thead>
+<tr><th colspan="2" align="center">配置与数据</th></tr>
+<tr>
+<th align="center">文档</th>
+<th align="center">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center"><a href="docs/configuration.md">配置手册</a></td><td align="center">完整 <code>.env</code> 模板、每个参数的默认值与影响、常见组合示例</td></tr>
+<tr><td align="center"><a href="docs/ip-library.md">候选地址库</a></td><td align="center">条目格式、用注释排除网段、改动如何生效与验证</td></tr>
+<tr><td align="center"><a href="docs/network.md">代理与直连</a></td><td align="center">出网代理与探测直连为何必须分开、<code>NO_PROXY</code> 机制、TUN 场景</td></tr>
+<tr><td align="center"><a href="docs/publishing.md">自动发布</a></td><td align="center">推送到 Git 仓库：开关、令牌、镜像语义与重试</td></tr>
+</tbody>
+</table>
+
+<table align="center">
+<thead>
+<tr><th colspan="2" align="center">排障</th></tr>
+<tr>
+<th align="center">文档</th>
+<th align="center">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center"><a href="docs/troubleshooting.md">故障排查</a></td><td align="center">日志位置、<code>doctor.sh</code> 自检项、常见问题对照表</td></tr>
+</tbody>
+</table>
 
 ## 快速开始
 
@@ -159,49 +205,3 @@ Cloudflare 上的域名**。
 
 `PROBE_PATH` 由 CF 边缘直接应答、不经过源站，所以该域名只需保持代理（小黄云）开启，
 不要求源站存活。
-
-## 文档导航
-
-<table align="center">
-<thead>
-<tr><th colspan="2" align="center">部署与运行</th></tr>
-<tr>
-<th align="center">文档</th>
-<th align="center">说明</th>
-</tr>
-</thead>
-<tbody>
-<tr><td align="center"><a href="docs/deployment.md">部署详解</a></td><td align="center">前置条件、完整 compose 文件、目录与持久化、启动与验证、本地构建</td></tr>
-<tr><td align="center"><a href="docs/scheduling.md">定时设置</a></td><td align="center">cron 表达式写法、启动即执行、暂停与恢复</td></tr>
-<tr><td align="center"><a href="docs/operations.md">日常运维</a></td><td align="center">手动执行一轮、应用配置、更新镜像、日志与清理</td></tr>
-</tbody>
-</table>
-
-<table align="center">
-<thead>
-<tr><th colspan="2" align="center">配置与数据</th></tr>
-<tr>
-<th align="center">文档</th>
-<th align="center">说明</th>
-</tr>
-</thead>
-<tbody>
-<tr><td align="center"><a href="docs/configuration.md">配置手册</a></td><td align="center">完整 <code>.env</code> 模板、每个参数的默认值与影响、常见组合示例</td></tr>
-<tr><td align="center"><a href="docs/ip-library.md">候选地址库</a></td><td align="center">条目格式、用注释排除网段、改动如何生效与验证</td></tr>
-<tr><td align="center"><a href="docs/network.md">代理与直连</a></td><td align="center">出网代理与探测直连为何必须分开、<code>NO_PROXY</code> 机制、TUN 场景</td></tr>
-<tr><td align="center"><a href="docs/publishing.md">自动发布</a></td><td align="center">推送到 Git 仓库：开关、令牌、镜像语义与重试</td></tr>
-</tbody>
-</table>
-
-<table align="center">
-<thead>
-<tr><th colspan="2" align="center">排障</th></tr>
-<tr>
-<th align="center">文档</th>
-<th align="center">说明</th>
-</tr>
-</thead>
-<tbody>
-<tr><td align="center"><a href="docs/troubleshooting.md">故障排查</a></td><td align="center">日志位置、<code>doctor.sh</code> 自检项、常见问题对照表</td></tr>
-</tbody>
-</table>
