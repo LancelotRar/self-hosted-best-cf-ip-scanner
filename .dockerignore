@@ -1,0 +1,25 @@
+# 构建上下文：只保留镜像真正需要的文件，缩短构建时间与体积
+.git
+.github
+.legacy
+.env
+.env.*
+!.env.example
+output
+cache
+result
+tests
+docs
+__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+.venv
+venv
+requirements-dev.txt
+compose.yaml
+compose.build.yaml
+README.md
+LICENSE
+.gitignore
+.gitattributes

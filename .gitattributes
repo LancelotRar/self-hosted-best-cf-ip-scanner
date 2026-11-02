@@ -1,0 +1,9 @@
+# 统一 LF：shell 脚本的 shebang 遇到 CRLF 会在 Linux 容器里报 "no such file or directory"
+* text=auto eol=lf
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# 产物 CSV 由 csv 模块按 CRLF 生成、带 BOM：按字节原样保存，不做换行归一
+*.csv -text

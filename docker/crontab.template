@@ -1,0 +1,8 @@
+# 模板: @CRON_SCHEDULE@ 由 docker/entrypoint.sh 在容器启动时用环境变量替换。
+# 渲染结果写到 /tmp（只读根文件系统下唯一可写的常规路径）。
+#
+# 同一作业未结束时 supercronic 不会重复启动（默认不重叠），所以慢轮次不会被
+# 排队叠加；如果某一轮超过调度间隔，日志会给出 "job took too long to run" 警告。
+#
+# 命令走绝对路径：supercronic 不做 PATH 之外的 shell 展开。
+@CRON_SCHEDULE@ /usr/local/bin/scan-and-publish.sh
