@@ -305,26 +305,12 @@ IMAGE_TAG=latest
 
 ## 参数总表
 
-### 必填（1 项，不填无法运行）
+共 37 项，按用途分组（分组在表格最左侧）。只填「必填」即可运行。
 
 <table align="center">
 <thead>
 <tr>
-<th align="center">变量</th>
-<th align="center">默认值</th>
-<th align="center">说明</th>
-</tr>
-</thead>
-<tbody>
-<tr><td align="center"><code>PROBE_HOST</code></td><td align="center">无</td><td align="center">边缘端点校验域名。必须是你自己托管在 Cloudflare、且已开启代理（小黄云）的域名</td></tr>
-</tbody>
-</table>
-
-### 调度
-
-<table align="center">
-<thead>
-<tr>
+<th align="center">分类</th>
 <th align="center">变量</th>
 <th align="center">默认值</th>
 <th align="center">级别</th>
@@ -332,181 +318,45 @@ IMAGE_TAG=latest
 </tr>
 </thead>
 <tbody>
-<tr><td align="center"><code>CRON_SCHEDULE</code></td><td align="center"><code>30 */6 * * *</code></td><td align="center">建议</td><td align="center">标准 cron（分 时 日 月 周），时区由 <code>TZ</code> 决定</td></tr>
+<tr><th align="center">必填</th><td align="center"><code>PROBE_HOST</code></td><td align="center">无</td><td align="center">必填</td><td align="center">边缘端点校验域名。必须是你自己托管在 Cloudflare、且已开启代理（小黄云）的域名</td></tr>
+<tr><th rowspan="3" align="center">调度</th><td align="center"><code>CRON_SCHEDULE</code></td><td align="center"><code>30 */6 * * *</code></td><td align="center">建议</td><td align="center">标准 cron（分 时 日 月 周），时区由 <code>TZ</code> 决定</td></tr>
 <tr><td align="center"><code>RUN_ON_START</code></td><td align="center"><code>true</code></td><td align="center">可选</td><td align="center">容器启动后是否立即执行一轮</td></tr>
 <tr><td align="center"><code>TZ</code></td><td align="center"><code>Asia/Shanghai</code></td><td align="center">可选</td><td align="center">调度与提交信息时区；产物中的扫描时间固定为北京时间</td></tr>
-</tbody>
-</table>
-
-### 运行身份
-
-<table align="center">
-<thead>
-<tr>
-<th align="center">变量</th>
-<th align="center">默认值</th>
-<th align="center">级别</th>
-<th align="center">说明</th>
-</tr>
-</thead>
-<tbody>
-<tr><td align="center"><code>PUID</code></td><td align="center"><code>1000</code></td><td align="center">建议</td><td align="center">业务进程 uid；入口会把 <code>./data ./output ./cache</code> 属主对齐到它</td></tr>
+<tr><th rowspan="2" align="center">运行身份</th><td align="center"><code>PUID</code></td><td align="center"><code>1000</code></td><td align="center">建议</td><td align="center">业务进程 uid；入口会把 <code>./data ./output ./cache</code> 属主对齐到它</td></tr>
 <tr><td align="center"><code>PGID</code></td><td align="center"><code>1000</code></td><td align="center">建议</td><td align="center">业务进程 gid；同上</td></tr>
-</tbody>
-</table>
-
-### 探测端点
-
-<table align="center">
-<thead>
-<tr>
-<th align="center">变量</th>
-<th align="center">默认值</th>
-<th align="center">级别</th>
-<th align="center">说明</th>
-</tr>
-</thead>
-<tbody>
-<tr><td align="center"><code>PROBE_HOST</code></td><td align="center">无</td><td align="center"><strong>必填</strong></td><td align="center">见上表</td></tr>
+<tr><th rowspan="3" align="center">探测端点</th><td align="center"><code>PROBE_HOST</code></td><td align="center">无</td><td align="center"><strong>必填</strong></td><td align="center">见上表</td></tr>
 <tr><td align="center"><code>PROBE_PATH</code></td><td align="center"><code>/cdn-cgi/trace</code></td><td align="center">可选</td><td align="center">端点校验路径，由 CF 边缘直接应答，一般不改</td></tr>
 <tr><td align="center"><code>PROBE_USER_AGENT</code></td><td align="center">内置浏览器 UA</td><td align="center">可选</td><td align="center">端点校验请求的 User-Agent</td></tr>
-</tbody>
-</table>
-
-### 探测参数
-
-<table align="center">
-<thead>
-<tr>
-<th align="center">变量</th>
-<th align="center">默认值</th>
-<th align="center">级别</th>
-<th align="center">说明</th>
-</tr>
-</thead>
-<tbody>
-<tr><td align="center"><code>PROBE_PORTS</code></td><td align="center"><code>443</code></td><td align="center">建议</td><td align="center">候选端口集合，每个候选随机分配一个</td></tr>
+<tr><th rowspan="7" align="center">探测参数</th><td align="center"><code>PROBE_PORTS</code></td><td align="center"><code>443</code></td><td align="center">建议</td><td align="center">候选端口集合，每个候选随机分配一个</td></tr>
 <tr><td align="center"><code>PROBE_CONCURRENCY</code></td><td align="center"><code>200</code></td><td align="center">建议</td><td align="center">并发线程数（两阶段共用）</td></tr>
 <tr><td align="center"><code>TCP_ATTEMPTS</code></td><td align="center"><code>3</code></td><td align="center">可选</td><td align="center">每候选 TCP 握手次数</td></tr>
 <tr><td align="center"><code>TCP_MIN_SUCCESS</code></td><td align="center"><code>2</code></td><td align="center">可选</td><td align="center">握手合格门槛（不得大于 <code>TCP_ATTEMPTS</code>）</td></tr>
 <tr><td align="center"><code>TCP_TIMEOUT</code></td><td align="center"><code>3.0</code></td><td align="center">可选</td><td align="center">单次握手超时（秒）</td></tr>
 <tr><td align="center"><code>TRACE_TIMEOUT</code></td><td align="center"><code>5</code></td><td align="center">可选</td><td align="center">单次端点校验超时（秒）</td></tr>
 <tr><td align="center"><code>TRACE_ATTEMPTS</code></td><td align="center"><code>2</code></td><td align="center">可选</td><td align="center">端点校验最大尝试次数（含首次）</td></tr>
-</tbody>
-</table>
-
-### 采样
-
-<table align="center">
-<thead>
-<tr>
-<th align="center">变量</th>
-<th align="center">默认值</th>
-<th align="center">级别</th>
-<th align="center">说明</th>
-</tr>
-</thead>
-<tbody>
-<tr><td align="center"><code>SAMPLE_STRIDE</code></td><td align="center"><code>256</code></td><td align="center">可选</td><td align="center">每 N 个地址抽 1 个；256 = 每个 /24 一个</td></tr>
+<tr><th rowspan="3" align="center">采样</th><td align="center"><code>SAMPLE_STRIDE</code></td><td align="center"><code>256</code></td><td align="center">可选</td><td align="center">每 N 个地址抽 1 个；256 = 每个 /24 一个</td></tr>
 <tr><td align="center"><code>MAX_CANDIDATES</code></td><td align="center"><code>0</code></td><td align="center">建议</td><td align="center">候选总量上限，0 = 不限</td></tr>
 <tr><td align="center"><code>SAMPLE_SEED</code></td><td align="center"><code>42</code></td><td align="center">可选</td><td align="center">采样基础种子，按北京小时自动轮换</td></tr>
-</tbody>
-</table>
-
-### 输入
-
-<table align="center">
-<thead>
-<tr>
-<th align="center">变量</th>
-<th align="center">默认值</th>
-<th align="center">级别</th>
-<th align="center">说明</th>
-</tr>
-</thead>
-<tbody>
-<tr><td align="center"><code>LIBRARY_FILE</code></td><td align="center"><code>ip-library.txt</code></td><td align="center">可选</td><td align="center">候选地址库文件名（相对 <code>./data</code>）</td></tr>
+<tr><th rowspan="3" align="center">输入</th><td align="center"><code>LIBRARY_FILE</code></td><td align="center"><code>ip-library.txt</code></td><td align="center">可选</td><td align="center">候选地址库文件名（相对 <code>./data</code>）</td></tr>
 <tr><td align="center"><code>LOCATIONS_FILE</code></td><td align="center"><code>locations.json</code></td><td align="center">可选</td><td align="center">机房映射文件名（相对 <code>./data</code>）</td></tr>
 <tr><td align="center"><code>SKIP_LOCATIONS</code></td><td align="center"><code>false</code></td><td align="center">可选</td><td align="center">调试用：跳过机房映射</td></tr>
-</tbody>
-</table>
-
-### 输出
-
-<table align="center">
-<thead>
-<tr>
-<th align="center">变量</th>
-<th align="center">默认值</th>
-<th align="center">级别</th>
-<th align="center">说明</th>
-</tr>
-</thead>
-<tbody>
-<tr><td align="center"><code>DETAIL_CSV_NAME</code></td><td align="center"><code>detail</code></td><td align="center">可选</td><td align="center">明细表文件名（不含扩展名）</td></tr>
+<tr><th rowspan="4" align="center">输出</th><td align="center"><code>DETAIL_CSV_NAME</code></td><td align="center"><code>detail</code></td><td align="center">可选</td><td align="center">明细表文件名（不含扩展名）</td></tr>
 <tr><td align="center"><code>OVERALL_TOPS</code></td><td align="center"><code>20,50,100,200,400</code></td><td align="center">建议</td><td align="center">全量列表条数（逗号分隔，任意正整数）→ 每项一个 <code>GLOBAL{N}.txt</code></td></tr>
 <tr><td align="center"><code>COUNTRY_FILTERS</code></td><td align="center"><code>false</code></td><td align="center">建议</td><td align="center">国家列表总开关；<code>true</code> 才按各国数值生成</td></tr>
 <tr><td align="center"><code>TOP_US</code> / <code>TOP_JP</code> / <code>TOP_SG</code> / <code>TOP_DE</code> / <code>TOP_NL</code> / <code>TOP_FR</code></td><td align="center"><code>100</code></td><td align="center">可选</td><td align="center">各国列表条数 → <code>{国家代码}{N}.txt</code>；仅开关为 <code>true</code> 时生效</td></tr>
-</tbody>
-</table>
-
-### 产物发布（可选）
-
-<table align="center">
-<thead>
-<tr>
-<th align="center">变量</th>
-<th align="center">默认值</th>
-<th align="center">级别</th>
-<th align="center">说明</th>
-</tr>
-</thead>
-<tbody>
-<tr><td align="center"><code>GIT_PUSH_ENABLED</code></td><td align="center"><code>false</code></td><td align="center">建议</td><td align="center">是否需要把产物推到 Git 仓库</td></tr>
+<tr><th rowspan="7" align="center">产物发布</th><td align="center"><code>GIT_PUSH_ENABLED</code></td><td align="center"><code>false</code></td><td align="center">建议</td><td align="center">是否需要把产物推到 Git 仓库</td></tr>
 <tr><td align="center"><code>GIT_REPO_URL</code></td><td align="center">空</td><td align="center">建议</td><td align="center">目标仓库 HTTPS 地址</td></tr>
 <tr><td align="center"><code>GIT_BRANCH</code></td><td align="center"><code>main</code></td><td align="center">可选</td><td align="center">目标分支</td></tr>
 <tr><td align="center"><code>GIT_TOKEN</code></td><td align="center">空</td><td align="center">建议</td><td align="center"><code>contents:write</code> 权限令牌（HTTP(S) 远端必填）</td></tr>
 <tr><td align="center"><code>GIT_OUTPUT_SUBDIR</code></td><td align="center"><code>result</code></td><td align="center">可选</td><td align="center">产物在目标仓库中的目录</td></tr>
 <tr><td align="center"><code>GIT_AUTHOR_NAME</code> / <code>GIT_AUTHOR_EMAIL</code></td><td align="center"><code>cf-ip-scanner-bot</code> / <code>…@users.noreply.github.com</code></td><td align="center">可选</td><td align="center">提交作者</td></tr>
 <tr><td align="center"><code>GIT_RETRY_MAX</code> / <code>GIT_RETRY_BASE_DELAY</code></td><td align="center"><code>3</code> / <code>10</code></td><td align="center">可选</td><td align="center">推送失败重试次数与初始退避秒数</td></tr>
-</tbody>
-</table>
-
-### 网络代理
-
-<table align="center">
-<thead>
-<tr>
-<th align="center">变量</th>
-<th align="center">默认值</th>
-<th align="center">级别</th>
-<th align="center">说明</th>
-</tr>
-</thead>
-<tbody>
-<tr><td align="center"><code>HTTP_PROXY</code> / <code>HTTPS_PROXY</code></td><td align="center">空</td><td align="center">建议</td><td align="center">容器出网代理（也用于镜像构建）</td></tr>
+<tr><th rowspan="2" align="center">网络代理</th><td align="center"><code>HTTP_PROXY</code> / <code>HTTPS_PROXY</code></td><td align="center">空</td><td align="center">建议</td><td align="center">容器出网代理（也用于镜像构建）</td></tr>
 <tr><td align="center"><code>NO_PROXY</code> / <code>no_proxy</code></td><td align="center">见模板</td><td align="center">建议</td><td align="center"><strong>必须豁免 <code>PROBE_HOST</code></strong>，否则启动被拒绝</td></tr>
-</tbody>
-</table>
-
-### 容器与镜像
-
-<table align="center">
-<thead>
-<tr>
-<th align="center">变量</th>
-<th align="center">默认值</th>
-<th align="center">级别</th>
-<th align="center">说明</th>
-</tr>
-</thead>
-<tbody>
-<tr><td align="center"><code>CONTAINER_NAME</code></td><td align="center"><code>best-cf-ip-scanner</code></td><td align="center">可选</td><td align="center">容器名</td></tr>
+<tr><th rowspan="2" align="center">容器与镜像</th><td align="center"><code>CONTAINER_NAME</code></td><td align="center"><code>best-cf-ip-scanner</code></td><td align="center">可选</td><td align="center">容器名</td></tr>
 <tr><td align="center"><code>IMAGE_NAME</code> / <code>IMAGE_TAG</code></td><td align="center"><code>ghcr.io/lancelotrar/best-cf-ip-scanner-docker</code> / <code>latest</code></td><td align="center">可选</td><td align="center">镜像坐标与版本</td></tr>
 </tbody>
 </table>
-
----
 
 ## 关键参数详解
 
