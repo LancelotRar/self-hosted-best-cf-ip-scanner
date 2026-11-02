@@ -3,7 +3,16 @@ name: ci
 on:
   push:
     branches: ["main"]
+    # 纯文档改动（README / docs / LICENSE）不触发 CI
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "LICENSE"
   pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "LICENSE"
   workflow_dispatch:
 
 permissions:
