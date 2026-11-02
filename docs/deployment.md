@@ -58,17 +58,10 @@ cp .env.example .env
 
 最少只需一项：
 
-<table align="center">
-<thead>
-<tr>
-<th align="center">变量</th>
-<th align="center">取值</th>
-</tr>
-</thead>
-<tbody>
-<tr><td align="center"><code>PROBE_HOST</code></td><td align="center">你自己的、已开启 Cloudflare 代理的域名</td></tr>
-</tbody>
-</table>
+```dotenv
+# 必填：你自己的、已开启 Cloudflare 代理的域名
+PROBE_HOST=probe.example.com
+```
 
 其余参数都有默认值：每 6 小时第 30 分扫描一轮、每个 /24 抽 1 个代表 IP、TCP 握手
 3 次中成功 2 次即合格、端口 443、默认生成 `GLOBAL20/50/100/200/400` 五个全量列表；国家列表由 `COUNTRY_FILTERS`
