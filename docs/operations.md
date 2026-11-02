@@ -16,6 +16,21 @@ docker compose stop -t 5                  # 立即暂停（中断当前一轮，
 docker compose down                       # 停止并移除容器（数据保留）
 ```
 
+## 运行身份
+
+镜像以 root 启动，但入口脚本只做两件事：把 bind mount 的宿主目录对齐到 `PUID:PGID`、
+首次播种默认数据；随后用 `su-exec` 降权，**业务进程全程非 root**：
+
+```bash
+docker compose exec -T scanner sh -c 'grep ^Uid /proc/1/status'   # Uid: 1000
+docker compose exec -T scanner ps                                  # 进程 USER 均为 scanner
+```
+
+> [!NOTE]
+> `docker compose exec` 默认以镜像的 root 身份进入容器（与业务进程无关）。
+> 想用与业务一致的身份操作文件，加 `-u`：
+> `docker compose exec -u 1000 scanner sh`
+
 ## 手动执行一轮
 
 ```bash
