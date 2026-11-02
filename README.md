@@ -162,10 +162,9 @@ Cloudflare 上的域名**。
 
 ## 文档导航
 
-<h3 align="center">部署与运行</h3>
-
 <table align="center">
 <thead>
+<tr><th colspan="2" align="center">部署与运行</th></tr>
 <tr>
 <th align="center">文档</th>
 <th align="center">说明</th>
@@ -178,10 +177,9 @@ Cloudflare 上的域名**。
 </tbody>
 </table>
 
-<h3 align="center">配置与数据</h3>
-
 <table align="center">
 <thead>
+<tr><th colspan="2" align="center">配置与数据</th></tr>
 <tr>
 <th align="center">文档</th>
 <th align="center">说明</th>
@@ -195,10 +193,9 @@ Cloudflare 上的域名**。
 </tbody>
 </table>
 
-<h3 align="center">排障</h3>
-
 <table align="center">
 <thead>
+<tr><th colspan="2" align="center">排障</th></tr>
 <tr>
 <th align="center">文档</th>
 <th align="center">说明</th>
