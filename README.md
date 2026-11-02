@@ -43,9 +43,17 @@ curl -fsSLo .env  https://raw.githubusercontent.com/LancelotRar/best-cf-ip-scann
 
 `.env` 中填写以下一项即可运行：
 
-| 变量 | 取值 |
-|:---:|:---:|
-| `PROBE_HOST` | 你自己的、已开启 Cloudflare 代理的域名 |
+<table align="center">
+<thead>
+<tr>
+<th align="center">变量</th>
+<th align="center">取值</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center"><code>PROBE_HOST</code></td><td align="center">你自己的、已开启 Cloudflare 代理的域名</td></tr>
+</tbody>
+</table>
 
 其余参数保持默认：每 6 小时第 30 分扫描一轮、每个 /24 抽 1 个代表 IP、TCP 握手
 3 次中成功 2 次即合格、端口 443、默认生成 `GLOBAL20/50/100/200/400` 五个全量列表，国家列表默认关闭；只在本地产出。
@@ -83,11 +91,19 @@ TCP 握手测量：合格 2673，淘汰 1488（每候选 3 次，至少成功 2 
 
 每轮在 `./output/` 下生成：
 
-| 文件 | 内容 |
-|:---:|:---:|
-| `detail.csv` | 明细表：全部合格候选及测量指标 |
-| `GLOBAL{N}.txt` | 订阅列表：全量相对排名前 N（默认 20 / 50 / 100 / 200 / 400） |
-| `{国家代码}{N}.txt` | 订阅列表：某国家内排名前 N（默认 US / JP / SG / DE / NL / FR） |
+<table align="center">
+<thead>
+<tr>
+<th align="center">文件</th>
+<th align="center">内容</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center"><code>detail.csv</code></td><td align="center">明细表：全部合格候选及测量指标</td></tr>
+<tr><td align="center"><code>GLOBAL{N}.txt</code></td><td align="center">订阅列表：全量相对排名前 N（默认 20 / 50 / 100 / 200 / 400）</td></tr>
+<tr><td align="center"><code>{国家代码}{N}.txt</code></td><td align="center">订阅列表：某国家内排名前 N（默认 US / JP / SG / DE / NL / FR）</td></tr>
+</tbody>
+</table>
 
 订阅列表可直接作为订阅链接内容：
 
@@ -140,23 +156,47 @@ Cloudflare 上的域名**。
 
 ### 部署与运行
 
-| 文档 | 说明 |
-|:---:|:---:|
-| [部署详解](docs/deployment.md) | 前置条件、完整 compose 文件、目录与持久化、启动与验证、本地构建 |
-| [定时设置](docs/scheduling.md) | cron 表达式写法、启动即执行、暂停与恢复 |
-| [日常运维](docs/operations.md) | 手动执行一轮、应用配置、更新镜像、日志与清理 |
+<table align="center">
+<thead>
+<tr>
+<th align="center">文档</th>
+<th align="center">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center"><a href="docs/deployment.md">部署详解</a></td><td align="center">前置条件、完整 compose 文件、目录与持久化、启动与验证、本地构建</td></tr>
+<tr><td align="center"><a href="docs/scheduling.md">定时设置</a></td><td align="center">cron 表达式写法、启动即执行、暂停与恢复</td></tr>
+<tr><td align="center"><a href="docs/operations.md">日常运维</a></td><td align="center">手动执行一轮、应用配置、更新镜像、日志与清理</td></tr>
+</tbody>
+</table>
 
 ### 配置与数据
 
-| 文档 | 说明 |
-|:---:|:---:|
-| [配置手册](docs/configuration.md) | 完整 `.env` 模板、每个参数的默认值与影响、常见组合示例 |
-| [候选地址库](docs/ip-library.md) | 条目格式、用注释排除网段、改动如何生效与验证 |
-| [代理与直连](docs/network.md) | 出网代理与探测直连为何必须分开、`NO_PROXY` 机制、TUN 场景 |
-| [自动发布](docs/publishing.md) | 推送到 Git 仓库：开关、令牌、镜像语义与重试 |
+<table align="center">
+<thead>
+<tr>
+<th align="center">文档</th>
+<th align="center">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center"><a href="docs/configuration.md">配置手册</a></td><td align="center">完整 <code>.env</code> 模板、每个参数的默认值与影响、常见组合示例</td></tr>
+<tr><td align="center"><a href="docs/ip-library.md">候选地址库</a></td><td align="center">条目格式、用注释排除网段、改动如何生效与验证</td></tr>
+<tr><td align="center"><a href="docs/network.md">代理与直连</a></td><td align="center">出网代理与探测直连为何必须分开、<code>NO_PROXY</code> 机制、TUN 场景</td></tr>
+<tr><td align="center"><a href="docs/publishing.md">自动发布</a></td><td align="center">推送到 Git 仓库：开关、令牌、镜像语义与重试</td></tr>
+</tbody>
+</table>
 
 ### 排障
 
-| 文档 | 说明 |
-|:---:|:---:|
-| [故障排查](docs/troubleshooting.md) | 日志位置、`doctor.sh` 自检项、常见问题对照表 |
+<table align="center">
+<thead>
+<tr>
+<th align="center">文档</th>
+<th align="center">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center"><a href="docs/troubleshooting.md">故障排查</a></td><td align="center">日志位置、<code>doctor.sh</code> 自检项、常见问题对照表</td></tr>
+</tbody>
+</table>
