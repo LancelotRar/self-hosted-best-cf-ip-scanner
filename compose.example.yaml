@@ -1,14 +1,14 @@
 # best-cf-ip-scanner —— 运行配置（官方镜像）
 #
-#   1) cp .env.example .env      # 填写 PROBE_HOST
-#   2) docker compose up -d
-#   3) docker compose logs -f
+#   1) 本文件改名为 compose.yaml；.env.example 改名为 .env
+#   2) 在 .env 里填写 PROBE_HOST
+#   3) docker compose up -d && docker compose logs -f
 #
 # 手动执行一轮：docker compose run --rm scan-once
 #
 # 宿主目录（首次启动自动创建并对齐属主）：
 #   ./data    输入：候选地址库 + 机房映射（含内置默认值，可直接编辑）
-#   ./output  产物：明细表 detail.csv + 订阅列表 topN.txt
+#   ./output  产物：明细表 detail.csv + 订阅列表 GLOBAL{N}.txt / {国家代码}{N}.txt
 #   ./cache   发布缓存：目标仓库的浅克隆（可随时删除）
 #
 # 本地构建镜像见 compose.build.yaml：

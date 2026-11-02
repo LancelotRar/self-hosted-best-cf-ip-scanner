@@ -43,7 +43,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # 用示例配置校验 compose 语法与变量插值，防止 .env.example 与 compose 文件漂移
+      # 用示例配置校验 compose 语法与变量插值，防止模板之间漂移
+      - run: cp compose.example.yaml compose.yaml
       - run: cp .env.example .env
       - run: docker compose config --quiet
       - run: docker compose -f compose.yaml -f compose.build.yaml config --quiet
@@ -59,6 +60,7 @@ jobs:
       # 只"构建成功"不足以证明镜像可用。
       - name: Build and start
         run: |
+          cp compose.example.yaml compose.yaml
           cp .env.example .env
           sed -i 's|^PROBE_HOST=.*|PROBE_HOST=probe.example.com|' .env
           # 冒烟测试只验证启动路径，不跑整轮扫描

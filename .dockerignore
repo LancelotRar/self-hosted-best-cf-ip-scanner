@@ -17,6 +17,7 @@ __pycache__
 .venv
 venv
 requirements-dev.txt
+compose.example.yaml
 compose.yaml
 compose.build.yaml
 README.md

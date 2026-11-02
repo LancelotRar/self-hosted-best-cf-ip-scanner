@@ -3,7 +3,7 @@
 [← 返回首页](../README.md)
 
 本文覆盖：前置条件、获取配置、最少设置、启动与验证、目录与持久化、完整的
-`compose.yaml` 说明，以及本地构建镜像。
+`compose.example.yaml` 说明，以及本地构建镜像。
 
 ## 前置条件
 
@@ -30,8 +30,11 @@
 ```bash
 mkdir best-cf-ip-scanner && cd best-cf-ip-scanner
 
-curl -fsSLO https://raw.githubusercontent.com/LancelotRar/best-cf-ip-scanner-docker/main/compose.yaml
-curl -fsSLo .env  https://raw.githubusercontent.com/LancelotRar/best-cf-ip-scanner-docker/main/.env.example
+curl -fsSLO https://raw.githubusercontent.com/LancelotRar/best-cf-ip-scanner-docker/main/compose.example.yaml
+curl -fsSLO https://raw.githubusercontent.com/LancelotRar/best-cf-ip-scanner-docker/main/.env.example
+
+mv compose.example.yaml compose.yaml
+mv .env.example .env
 ```
 
 得到两个文件：
@@ -44,7 +47,7 @@ curl -fsSLo .env  https://raw.githubusercontent.com/LancelotRar/best-cf-ip-scann
 </tr>
 </thead>
 <tbody>
-<tr><td align="center"><code>compose.yaml</code></td><td align="center">容器编排：镜像、挂载、权限、健康检查</td></tr>
+<tr><td align="center"><code>compose.example.yaml</code> → <code>compose.yaml</code></td><td align="center">容器编排：镜像、挂载、权限、健康检查</td></tr>
 <tr><td align="center"><code>.env</code></td><td align="center">全部可调参数（由 <code>.env.example</code> 复制而来）</td></tr>
 </tbody>
 </table>
@@ -95,7 +98,7 @@ docker compose logs -f
 ```bash
 docker compose ps                 # 状态应为 Up (healthy)
 docker compose logs --tail=30     # 应能看到「本轮完成」
-ls output                         # 应看到 detail.csv 与 top*.txt
+ls output                         # 应看到 detail.csv 与 GLOBAL*.txt
 ```
 
 一轮完整流程的日志形如：
@@ -146,14 +149,14 @@ TCP 握手测量：合格 2673，淘汰 1488（每候选 3 次，至少成功 2 
 `PUID:PGID`（默认 `1000:1000`）；宿主机用户不是 1000 时，把 `.env` 的
 `PUID` / `PGID` 改成 `id -u` / `id -g`。
 
-## 6. compose.yaml 全文
+## 6. compose.example.yaml 全文
 
 ```yaml
 # best-cf-ip-scanner —— 运行配置（官方镜像）
 #
-#   1) cp .env.example .env      # 填写 PROBE_HOST
-#   2) docker compose up -d
-#   3) docker compose logs -f
+#   1) 本文件改名为 compose.yaml；.env.example 改名为 .env
+#   2) 在 .env 里填写 PROBE_HOST
+#   3) docker compose up -d && docker compose logs -f
 #
 # 手动执行一轮：docker compose run --rm scan-once
 #

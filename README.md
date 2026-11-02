@@ -57,8 +57,11 @@ Cloudflare 边缘、淘汰 EIV 受限子池、取回边缘机房代码），定�
 ```bash
 mkdir best-cf-ip-scanner && cd best-cf-ip-scanner
 
-curl -fsSLO https://raw.githubusercontent.com/LancelotRar/best-cf-ip-scanner-docker/main/compose.yaml
-curl -fsSLo .env  https://raw.githubusercontent.com/LancelotRar/best-cf-ip-scanner-docker/main/.env.example
+curl -fsSLO https://raw.githubusercontent.com/LancelotRar/best-cf-ip-scanner-docker/main/compose.example.yaml
+curl -fsSLO https://raw.githubusercontent.com/LancelotRar/best-cf-ip-scanner-docker/main/.env.example
+
+mv compose.example.yaml compose.yaml   # 容器编排
+mv .env.example .env                   # 环境变量
 ```
 
 ### 2. 最小设置
@@ -147,7 +150,7 @@ TCP 握手测量：合格 2673，淘汰 1488（每候选 3 次，至少成功 2 
 > 首次部署想快速验证环境是否可用，可以在 `.env` 里设 `MAX_CANDIDATES=200`，
 > 一轮只需几十秒；确认无误后改回 `0`（不限）即可。
 
-详细部署说明（前置条件、完整的 `compose.yaml`、目录与持久化、本地构建）见
+详细部署说明（前置条件、完整的 compose 模板、目录与持久化、本地构建）见
 [部署详解](docs/deployment.md)。
 
 ## 工作原理
