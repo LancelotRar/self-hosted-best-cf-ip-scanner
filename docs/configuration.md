@@ -112,6 +112,8 @@ SAMPLE_SEED=42
 # 候选地址库文件名（相对 DATA_DIR，即宿主 ./data）。
 # 每行支持：CIDR / 单个 IP / IP:端口；行首 # 为注释。
 LIBRARY_FILE=ip-library.txt
+# 机房映射文件名（相对 DATA_DIR）。一般不用改；换成自己的映射文件时填新文件名。
+LOCATIONS_FILE=locations.json
 # 调试用：跳过机房映射（国家/国旗列留空）。正常保持 false。
 SKIP_LOCATIONS=false
 
@@ -251,6 +253,15 @@ IMAGE_TAG=latest
 
 注意：`0` 并不是"关闭"的通用写法——只有 `MAX_CANDIDATES` 用 `0` 表示不限，其余数值型
 参数取 `0` 会被校验拒绝（例如 `TCP_TIMEOUT=0`、`PROBE_CONCURRENCY=0`）。
+
+### 由 compose 注入 / 内部参数
+
+下面这些**不需要写进 `.env`**，写了也可能被 compose 覆盖或影响运行：
+
+| 变量 | 说明 |
+| --- | --- |
+| `DATA_DIR` / `OUTPUT_DIR` / `GIT_REPO_DIR` | 容器内固定路径，由 compose 的 `environment` 注入（`/data`、`/output`、`/cache/repo`） |
+| `SEED_HOUR_FACTOR` | 种子公式的内部系数（`种子 = SAMPLE_SEED × 该系数 + 北京小时`），一般不改 |
 
 ## 校验机制
 
@@ -415,6 +426,7 @@ IMAGE_TAG=latest
 </thead>
 <tbody>
 <tr><td align="center"><code>LIBRARY_FILE</code></td><td align="center"><code>ip-library.txt</code></td><td align="center">可选</td><td align="center">候选地址库文件名（相对 <code>./data</code>）</td></tr>
+<tr><td align="center"><code>LOCATIONS_FILE</code></td><td align="center"><code>locations.json</code></td><td align="center">可选</td><td align="center">机房映射文件名（相对 <code>./data</code>）</td></tr>
 <tr><td align="center"><code>SKIP_LOCATIONS</code></td><td align="center"><code>false</code></td><td align="center">可选</td><td align="center">调试用：跳过机房映射</td></tr>
 </tbody>
 </table>
