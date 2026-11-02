@@ -33,9 +33,11 @@ mkdir best-cf-ip-scanner && cd best-cf-ip-scanner
 curl -fsSLO https://raw.githubusercontent.com/LancelotRar/best-cf-ip-scanner-docker/main/compose.example.yaml
 curl -fsSLO https://raw.githubusercontent.com/LancelotRar/best-cf-ip-scanner-docker/main/.env.example
 
-mv compose.example.yaml compose.yaml
-mv .env.example .env
+cp compose.example.yaml compose.yaml
+cp .env.example .env
 ```
+
+用 `cp` 而不是 `mv`：模板留在原处，后续可与实际文件对比、或按新版本模板升级。
 
 得到两个文件：
 
@@ -120,11 +122,13 @@ TCP 握手测量：合格 2673，淘汰 1488（每候选 3 次，至少成功 2 
 
 ```
 <部署目录>/
-├── compose.yaml      # 编排文件（从仓库下载，升级时替换）
-├── .env              # 运行参数（只在这里改）
-├── data/             # 候选地址库 + 机房映射（持久化，需备份）
-├── output/           # 产物（可随时删除，下一轮重建）
-└── cache/            # 发布缓存（可随时删除）
+├── compose.yaml           # 编排文件（由模板复制而来）
+├── compose.example.yaml   # 编排模板，用于对比改动 / 按新版模板升级
+├── .env                   # 运行参数（只在这里改）
+├── .env.example           # 参数模板，同上
+├── data/                  # 候选地址库 + 机房映射（持久化，需备份）
+├── output/                # 产物（可随时删除，下一轮重建）
+└── cache/                 # 发布缓存（可随时删除）
 ```
 
 升级用 `docker compose pull && docker compose up -d`；**不要**在部署目录 `git pull`。
@@ -154,7 +158,7 @@ TCP 握手测量：合格 2673，淘汰 1488（每候选 3 次，至少成功 2 
 ```yaml
 # best-cf-ip-scanner —— 运行配置（官方镜像）
 #
-#   1) 本文件改名为 compose.yaml；.env.example 改名为 .env
+#   1) 本文件复制为 compose.yaml；.env.example 复制为 .env
 #   2) 在 .env 里填写 PROBE_HOST
 #   3) docker compose up -d && docker compose logs -f
 #

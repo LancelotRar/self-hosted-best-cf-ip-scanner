@@ -60,9 +60,11 @@ mkdir best-cf-ip-scanner && cd best-cf-ip-scanner
 curl -fsSLO https://raw.githubusercontent.com/LancelotRar/best-cf-ip-scanner-docker/main/compose.example.yaml
 curl -fsSLO https://raw.githubusercontent.com/LancelotRar/best-cf-ip-scanner-docker/main/.env.example
 
-mv compose.example.yaml compose.yaml   # 容器编排
-mv .env.example .env                   # 环境变量
+cp compose.example.yaml compose.yaml   # 容器编排
+cp .env.example .env                   # 环境变量
 ```
+
+模板文件保留在原处，便于日后对比改动或按新版本模板升级。
 
 ### 2. 最小设置
 
