@@ -214,6 +214,7 @@ services:
   # 常驻服务：容器内按 CRON_SCHEDULE 调度
   scanner:
     <<: *scanner-common
+    # 固定容器名：CI 冒烟与文档命令按此名引用；不需要可删掉这行，Compose 会自动命名
     container_name: ${CONTAINER_NAME:-best-cf-ip-scanner}
     # 单机常驻：随宿主机/守护进程重启自动恢复；每轮任务幂等
     restart: unless-stopped

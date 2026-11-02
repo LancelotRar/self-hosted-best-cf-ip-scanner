@@ -1,15 +1,35 @@
-# 构建上下文：只保留镜像真正需要的文件，缩短构建时间与体积
+# 构建上下文：只保留镜像真正需要的文件，缩短构建时间并避免泄露
+# （镜像实际 COPY 的只有 best_cf_ip_scanner.py、scanner/、docker/、data/、requirements.txt）
+
+# 版本控制与仓库元数据
 .git
+.gitignore
+.gitattributes
 .github
 .legacy
-.env
-.env.*
-!.env.example
+
+# 运行时目录（宿主数据，不进镜像）
 output
 cache
 result
-tests
+
+# 文档与许可证
 docs
+**/*.md
+LICENSE
+
+# 本地配置与密钥（镜像不需要 .env，运行时由 compose 注入）
+.env
+.env.*
+**/.env
+!.env.example
+
+# 编排文件（镜像不依赖）
+compose.yaml
+compose.example.yaml
+compose.build.yaml
+
+# Python 缓存与虚拟环境
 __pycache__
 *.py[cod]
 .pytest_cache
@@ -17,10 +37,7 @@ __pycache__
 .venv
 venv
 requirements-dev.txt
-compose.example.yaml
-compose.yaml
-compose.build.yaml
-README.md
-LICENSE
-.gitignore
-.gitattributes
+
+# 其它
+tests
+*.log
