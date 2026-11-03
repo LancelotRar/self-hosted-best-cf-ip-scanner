@@ -177,13 +177,12 @@ onBeforeUnmount(() => {
 .sidebar {
   position: sticky;
   top: 0;
-  flex: 0 0 232px;
-  width: 232px;
+  flex: 0 0 208px;
+  width: 208px;
   height: 100vh;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-4) var(--space-3);
+  padding: 0;
   background: var(--surface);
   border-right: 1px solid var(--border);
   z-index: 30;
@@ -193,21 +192,20 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 2px var(--space-1) 14px;
-  margin-bottom: 4px;
-  border-bottom: 1px solid var(--border);
+  padding: 20px 18px 16px;
+  border-bottom: 1px solid var(--border-soft);
 }
 
 .brand__mark {
   display: inline-grid;
   place-items: center;
   flex: 0 0 auto;
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-sm);
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
   background: var(--primary);
   color: var(--on-primary);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
 }
@@ -220,37 +218,37 @@ onBeforeUnmount(() => {
 }
 
 .brand__text strong {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
 }
 
 .brand__text small {
-  color: var(--text-muted);
-  font-size: 11px;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  margin-top: 3px;
 }
 
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
   overflow-y: auto;
   flex: 1;
-  margin: 0 calc(var(--space-1) * -1);
-  padding: 0 var(--space-1);
+  margin: 0;
+  padding: 10px 8px;
 }
 
 .nav__item {
-  position: relative;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
   gap: 10px;
-  height: 40px;
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-sm);
-  border-left: 2px solid transparent;
+  padding: 8px 11px;
+  margin-bottom: 2px;
+  border-radius: 7px;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 13.5px;
   transition: background-color var(--dur-fast) var(--ease),
     color var(--dur-fast) var(--ease);
 }
@@ -262,26 +260,27 @@ onBeforeUnmount(() => {
 
 .nav__icon {
   flex: 0 0 16px;
-  color: var(--text-muted);
+  color: currentColor;
+  opacity: 0.82;
 }
 
 .nav__item--active {
-  background: color-mix(in srgb, var(--primary) 14%, var(--surface));
-  border-left-color: var(--primary);
-  color: var(--text);
-  font-weight: 600;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 550;
 }
 
 .nav__item--active .nav__icon {
   color: var(--primary);
+  opacity: 1;
 }
 
 .sidebar__foot {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--border);
+  padding: 12px 10px 16px;
+  border-top: 1px solid var(--border-soft);
 }
 
 .status-line {
@@ -376,9 +375,7 @@ onBeforeUnmount(() => {
   }
 
   .nav__item {
-    height: 38px;
-    padding: 0 var(--space-3);
-    border-left: 0;
+    padding: 9px var(--space-3);
     border-bottom: 2px solid transparent;
     border-radius: 0;
     white-space: nowrap;

@@ -36,6 +36,7 @@ withDefaults(
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
   min-height: 120px;
 }
 
@@ -62,9 +63,11 @@ withDefaults(
 }
 
 .metric__value {
-  font-size: 20px;
-  line-height: 28px;
+  font-family: var(--font-mono);
+  font-size: 22px;
+  line-height: 30px;
   font-weight: 600;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }

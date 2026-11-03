@@ -15,8 +15,8 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 1.54;
+  font-size: 14px;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -76,8 +76,8 @@ a {
 
 .page-title {
   margin: 0;
-  font-size: 22px;
-  line-height: 30px;
+  font-size: 20px;
+  line-height: 28px;
   font-weight: 600;
   letter-spacing: 0.01em;
 }
@@ -152,6 +152,7 @@ a {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
 }
 
 .panel__head {
@@ -215,6 +216,7 @@ a {
   border-color: var(--border);
   border-radius: var(--radius-md);
   color: var(--text);
+  box-shadow: var(--shadow);
 }
 
 .el-card__header {
@@ -277,9 +279,19 @@ a {
 }
 
 .el-table th.el-table__cell {
-  font-weight: 600;
-  font-size: 12px;
-  letter-spacing: 0.02em;
+  font-weight: 500;
+  font-size: 11.5px;
+  letter-spacing: 0.01em;
+  color: var(--text-faint);
+  padding: 9px 0;
+}
+
+.el-table td.el-table__cell {
+  padding: 10px 0;
+}
+
+.el-table tbody tr:hover > td.el-table__cell {
+  background: var(--surface-2);
 }
 
 .el-table th.el-table__cell:first-child {
@@ -467,7 +479,7 @@ html[data-font-size="sm"] {
 }
 
 html[data-font-size="sm"] body {
-  font-size: 12px;
+  font-size: 12.5px;
 }
 
 html[data-font-size="sm"] .page-title {
@@ -509,7 +521,7 @@ html[data-font-size="lg"] {
 }
 
 html[data-font-size="lg"] body {
-  font-size: 14px;
+  font-size: 15px;
 }
 
 html[data-font-size="lg"] .page-title {

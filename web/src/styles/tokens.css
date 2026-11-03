@@ -25,46 +25,52 @@
 }
 
 html[data-theme="dark"] {
-  --bg: #0f172a;
-  --surface: #1b2336;
-  --surface-2: #272f42;
-  --surface-3: #334155;
-  --border: #334155;
-  --border-strong: #64748b;
-  --text: #f8fafc;
-  --text-muted: #94a3b8;
-  --primary: #2563eb;
-  --primary-hover: #3b82f6;
+  --bg: #0c0e14;
+  --surface: #14171f;
+  --surface-2: #1a1e28;
+  --surface-3: #202531;
+  --border: #262c3a;
+  --border-soft: #1e232e;
+  --border-strong: #3b4457;
+  --text: #e8ebf2;
+  --text-muted: #a8b0c2;
+  --text-faint: #6b7488;
+  --primary: #5b7cfa;
+  --primary-hover: #708cff;
   --on-primary: #ffffff;
-  --focus: #60a5fa;
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --danger: #ef4444;
-  --info: #60a5fa;
-  --log-bg: #0b1220;
-  --shadow-overlay: 0 8px 24px rgb(0 0 0 / 35%);
+  --primary-soft: rgb(91 124 250 / 13%);
+  --focus: #5b7cfa;
+  --success: #3ddc97;
+  --warning: #f5b544;
+  --danger: #f0655f;
+  --info: #5b7cfa;
+  --log-bg: #0a0c11;
+  --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px -12px rgb(0 0 0 / 50%);
   color-scheme: dark;
 }
 
 html[data-theme="light"] {
-  --bg: #f5f7fa;
+  --bg: #f4f5f8;
   --surface: #ffffff;
-  --surface-2: #eef2f7;
-  --surface-3: #e2e8f0;
-  --border: #e2e8f0;
-  --border-strong: #94a3b8;
-  --text: #0f172a;
-  --text-muted: #475569;
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
+  --surface-2: #f8f9fb;
+  --surface-3: #eceef3;
+  --border: #e2e5ec;
+  --border-soft: #eceef3;
+  --border-strong: #c9ced9;
+  --text: #14171f;
+  --text-muted: #545c6e;
+  --text-faint: #8b93a5;
+  --primary: #3d5fe0;
+  --primary-hover: #3355d6;
   --on-primary: #ffffff;
-  --focus: #2563eb;
-  --success: #15803d;
-  --warning: #b45309;
-  --danger: #b91c1c;
-  --info: #1d4ed8;
-  --log-bg: #0b1220;
-  --shadow-overlay: 0 8px 24px rgb(15 23 42 / 12%);
+  --primary-soft: rgb(61 95 224 / 9%);
+  --focus: #3d5fe0;
+  --success: #0f9d63;
+  --warning: #b47611;
+  --danger: #cf3b34;
+  --info: #3d5fe0;
+  --log-bg: #0f1116;
+  --shadow: 0 1px 2px rgb(16 20 32 / 6%), 0 8px 24px -14px rgb(16 20 32 / 14%);
   color-scheme: light;
 }
 

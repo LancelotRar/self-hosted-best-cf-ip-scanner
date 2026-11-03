@@ -3,7 +3,7 @@ import { ref } from "vue";
 export type Theme = "dark" | "light";
 
 const STORAGE_KEY = "panel-theme";
-const theme = ref<Theme>("dark");
+const theme = ref<Theme>("light");
 
 function apply(next: Theme) {
   theme.value = next;
@@ -23,7 +23,7 @@ export function initTheme(): void {
   } catch {
     /* ignore */
   }
-  apply(saved ?? "dark");
+  apply(saved ?? "light");
 }
 
 export function useTheme() {
