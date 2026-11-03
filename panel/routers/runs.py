@@ -9,9 +9,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sse_starlette.sse import EventSourceResponse
 
 from .. import runs_store
+from ..audit import record as audit_record
 from ..deps import controller_of, settings_of
 from ..docker_api import ScannerUnavailable
-from ..security import require_user, verify_csrf
+from ..redact import redact_secrets
+from ..security import client_ip, require_user, verify_csrf
 
 router = APIRouter(prefix="/api/runs", tags=["runs"])
 
@@ -32,6 +34,19 @@ def list_runs(request: Request, limit: int = 50) -> dict[str, object]:
     return {"runs": [record.to_dict() for record in reversed(records)]}
 
 
+def _run_env(settings, run_id: str) -> dict[str, str]:
+    """面板触发的一轮需要带上容器内的运行身份与时区（它们只在 .env 里）。"""
+    from ..config_store import read_env
+
+    document = read_env(settings)
+    env = {"RUN_ID": run_id, "RUN_TRIGGER": "panel"}
+    for name in ("PUID", "PGID", "TZ"):
+        value = document.values.get(name)
+        if value and value.strip():
+            env[name] = value.strip()
+    return env
+
+
 @router.post(
     "", status_code=202, dependencies=[Depends(require_user), Depends(verify_csrf)]
 )
@@ -50,15 +65,24 @@ def trigger_run(request: Request) -> dict[str, object]:
         )
     run_id = _new_run_id()
     try:
-        handle = controller.exec_script(
-            SCAN_SCRIPT, {"RUN_ID": run_id, "RUN_TRIGGER": "panel"}
-        )
+        handle = controller.exec_script(SCAN_SCRIPT, _run_env(settings, run_id))
     except ScannerUnavailable as exc:
         raise HTTPException(
             status_code=503,
             detail={"code": "scanner_unavailable", "message": str(exc)},
         ) from exc
-    request.app.state.active_runs[run_id] = handle
+    active = request.app.state.active_runs
+    active[run_id] = handle
+    for stale in list(active)[:-50]:
+        active.pop(stale, None)
+    audit_record(
+        request.app.state.conn,
+        "admin",
+        "run.trigger",
+        run_id,
+        "手动触发一轮扫描",
+        client_ip(request),
+    )
     return {"run_id": run_id, "trigger": "panel"}
 
 
@@ -71,10 +95,10 @@ def stream_run(run_id: str, request: Request, tail: int = 200):
             detail={"code": "run_not_found", "message": "没有这个运行，可能已结束"},
         )
 
-    async def events():
+    def events():
         try:
             for chunk in handle.stream():
-                text = chunk.decode("utf-8", "replace").rstrip("\n")
+                text = redact_secrets(chunk.decode("utf-8", "replace").rstrip("\n"))
                 if text:
                     yield {"event": "log", "data": text}
         except ScannerUnavailable as exc:

@@ -16,7 +16,7 @@
 </tr>
 </thead>
 <tbody>
-<tr><td align="center"><code>CRON_SCHEDULE</code></td><td align="center"><code>30 */6 * * *</code></td><td align="center">5 段（分 时 日 月 周）或 6 段（秒 分 时 日 月 周）；不支持 <code>@daily</code> 宏</td></tr>
+<tr><td align="center"><code>CRON_SCHEDULE</code></td><td align="center"><code>30 */6 * * *</code></td><td align="center">5 段（分 时 日 月 周）、6 段（+年）、7 段（秒+5 段+年）；不支持 <code>@daily</code> 宏</td></tr>
 <tr><td align="center"><code>RUN_ON_START</code></td><td align="center"><code>true</code></td><td align="center">容器启动后立即执行一轮，再进入调度</td></tr>
 <tr><td align="center"><code>TZ</code></td><td align="center"><code>Asia/Shanghai</code></td><td align="center">调度与提交信息时区；产物中的扫描时间固定为北京时间</td></tr>
 </tbody>
@@ -42,7 +42,8 @@
 </tbody>
 </table>
 
-需要秒级精度时可写 6 段（秒 分 时 日 月 周），如 `*/30 * * * * *` 表示每 30 秒。
+需要秒级精度时写 7 段（秒 分 时 日 月 周 年），如 `*/30 * * * * * *` 表示每 30 秒。
+注意 6 段的第 6 位是**年**（supercronic 语义），`*/30 * * * * *` 是每 30 分钟，不是每 30 秒。
 
 cron 字段含义：
 
@@ -64,7 +65,7 @@ docker compose logs -f scanner            # 每轮开始与结束都会打印
 docker compose exec -T scanner /usr/local/bin/apply-config.sh   # 手动触发一次重渲染
 ```
 
-- 支持 5 段（分 时 日 月 周）与 6 段（秒 分 时 日 月 周）；不接受 `@daily` 这类宏。
+- 支持 5 段、6 段（+年）与 7 段（秒+5 段+年）；不接受 `@daily` 这类宏。
 - `apply-config.sh` 失败时保留旧 crontab 并记录错误，调度器不会静默停摆。
 
 ## 行为说明

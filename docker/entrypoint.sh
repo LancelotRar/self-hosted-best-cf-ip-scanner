@@ -20,6 +20,14 @@ EXPORT_DOTENV="${EXPORT_DOTENV:-/usr/local/bin/export-dotenv.py}"
 
 log() { echo "[entrypoint] $*"; }
 
+# 与 schema 默认值保持一致：空值 = 未设置 = 用默认值（RUN_ON_START 默认 true）。
+is_true() {
+  case "$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')" in
+    1 | true | yes | on) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 if ! dotenv_exports="$(python "$EXPORT_DOTENV" --keys PUID,PGID,TZ,CRON_SCHEDULE,RUN_ON_START)"; then
   log "[错误] 读取 .env 失败，容器不进入调度"
   exit 1
@@ -37,7 +45,7 @@ STATE_DIR="${STATE_DIR:-/cache}"
 DEFAULT_DATA_DIR="${DEFAULT_DATA_DIR:-/opt/default-data}"
 
 CRON_SCHEDULE="${CRON_SCHEDULE:-30 */6 * * *}"
-RUN_ON_START="${RUN_ON_START:-false}"
+RUN_ON_START="${RUN_ON_START:-true}"
 CRONTAB_TEMPLATE="${CRONTAB_TEMPLATE:-/etc/supercronic/crontab.template}"
 CRONTAB_PATH="${CRONTAB_PATH:-/tmp/supercronic.crontab}"
 CONFIG_WATCHER="${CONFIG_WATCHER:-/usr/local/bin/config-watcher.sh}"
@@ -109,7 +117,7 @@ else
   log "[警告] 未找到 ${CONFIG_WATCHER}，手工修改 .env 后需重启容器才生效"
 fi
 
-if [ "$RUN_ON_START" = "true" ]; then
+if is_true "$RUN_ON_START"; then
   # 放到后台执行：让 supercronic 立刻成为 PID 1 并接管信号，
   # 否则 docker stop 期间 shell 卡在这轮扫描上，TERM 无法传递（要等满宽限期才被杀）。
   # 首轮与后续调度共用同一把锁，不会并发。

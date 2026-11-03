@@ -15,8 +15,13 @@ set -u
 log() { echo "[publish] $*"; }
 err() { echo "[publish] $*" >&2; }
 
-GIT_PUSH_ENABLED="${GIT_PUSH_ENABLED:-true}"
-case "$GIT_PUSH_ENABLED" in
+# 仓库地址可能带 user:token@：打印前只保留 scheme://host。
+mask_url() {
+  printf '%s' "$1" | sed -E 's#(://)[^/@]*@#\1***@#'
+}
+
+GIT_PUSH_ENABLED="${GIT_PUSH_ENABLED:-false}"
+case "$(printf '%s' "$GIT_PUSH_ENABLED" | tr '[:upper:]' '[:lower:]')" in
   true | 1 | yes | on) ;;
   *)
     log "GIT_PUSH_ENABLED=$GIT_PUSH_ENABLED，跳过发布"
@@ -127,7 +132,7 @@ attempt=1
 delay="$RETRY_DELAY"
 while :; do
   if sync_repo && mirror_outputs && commit_and_push; then
-    log "发布成功: ${GIT_REPO_URL} ${GIT_BRANCH}:${TARGET_SUBDIR}/（$(ls "$SRC_DIR"/*.txt 2>/dev/null | wc -l | tr -d ' ') 个 txt）"
+    log "发布成功: $(mask_url "$GIT_REPO_URL") ${GIT_BRANCH}:${TARGET_SUBDIR}/（$(ls "$SRC_DIR"/*.txt 2>/dev/null | wc -l | tr -d ' ') 个 txt）"
     exit 0
   fi
   if [ "$attempt" -ge "$RETRY_MAX" ]; then

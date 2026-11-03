@@ -28,6 +28,20 @@ def test_trigger_rejects_when_lock_is_held(client, settings, fake_controller):
     assert response.status_code == 409
 
 
+def test_trigger_passes_runtime_identity_and_audits(client, settings, fake_controller):
+    settings.env_path.write_text(
+        "PUID=1001\nPGID=1002\nTZ=UTC\n", encoding="utf-8"
+    )
+    run_id = client.post("/api/runs").json()["run_id"]
+    assert run_id
+    _, env = fake_controller.exec_calls[-1]
+    assert env["PUID"] == "1001"
+    assert env["PGID"] == "1002"
+    assert env["TZ"] == "UTC"
+    actions = [item["action"] for item in client.get("/api/audit").json()["items"]]
+    assert "run.trigger" in actions
+
+
 def test_trigger_unavailable_returns_503(client, fake_controller):
     fake_controller.raise_unavailable = True
     assert client.post("/api/runs").status_code == 503

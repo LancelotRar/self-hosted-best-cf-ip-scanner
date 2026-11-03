@@ -227,7 +227,7 @@ PARAMS: tuple[ParamSpec, ...] = (
         "cron",
         "30 */6 * * *",
         "调度表达式",
-        "5 段（分 时 日 月 周）或 6 段（秒 分 时 日 月 周）；不支持 @daily 宏。",
+        "5 段（分 时 日 月 周）、6 段（+年）、7 段（秒+5 段+年）；不支持 @daily 宏。",
         consumer="shell",
     ),
     ParamSpec(

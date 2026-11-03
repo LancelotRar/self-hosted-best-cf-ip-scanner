@@ -19,10 +19,13 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+from zoneinfo import ZoneInfo
+
 from scanner.dotenv import DotenvError, parse_dotenv, quote_value
 from scanner.schema import BY_NAME, PARAMS, coerce, format_value
 
 from .audit import record as audit_record
+from .cron import CronInvalid, validate as validate_cron
 from .docker_api import ScannerUnavailable
 from .files import atomic_write
 from .redact import redact_secrets
@@ -161,14 +164,44 @@ def _cross_field_errors(values: Mapping[str, str]) -> list[dict[str, object]]:
     return errors
 
 
+def _semantic_errors(values: Mapping[str, str]) -> list[dict[str, object]]:
+    """跨字段与调度/时区/身份类校验：必须在写盘前拦截。"""
+    errors = _cross_field_errors(values)
+
+    expression = (values.get("CRON_SCHEDULE") or "").strip()
+    if expression:
+        try:
+            validate_cron(expression)
+        except CronInvalid as exc:
+            errors.append({"name": "CRON_SCHEDULE", "message": str(exc)})
+
+    timezone_name = (values.get("TZ") or "").strip()
+    if timezone_name:
+        try:
+            ZoneInfo(timezone_name)
+        except Exception:  # noqa: BLE001 - 任何时区库问题都算非法
+            errors.append({"name": "TZ", "message": f"未知时区：{timezone_name}"})
+
+    for name in ("PUID", "PGID"):
+        raw = (values.get(name) or "").strip()
+        if not raw:
+            continue
+        try:
+            if int(raw) < 0:
+                raise ValueError
+        except ValueError:
+            errors.append({"name": name, "message": "必须是非负整数"})
+    return errors
+
+
 def validate_candidate(
     values: Mapping[str, str], env: Mapping[str, str] | None = None
 ) -> None:
-    """候选配置干跑：跨字段校验 + （容器内）`check-config.py`。
+    """候选配置干跑：跨字段/调度/时区校验 + （容器内）`check-config.py`。
 
     失败抛 `ValueError`，参数为字段级错误列表。
     """
-    errors = _cross_field_errors(values)
+    errors = _semantic_errors(values)
     if errors:
         raise ValueError(errors)
 
@@ -184,12 +217,22 @@ def validate_candidate(
     with tempfile.TemporaryDirectory() as temporary:
         candidate_path = Path(temporary) / ".env"
         candidate_path.write_text(payload, encoding="utf-8")
+        # 干跑必须看到候选里的代理/探测变量，否则代理未豁免这类错误会被漏掉；
+        # 显式非空环境变量仍然优先（与运行期一致）。
+        explicit = {key: value for key, value in os.environ.items() if value.strip()}
+        candidate_env = {
+            name: str(value) for name, value in values.items() if name in BY_NAME
+        }
         process = subprocess.run(
             [sys.executable, str(script)],
             capture_output=True,
             text=True,
             timeout=60,
-            env={**os.environ, "DOTENV_PATH": str(candidate_path)},
+            env={
+                **candidate_env,
+                **explicit,
+                "DOTENV_PATH": str(candidate_path),
+            },
             check=False,
         )
     if process.returncode == 0:
@@ -217,8 +260,14 @@ def _canonical_updates(updates: Mapping[str, object]) -> dict[str, str]:
             continue
         if raw is None:
             continue  # 敏感字段缺省 = 不修改
+        text = str(raw)
+        if any(char in text for char in ("\n", "\r", "\x00")) or "${" in text:
+            errors.append(
+                {"name": name, "message": "值不能包含换行、NUL 或 ${} 插值"}
+            )
+            continue
         try:
-            value = coerce(spec, str(raw))
+            value = coerce(spec, text)
         except ValueError as exc:
             errors.append({"name": name, "message": str(exc) or "取值非法"})
             continue
@@ -315,7 +364,10 @@ def verify_effective(
         names = [
             spec.name
             for spec in PARAMS
-            if not spec.secret and not spec.read_only and spec.consumer in {"scanner", "shell"}
+            if not spec.secret
+            and not spec.read_only
+            and not spec.restart
+            and spec.consumer in {"scanner", "shell", "publish", "proxy"}
         ]
     details: list[dict[str, object]] = []
     for name in names:
@@ -334,6 +386,27 @@ def verify_effective(
         "checked_at": checked_at,
         "details": details,
     }
+
+
+def _has_userinfo(text: str) -> bool:
+    return bool(re.search(r"[a-zA-Z][a-zA-Z0-9+.\-]*://[^/@\s]+@", text))
+
+
+def _stored_values(values: Mapping[str, str]) -> dict[str, str]:
+    """版本历史里只存可安全回放的值：去掉敏感、只读与非法项。"""
+    stored: dict[str, str] = {}
+    for name, value in values.items():
+        spec = BY_NAME.get(name)
+        if spec is None or spec.secret or spec.read_only:
+            continue
+        try:
+            canonical = format_value(spec, coerce(spec, value))
+        except ValueError:
+            continue  # 只读/发布键的历史脏值不应阻断本次保存
+        if _has_userinfo(canonical):
+            continue  # 带凭据的 URL 不能进版本历史
+        stored[name] = canonical
+    return stored
 
 
 def _effect(spec) -> str:
@@ -401,11 +474,14 @@ def save(
     backup = _backup_env(settings, document)
     _write_env(settings, candidate)
 
-    written_document = read_env(settings)
+    try:
+        written_document = read_env(settings)
+    except DotenvError as exc:
+        _restore(settings, backup)
+        raise ConfigWriteUnverified(f"写入后无法重新解析，已回滚：{exc}") from exc
     if written_document.text != candidate or written_document.sha256 != _sha256(candidate):
         _restore(settings, backup)
         raise ConfigWriteUnverified("写入后回读不一致，已回滚到保存前内容")
-
     changed: list[dict] = []
     for name, new_value in clean.items():
         spec = BY_NAME[name]
@@ -449,7 +525,8 @@ def save(
     hot_names = [
         item["name"]
         for item in changed
-        if item["effect"] == "next_round" and BY_NAME[item["name"]].consumer in {"scanner", "shell"}
+        if item["effect"] == "next_round"
+        and BY_NAME[item["name"]].consumer in {"scanner", "shell", "publish", "proxy"}
     ]
     verification = verify_effective(settings, controller, hot_names)
     status = verification["status"]
@@ -465,11 +542,7 @@ def save(
         "restart_required": restart_required,
     }
 
-    stored = {
-        name: format_value(BY_NAME[name], coerce(BY_NAME[name], value))
-        for name, value in merged.items()
-        if not BY_NAME[name].secret
-    }
+    stored = _stored_values(merged)
     diff = redact(
         "\n".join(
             f"- {item['name']}={item['old']}\n+ {item['name']}={item['new']}"
@@ -477,27 +550,32 @@ def save(
             if not BY_NAME[item["name"]].secret
         )
     )
-    with settings_db(settings) as conn:
-        with conn:
-            conn.execute(
-                "INSERT INTO config_versions (created_at, actor, sha256, values_json, diff)"
-                " VALUES (?, ?, ?, ?, ?)",
-                (
-                    _now_iso(),
-                    actor,
-                    written_document.sha256,
-                    json.dumps(stored, ensure_ascii=False),
-                    diff,
-                ),
+    try:
+        with settings_db(settings) as conn:
+            with conn:
+                conn.execute(
+                    "INSERT INTO config_versions (created_at, actor, sha256, values_json, diff)"
+                    " VALUES (?, ?, ?, ?, ?)",
+                    (
+                        _now_iso(),
+                        actor,
+                        written_document.sha256,
+                        json.dumps(stored, ensure_ascii=False),
+                        diff,
+                    ),
+                )
+            audit_record(
+                conn,
+                actor,
+                "config.save",
+                str(settings.env_path),
+                diff or "无实际变更",
+                "panel",
             )
-        audit_record(
-            conn,
-            actor,
-            "config.save",
-            str(settings.env_path),
-            diff or "无实际变更",
-            "panel",
-        )
+    except Exception:
+        # 写入之后的任何失败都不能留下"没有版本记录的新配置"：回滚到保存前。
+        _restore(settings, backup)
+        raise
 
     return SaveResult(
         document=written_document,
@@ -551,7 +629,9 @@ def param_entries(document: EnvDocument) -> list[dict[str, object]]:
                 "label": spec.label,
                 "help": spec.help,
                 "default": spec.default,
-                "value": value,
+                "value": (
+                    redact_secrets(value) if isinstance(value, str) else value
+                ),
                 "source": "dotenv" if configured else "default",
                 "configured": configured,
                 "secret": spec.secret,
@@ -579,15 +659,30 @@ def rollback(
     if row is None:
         raise ConfigInvalid([{"name": None, "message": "配置版本不存在"}])
     stored = json.loads(row["values_json"])
-    updates = {name: value for name, value in stored.items() if name in BY_NAME}
+    updates = {
+        name: value
+        for name, value in stored.items()
+        if name in BY_NAME
+        and not BY_NAME[name].read_only
+        and not BY_NAME[name].secret
+    }
     document = read_env(settings)
-    return save(
+    result = save(
         settings,
         expected_hash or document.sha256,
         updates,
         actor=actor,
         controller=controller,
     )
+    audit_record(
+        conn,
+        actor,
+        "config.rollback",
+        str(settings.env_path),
+        f"回滚到配置版本 {version_id}",
+        "panel",
+    )
+    return result
 
 
 __all__ = [

@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import threading
 import time
 from collections.abc import Iterator
 from typing import Any
@@ -35,28 +36,63 @@ class ScannerUnavailable(RuntimeError):
 
 
 class ExecHandle:
-    """一次 `docker exec` 的句柄：流式读取输出，结束后取退出码。"""
+    """一次 `docker exec` 的句柄：创建即开始执行，输出边跑边缓存。
+
+    先启动、后订阅：即使前端没有立刻打开 SSE（或面板重启），指令也已经真的跑起来了。
+    输出在工作线程里累积，`stream()` 只读缓存，不阻塞事件循环。
+    """
 
     def __init__(self, api: Any, exec_id: str, run_id: str) -> None:
         self._api = api
         self.exec_id = exec_id
         self.run_id = run_id
+        self._chunks: list[bytes] = []
+        self._done = threading.Event()
+        self._error: str | None = None
+        self._thread: threading.Thread | None = None
+        self.start()
+
+    def start(self) -> None:
+        if self._thread is not None:
+            return
+        self._thread = threading.Thread(target=self._pump, daemon=True)
+        self._thread.start()
+
+    def _pump(self) -> None:
+        try:
+            for chunk in self._api.exec_start(self.exec_id, stream=True, demux=False):
+                if chunk:
+                    self._chunks.append(chunk)
+        except Exception as exc:  # noqa: BLE001 - 统一转成可展示的不可用
+            self._error = str(exc)
+        finally:
+            self._done.set()
 
     def stream(self) -> Iterator[bytes]:
-        try:
-            yield from self._api.exec_start(self.exec_id, stream=True, demux=False)
-        except Exception as exc:  # noqa: BLE001 - 统一转成可展示的不可用
-            raise ScannerUnavailable(f"读取运行输出失败：{exc}") from exc
+        index = 0
+        while True:
+            while index < len(self._chunks):
+                yield self._chunks[index]
+                index += 1
+            if self._done.is_set():
+                if self._error:
+                    raise ScannerUnavailable(f"读取运行输出失败：{self._error}")
+                return
+            time.sleep(0.05)
 
-    def wait(self, interval_s: float = 0.2) -> int:
-        """等待执行结束并返回退出码。"""
+    def wait(self, timeout_s: float = 3600) -> int:
+        """等待执行结束并返回退出码；超时视为不可用。"""
+        deadline = time.monotonic() + timeout_s
+        self._done.wait(max(0.0, min(1.0, timeout_s)))
         try:
             while True:
                 info = self._api.exec_inspect(self.exec_id)
                 code = info.get("ExitCode")
                 if code is not None:
                     return int(code)
-                time.sleep(interval_s)
+                if time.monotonic() > deadline:
+                    raise ScannerUnavailable("等待执行结束超时")
+                time.sleep(0.2)
         except ScannerUnavailable:
             raise
         except Exception as exc:  # noqa: BLE001

@@ -51,6 +51,7 @@ def apply_schedule(request: Request) -> dict[str, object]:
         )
     try:
         handle = controller.exec_script(APPLY_CONFIG_SCRIPT, {})
+        output = b"".join(handle.stream()).decode("utf-8", "replace")[-4000:]
         code = handle.wait()
     except ScannerUnavailable as exc:
         raise HTTPException(
@@ -63,6 +64,7 @@ def apply_schedule(request: Request) -> dict[str, object]:
             detail={
                 "code": "schedule_apply_failed",
                 "message": "调度应用失败，旧 crontab 保持不变",
+                "details": [{"name": None, "message": output or f"退出码 {code}"}],
             },
         )
-    return {"applied": True}
+    return {"applied": True, "output": output}

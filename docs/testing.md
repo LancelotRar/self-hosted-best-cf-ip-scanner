@@ -8,7 +8,7 @@
 
 | 层 | 命令 | 覆盖 |
 | --- | --- | --- |
-| 单元 | `python -m pytest -q` | `.env` 解析（CRLF/引号/行内注释）、schema 与配置优先级、cron 5/6 段、脱敏、轮次解析、路径安全、认证与限速 |
+| 单元 | `python -m pytest -q` | `.env` 解析（CRLF/引号/行内注释）、schema 与配置优先级、cron 5/6/7 段（supercronic 语义）、脱敏、轮次解析、路径安全、认证与限速 |
 | API 集成 | 同上（`tests/test_*_api.py`） | 认证/CSRF、配置保存事务与核对、409 冲突、回滚、调度、运行/SSE、日志、产物、IP 库、发布、系统 |
 | 脚本/配置契约 | `pytest tests/test_scripts.py -q` | `sh -n` 全部脚本、Python 脚本可编译、`.env.example` 可解析、compose 拓扑、无 `shell=True` |
 | 前端单元 | `npm --prefix web run test` | auth/config store、`ParamField` 值转换 |
@@ -101,7 +101,7 @@ E2E 不依赖真实扫描成功：只验证运行流、错误与空态提示。�
 
 - [ ] 用真实 `PROBE_HOST` 跑完一轮，产物符合预期。
 - [ ] 面板改参数 → 核对通过 → 下一轮日志出现新值；手工改 `.env` 同样验证。
-- [ ] cron 热重载后按新时间触发（5 段与 6 段各验一次）。
+- [ ] cron 热重载后按新时间触发（5 段与 7 段含秒各验一次）。
 - [ ] 手动执行、日志实时流、产物预览/下载、IP 库保存/恢复。
 - [ ] 发布到测试仓库成功；令牌未出现在页面/日志/审计。
 - [ ] 面板重启、扫描容器重启、备份恢复。

@@ -65,7 +65,7 @@ def _raise_for(exc: config_store.ConfigError) -> None:
     )
 
 
-@router.get("/config")
+@router.get("/config", dependencies=[Depends(require_user)])
 def get_config(request: Request) -> dict[str, object]:
     document = _document(request)
     stat = document.path.stat() if document.path.exists() else None

@@ -101,6 +101,7 @@ export const useConfigStore = defineStore("config", {
         return result;
       } catch (error) {
         const failure = error as Error & { status?: number; details?: unknown };
+        this.lastResult = null; // 失败时不能继续展示上一次的“已写入/已核对”
         this.lastError = {
           message: failure.message,
           status: failure.status,
@@ -110,6 +111,15 @@ export const useConfigStore = defineStore("config", {
       } finally {
         this.saving = false;
       }
+    },
+    async verify() {
+      const data = await api.post<{ verification: SaveResult["verification"] }>(
+        "/api/config/verify",
+      );
+      if (this.lastResult) {
+        this.lastResult = { ...this.lastResult, verification: data.verification };
+      }
+      return data.verification;
     },
     async loadVersions() {
       const data = await api.get<{ versions: VersionRecord[] }>("/api/config/versions");

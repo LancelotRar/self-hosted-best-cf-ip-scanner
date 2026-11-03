@@ -17,14 +17,35 @@ def test_five_field_preview():
     assert [run.strftime("%H:%M") for run in runs] == ["00:30", "06:30", "12:30"]
 
 
-def test_six_field_preview_supports_seconds():
+def test_seven_field_preview_supports_seconds():
+    runs = next_runs(
+        "*/30 * * * * * *",
+        "UTC",
+        count=2,
+        now=datetime(2026, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("UTC")),
+    )
+    assert [run.strftime("%H:%M:%S") for run in runs] == ["00:00:30", "00:01:00"]
+
+
+def test_six_field_sixth_field_is_year_not_seconds():
+    # supercronic：6 段 = 分 时 日 月 周 年；第 6 位当秒会静默变成另一种调度。
     runs = next_runs(
         "*/30 * * * * *",
         "UTC",
         count=2,
         now=datetime(2026, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("UTC")),
     )
-    assert [run.strftime("%H:%M:%S") for run in runs] == ["00:00:30", "00:01:00"]
+    assert [run.strftime("%H:%M:%S") for run in runs] == ["00:30:00", "01:00:00"]
+
+
+def test_year_field_restricts_next_run():
+    runs = next_runs(
+        "0 9 * * * 2027",
+        "UTC",
+        count=1,
+        now=datetime(2026, 11, 3, 0, 0, tzinfo=ZoneInfo("UTC")),
+    )
+    assert runs[0].strftime("%Y-%m-%d %H:%M") == "2027-01-01 09:00"
 
 
 @pytest.mark.parametrize("expr", ["@daily", "61 * * * *", "* * *"])

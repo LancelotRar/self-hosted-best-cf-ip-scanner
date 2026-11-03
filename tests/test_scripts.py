@@ -39,6 +39,14 @@ def test_compose_example_declares_panel_and_project_mount():
     assert "env_file" not in services["scanner"]
 
 
+def test_shell_boolean_defaults_match_schema():
+    entrypoint = (ROOT / "docker/entrypoint.sh").read_text(encoding="utf-8")
+    publish = (ROOT / "docker/publish.sh").read_text(encoding="utf-8")
+    # 空值 = 未设置 = schema 默认值；shell 默认值必须一致。
+    assert 'RUN_ON_START="${RUN_ON_START:-true}"' in entrypoint
+    assert 'GIT_PUSH_ENABLED="${GIT_PUSH_ENABLED:-false}"' in publish
+
+
 def test_cli_reset_password_keeps_audit(tmp_path, monkeypatch):
     from panel import db
     from panel.cli import reset_password

@@ -119,6 +119,7 @@ class FakeDockerApi:
         return {"Id": "exec-1"}
 
     def exec_start(self, exec_id, stream=True, demux=False):
+        self.started = getattr(self, "started", 0) + 1
         return iter([b"run-output\n"])
 
     def exec_inspect(self, exec_id):
@@ -171,11 +172,15 @@ def _effective_from_env(settings) -> dict[str, object]:
     values: dict[str, object] = {}
     for spec in PARAMS:
         raw = document.values.get(spec.name)
-        values[spec.name] = (
-            None
-            if spec.secret
-            else (coerce(spec, raw) if raw and raw.strip() else spec.default)
-        )
+        if spec.secret:
+            values[spec.name] = None
+        elif not raw or not raw.strip():
+            values[spec.name] = spec.default
+        else:
+            try:
+                values[spec.name] = coerce(spec, raw)
+            except ValueError:
+                values[spec.name] = None  # 与 print-config.py 的失败保持"不可核对"
     return values
 
 

@@ -1,6 +1,152 @@
 import pytest
 
-from panel.config_store import ConfigConflict, ConfigInvalid, read_env, save
+from panel import db as panel_db
+from panel.config_store import (
+    ConfigConflict,
+    ConfigInvalid,
+    read_env,
+    rollback,
+    save,
+    verify_effective,
+)
+
+
+def test_invalid_cron_and_tz_are_rejected_before_write(settings):
+    original = settings.env_path.read_text(encoding="utf-8")
+    with pytest.raises(ConfigInvalid):
+        save(
+            settings,
+            read_env(settings).sha256,
+            {"CRON_SCHEDULE": "bad cron"},
+            actor="admin",
+        )
+    with pytest.raises(ConfigInvalid):
+        save(
+            settings,
+            read_env(settings).sha256,
+            {"TZ": "Mars/Olympus"},
+            actor="admin",
+        )
+    with pytest.raises(ConfigInvalid):
+        save(
+            settings,
+            read_env(settings).sha256,
+            {"PUID": "-1"},
+            actor="admin",
+        )
+    assert settings.env_path.read_text(encoding="utf-8") == original
+
+
+def test_unsupported_value_syntax_is_rejected_before_write(settings):
+    original = settings.env_path.read_text(encoding="utf-8")
+    with pytest.raises(ConfigInvalid):
+        save(
+            settings,
+            read_env(settings).sha256,
+            {"PROBE_HOST": "probe-${ENV}.example.com"},
+            actor="admin",
+        )
+    assert settings.env_path.read_text(encoding="utf-8") == original
+
+
+def test_dry_run_sees_candidate_proxy_values(tmp_path, monkeypatch):
+    from panel.config_store import validate_candidate
+
+    script = tmp_path / "check.py"
+    script.write_text(
+        "import os, sys\n"
+        "sys.exit(0 if os.environ.get('HTTP_PROXY') == 'http://proxy:7890' else 1)\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("panel.config_store.CHECK_CONFIG_SCRIPT", str(script))
+    monkeypatch.delenv("HTTP_PROXY", raising=False)
+    validate_candidate(
+        {"PROBE_HOST": "probe.example.com", "HTTP_PROXY": "http://proxy:7890"}
+    )
+
+
+def test_rollback_survives_readonly_keys(settings, fake_controller):
+    settings.env_path.write_text(
+        "IMAGE_NAME=ghcr.io/example/scanner\nIMAGE_TAG=latest\n"
+        "PANEL_PORT=8080\nMAX_CANDIDATES=0\n",
+        encoding="utf-8",
+    )
+    save(
+        settings,
+        read_env(settings).sha256,
+        {"MAX_CANDIDATES": "5"},
+        actor="admin",
+        controller=fake_controller,
+    )
+    conn = panel_db.connect(settings.db_path)
+    version_id = conn.execute(
+        "SELECT id FROM config_versions ORDER BY id LIMIT 1"
+    ).fetchone()["id"]
+    save(
+        settings,
+        read_env(settings).sha256,
+        {"MAX_CANDIDATES": "6"},
+        actor="admin",
+        controller=fake_controller,
+    )
+    result = rollback(
+        settings,
+        conn,
+        version_id,
+        read_env(settings).sha256,
+        actor="admin",
+        controller=fake_controller,
+    )
+    assert result.written is True
+    assert read_env(settings).values["MAX_CANDIDATES"] == "5"
+
+
+def test_invalid_readonly_value_does_not_block_save(settings, fake_controller):
+    settings.env_path.write_text("PANEL_PORT=abc\nMAX_CANDIDATES=0\n", encoding="utf-8")
+    result = save(
+        settings,
+        read_env(settings).sha256,
+        {"MAX_CANDIDATES": "7"},
+        actor="admin",
+        controller=fake_controller,
+    )
+    assert result.written is True
+    assert read_env(settings).values["MAX_CANDIDATES"] == "7"
+
+
+def test_publish_change_is_verified_against_scanner(settings, fake_controller):
+    fake_controller.effective = {"GIT_BRANCH": "old"}
+    result = save(
+        settings,
+        read_env(settings).sha256,
+        {"GIT_BRANCH": "new"},
+        actor="admin",
+        controller=fake_controller,
+    )
+    assert result.verification["status"] == "mismatch"
+    assert result.verification["details"][0]["name"] == "GIT_BRANCH"
+
+
+def test_manual_verify_skips_restart_class_keys(settings, fake_controller):
+    from scanner.schema import PARAMS, coerce
+
+    settings.env_path.write_text("PUID=1001\nMAX_CANDIDATES=3\n", encoding="utf-8")
+    document = read_env(settings)
+    effective: dict[str, object] = {}
+    for spec in PARAMS:
+        raw = document.values.get(spec.name)
+        if spec.secret:
+            continue
+        effective[spec.name] = (
+            coerce(spec, raw) if raw and raw.strip() else spec.default
+        )
+    effective["PUID"] = 1000  # 扫描器还没重启，仍跑旧 UID
+    fake_controller.effective = effective
+
+    verification = verify_effective(settings, fake_controller)
+    assert verification["status"] == "verified"
+    assert verification["details"] == []
+
 
 
 def test_save_preserves_comments_and_updates_value(settings):

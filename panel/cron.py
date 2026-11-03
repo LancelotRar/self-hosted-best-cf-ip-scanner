@@ -1,11 +1,16 @@
 """cron 表达式解析与未来执行时间预览。
 
-支持 5 段（分 时 日 月 周）与 6 段（秒 分 时 日 月 周），与 supercronic 一致；
-不接受 `@daily` 这类宏。字段语法：`*`、数字、`a-b`、`a-b/step`、`*/step`、逗号列表。
+字段数与 supercronic（cronexpr）**完全一致**，因为它才是真正执行调度的一方：
+
+- 5 段：`分 时 日 月 周`
+- 6 段：`分 时 日 月 周 年`（**第 6 位是年，不是秒**）
+- 7 段：`秒 分 时 日 月 周 年`
+
+字段语法：`*`、数字、`a-b`、`a-b/step`、`*/step`、逗号列表；周字段 0-6（0=周日）。
+不接受 `@daily` 这类宏（supercronic 虽支持，但本项目要求显式表达式）。
 
 预览按分钟推进、分钟内按允许的秒集合展开：既避免逐秒扫描 366 天，也保证
-6 段表达式的秒级精度。DST 切换期间按本地墙钟推进，重复/缺失的小时以系统
-时区规则为准。
+秒级精度。DST 切换期间按本地墙钟推进，重复/缺失的小时以系统时区规则为准。
 """
 
 from __future__ import annotations
@@ -26,9 +31,10 @@ _RANGES: dict[str, tuple[int, int]] = {
     "dom": (1, 31),
     "month": (1, 12),
     "dow": (0, 6),
+    "year": (1970, 2099),
 }
 
-_FIELD_ORDER = ("second", "minute", "hour", "dom", "month", "dow")
+_FIELD_ORDER = ("second", "minute", "hour", "dom", "month", "dow", "year")
 
 
 class CronInvalid(ValueError):
@@ -67,14 +73,21 @@ def _parse_field(text: str, name: str) -> set[int]:
 
 
 def _parse(expr: str) -> dict[str, set[int]]:
+    """按 supercronic 的字段数解析：5 段、6 段（+年）、7 段（秒+5 段+年）。"""
     parts = expr.split()
     if len(parts) == 5:
-        parts = ["0", *parts]
-    elif len(parts) != 6:
-        raise CronInvalid("需要 5 段或 6 段表达式（不支持 @daily 等宏）")
+        fields = ["0", *parts, "*"]
+    elif len(parts) == 6:
+        fields = ["0", *parts]
+    elif len(parts) == 7:
+        fields = list(parts)
+    else:
+        raise CronInvalid(
+            "需要 5 段、6 段（第 6 位是年）或 7 段（含秒）；不支持 @daily 等宏"
+        )
     return {
         name: _parse_field(text, name)
-        for name, text in zip(_FIELD_ORDER, parts, strict=True)
+        for name, text in zip(_FIELD_ORDER, fields, strict=True)
     }
 
 
@@ -119,7 +132,8 @@ def next_runs(
     limit = MAX_DAYS * 24 * 60
     for _ in range(limit):
         if (
-            cursor.month in fields["month"]
+            cursor.year in fields["year"]
+            and cursor.month in fields["month"]
             and cursor.hour in fields["hour"]
             and cursor.minute in fields["minute"]
             and _day_matches(cursor, fields)

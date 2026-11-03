@@ -9,6 +9,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from ..deps import controller_of
 from ..docker_api import ScannerUnavailable
+from ..redact import redact_secrets
 from ..security import require_user
 
 router = APIRouter(prefix="/api/logs", tags=["logs"])
@@ -36,7 +37,7 @@ def _logs_or_503(request: Request, tail: int, follow: bool):
 def stream_logs(request: Request, tail: int = 200):
     chunks = _logs_or_503(request, max(1, min(tail, 5000)), follow=True)
 
-    async def events():
+    def events():
         buffer = b""
         for chunk in chunks:
             buffer += chunk
@@ -44,11 +45,17 @@ def stream_logs(request: Request, tail: int = 200):
                 line, buffer = buffer.split(b"\n", 1)
                 yield {
                     "event": "log",
-                    "data": line.rstrip(b"\r").decode("utf-8", "replace"),
+                    "data": redact_secrets(
+                        line.rstrip(b"\r").decode("utf-8", "replace")
+                    ),
                 }
         if buffer:
-            yield {"event": "log", "data": buffer.decode("utf-8", "replace")}
+            yield {
+                "event": "log",
+                "data": redact_secrets(buffer.decode("utf-8", "replace")),
+            }
 
+    # 同步生成器：sse-starlette 会把它放进线程池，避免阻塞 uvicorn 事件循环。
     # ping 每 15 秒发一次注释行，代理断连时前端能感知并重连。
     return EventSourceResponse(events(), ping=HEARTBEAT_SECONDS)
 
@@ -56,7 +63,7 @@ def stream_logs(request: Request, tail: int = 200):
 @router.get("/download", dependencies=[Depends(require_user)])
 def download_logs(request: Request, tail: int = 5000) -> Response:
     chunks = _logs_or_503(request, max(1, min(tail, 20000)), follow=False)
-    body = b"".join(chunks).decode("utf-8", "replace")
+    body = redact_secrets(b"".join(chunks).decode("utf-8", "replace"))
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     return Response(
         content=body,

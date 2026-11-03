@@ -34,7 +34,7 @@ _DOTENV: dict[str, str] = runtime_env.load()
 _EXPECT: dict[str, str] = {
     "str": "字符串",
     "path": "路径",
-    "cron": "cron 表达式（5 段或 6 段）",
+    "cron": "cron 表达式（5 段；6 段第 6 位是年，7 段含秒）",
     "secret": "字符串",
     "int": "整数",
     "float": "数字",

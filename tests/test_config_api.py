@@ -41,6 +41,29 @@ def test_put_returns_save_result(client, fake_controller):
     assert body["changed"][0]["effect"] == "next_round"
 
 
+def test_config_get_requires_login(anon_client):
+    assert anon_client.get("/api/config").status_code == 401
+
+
+def test_repo_userinfo_is_masked_and_not_stored_in_versions(client, settings):
+    settings.env_path.write_text(
+        "GIT_REPO_URL=https://bob:s3cr3t@github.com/o/r.git\n", encoding="utf-8"
+    )
+    document = client.get("/api/config").json()
+    params = {param["name"]: param for param in document["params"]}
+    assert "s3cr3t" not in str(params["GIT_REPO_URL"]["value"])
+    assert "***" in str(params["GIT_REPO_URL"]["value"])
+
+    client.put(
+        "/api/config",
+        json={"hash": document["hash"], "values": {"MAX_CANDIDATES": "4"}},
+    )
+    versions = client.get("/api/config/versions").json()["versions"]
+    assert versions
+    for version in versions:
+        assert "s3cr3t" not in version["diff"]
+
+
 def test_versions_and_rollback(client, fake_controller):
     doc = client.get("/api/config").json()
     client.put(

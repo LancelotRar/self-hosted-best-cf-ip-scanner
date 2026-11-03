@@ -8,7 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -57,8 +57,19 @@ def create_app(settings: Settings | None = None, controller=None) -> FastAPI:
     app.state.conn = conn
     app.state.security = configure(app.state.settings)
 
+    static_dir = Path(__file__).resolve().parent / "static"
+
     @app.exception_handler(StarletteHTTPException)
-    async def http_error(_: Request, exc: StarletteHTTPException) -> JSONResponse:
+    async def http_error(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+        # SPA 深链接（/config、/runs…）由前端路由处理；API 仍返回 JSON 404。
+        if (
+            exc.status_code == 404
+            and request.method == "GET"
+            and not request.url.path.startswith("/api/")
+        ):
+            index = static_dir / "index.html"
+            if index.is_file():
+                return FileResponse(index, media_type="text/html")
         detail = exc.detail
         if isinstance(detail, dict):
             body = dict(detail)
@@ -85,7 +96,6 @@ def create_app(settings: Settings | None = None, controller=None) -> FastAPI:
     app.include_router(audit_routes.router)
 
     # 前端构建产物由后端托管；Task 16 之后是 Vite 生成的 SPA。
-    static_dir = Path(__file__).resolve().parent / "static"
     if static_dir.is_dir():
         app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
 

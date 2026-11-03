@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
-import { ElMessage } from "element-plus";
+import { onBeforeRouteLeave } from "vue-router";
+import { ElMessage, ElMessageBox } from "element-plus";
 
 import { get, post } from "../api";
 import { useConfigStore } from "../stores/config";
@@ -12,6 +13,7 @@ const serverCron = ref("");
 const tz = ref("");
 const runs = ref<string[]>([]);
 const previewError = ref("");
+const loadError = ref("");
 const applyResult = ref("");
 const applying = ref(false);
 
@@ -39,11 +41,16 @@ async function preview() {
 }
 
 async function load() {
-  await store.load();
-  const param = store.params.find((item) => item.name === "CRON_SCHEDULE");
-  serverCron.value = param ? String(param.value) : "";
-  cron.value = serverCron.value;
-  await preview();
+  loadError.value = "";
+  try {
+    await store.load();
+    const param = store.params.find((item) => item.name === "CRON_SCHEDULE");
+    serverCron.value = param ? String(param.value) : "";
+    cron.value = serverCron.value;
+    await preview();
+  } catch (error) {
+    loadError.value = (error as Error).message;
+  }
 }
 
 async function save() {
@@ -65,8 +72,11 @@ async function applyNow() {
   applying.value = true;
   applyResult.value = "";
   try {
-    await post("/api/schedule/apply");
-    applyResult.value = "已重新应用调度";
+    const data = await post<{ applied: boolean; output: string }>("/api/schedule/apply");
+    applyResult.value = data.output
+      ? `已重新应用调度
+${data.output}`
+      : "已重新应用调度";
     ElMessage.success("已应用");
   } catch (error) {
     applyResult.value = `应用失败：${(error as Error).message}`;
@@ -88,6 +98,20 @@ function formatTime(value: string): string {
 
 watch(cron, () => void preview());
 onMounted(load);
+
+onBeforeRouteLeave(async () => {
+  if (!dirty.value) return true;
+  try {
+    await ElMessageBox.confirm("有未保存的调度修改，确定离开？", "未保存的修改", {
+      confirmButtonText: "离开",
+      cancelButtonText: "留下",
+      type: "warning",
+    });
+    return true;
+  } catch {
+    return false;
+  }
+});
 </script>
 
 <template>
@@ -96,6 +120,10 @@ onMounted(load);
       <h1>调度</h1>
       <el-button :loading="applying" @click="applyNow">重新应用调度</el-button>
     </div>
+
+    <el-alert v-if="loadError" :title="loadError" type="error" show-icon :closable="false">
+      <el-button size="small" @click="load">重试</el-button>
+    </el-alert>
 
     <el-alert v-if="applyResult" :title="applyResult" type="info" :closable="false" show-icon />
 
@@ -112,7 +140,7 @@ onMounted(load);
           {{ template.label }}
         </el-button>
       </div>
-      <p class="panel-muted">支持 5 段（分 时 日 月 周）与 6 段（秒 分 时 日 月 周），不支持 @daily。</p>
+      <p class="panel-muted">支持 5 段、6 段（第 6 位是年）与 7 段（含秒），不支持 @daily。</p>
     </el-card>
 
     <el-card shadow="never" class="block">

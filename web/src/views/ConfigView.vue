@@ -5,6 +5,7 @@ import { ElMessage, ElMessageBox } from "element-plus";
 
 import { post } from "../api";
 import ParamField from "../components/ParamField.vue";
+import SaveResultPanel from "../components/SaveResultPanel.vue";
 import { useConfigStore } from "../stores/config";
 import type { Param } from "../types";
 
@@ -20,43 +21,31 @@ const GROUPS: Record<string, string[]> = {
   readonly: ["只读设置"],
 };
 
-const grouped = computed<Array<{ name: string; params: Param[] }>>(() => {
-  const names = GROUPS[activeTab.value] ?? [];
-  return names
+const groupedFor = (tab: string): Array<{ name: string; params: Param[] }> =>
+  (GROUPS[tab] ?? [])
     .map((name) => ({
       name,
       params: store.params.filter((param) => param.group === name),
     }))
     .filter((group) => group.params.length > 0);
-});
 
-const verification = computed(() => store.lastResult?.verification ?? null);
-
-const verificationMeta = computed(() => {
-  switch (verification.value?.status) {
-    case "verified":
-      return { type: "success" as const, label: "已核对通过" };
-    case "mismatch":
-      return { type: "error" as const, label: "核对不一致" };
-    case "restart_required":
-      return { type: "warning" as const, label: "已保存，需重启扫描容器" };
-    case "unavailable":
-      return { type: "warning" as const, label: "已保存，下一轮生效，当前无法核对" };
-    default:
-      return { type: "info" as const, label: "—" };
+async function verifyNow() {
+  try {
+    await store.verify();
+    ElMessage.success("已重新核对");
+  } catch (error) {
+    ElMessage.error((error as Error).message);
   }
-});
+}
 
-const effectLabel = (effect: string) => {
-  switch (effect) {
-    case "restart_required":
-      return "重启后生效";
-    case "schedule_reload":
-      return "已热重载";
-    default:
-      return "下一轮生效";
+async function runNow() {
+  try {
+    await post("/api/runs");
+    ElMessage.success("已触发一轮，可在「运行」页查看输出");
+  } catch (error) {
+    ElMessage.error((error as Error).message);
   }
-};
+}
 
 function update(param: Param, value: unknown) {
   store.applyLocal({ [param.name]: value });
@@ -158,6 +147,10 @@ onBeforeRouteLeave(async () => {
     <div class="panel-page__title">
       <h1>参数</h1>
       <div>
+        <span class="panel-muted file-meta" v-if="store.hash">
+          {{ store.mtime ? formatTime(store.mtime) : "—" }} · sha256
+          <span class="panel-mono">{{ store.hash.slice(0, 12) }}…</span> · {{ store.fileSize }} B
+        </span>
         <el-button @click="openVersions">版本历史</el-button>
         <el-button :loading="store.loading" @click="store.load()">重新加载</el-button>
       </div>
@@ -184,9 +177,9 @@ onBeforeRouteLeave(async () => {
 
     <template v-else>
       <el-tabs v-model="activeTab">
-        <el-tab-pane label="扫描参数" name="scanner">
-          <el-collapse :model-value="grouped.map((group) => group.name)">
-            <el-collapse-item v-for="group in grouped" :key="group.name" :name="group.name" :title="group.name">
+        <el-tab-pane label="扫描参数" name="scanner" lazy>
+          <el-collapse :model-value="groupedFor('scanner').map((group) => group.name)">
+            <el-collapse-item v-for="group in groupedFor('scanner')" :key="group.name" :name="group.name" :title="group.name">
               <ParamField
                 v-for="param in group.params"
                 :key="param.name"
@@ -198,9 +191,9 @@ onBeforeRouteLeave(async () => {
           </el-collapse>
         </el-tab-pane>
 
-        <el-tab-pane label="发布与代理" name="publish">
-          <el-collapse :model-value="grouped.map((group) => group.name)">
-            <el-collapse-item v-for="group in grouped" :key="group.name" :name="group.name" :title="group.name">
+        <el-tab-pane label="发布与代理" name="publish" lazy>
+          <el-collapse :model-value="groupedFor('publish').map((group) => group.name)">
+            <el-collapse-item v-for="group in groupedFor('publish')" :key="group.name" :name="group.name" :title="group.name">
               <ParamField
                 v-for="param in group.params"
                 :key="param.name"
@@ -212,15 +205,15 @@ onBeforeRouteLeave(async () => {
           </el-collapse>
         </el-tab-pane>
 
-        <el-tab-pane label="只读设置" name="readonly">
+        <el-tab-pane label="只读设置" name="readonly" lazy>
           <el-alert
             type="info"
             :closable="false"
             show-icon
             title="只读参数需要手工修改 .env 并重建容器（docker compose up -d）。"
           />
-          <el-collapse :model-value="grouped.map((group) => group.name)">
-            <el-collapse-item v-for="group in grouped" :key="group.name" :name="group.name" :title="group.name">
+          <el-collapse :model-value="groupedFor('readonly').map((group) => group.name)">
+            <el-collapse-item v-for="group in groupedFor('readonly')" :key="group.name" :name="group.name" :title="group.name">
               <ParamField
                 v-for="param in group.params"
                 :key="param.name"
@@ -233,74 +226,13 @@ onBeforeRouteLeave(async () => {
         </el-tab-pane>
       </el-tabs>
 
-      <el-card v-if="store.lastResult" shadow="never" class="result">
-        <template #header>
-          <div class="result__head">
-            <strong>保存结果</strong>
-            <el-button text @click="store.lastResult = null">关闭</el-button>
-          </div>
-        </template>
-        <el-descriptions :column="2" border>
-          <el-descriptions-item label="写入">
-            <el-tag :type="store.lastResult.written ? 'success' : 'info'">
-              {{ store.lastResult.written ? "已写入" : "无变化" }}
-            </el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="核对状态">
-            <el-tag :type="verificationMeta.type">{{ verificationMeta.label }}</el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="下次执行">{{ formatTime(store.lastResult.next_run) }}</el-descriptions-item>
-          <el-descriptions-item label="调度热重载">
-            {{ store.lastResult.effects.schedule_reloaded ? "已重载" : "未变化 / 待 watcher" }}
-          </el-descriptions-item>
-        </el-descriptions>
-
-        <el-table v-if="store.lastResult.changed.length" :data="store.lastResult.changed" size="small" class="result__table">
-          <el-table-column prop="name" label="参数" />
-          <el-table-column prop="old" label="原值" />
-          <el-table-column prop="new" label="新值" />
-          <el-table-column label="生效方式">
-            <template #default="{ row }">{{ effectLabel(row.effect) }}</template>
-          </el-table-column>
-        </el-table>
-
-        <el-alert
-          v-if="verification?.status === 'mismatch'"
-          type="error"
-          :closable="false"
-          show-icon
-          title="扫描器读到的值与本文件不一致"
-          class="panel-page__alert"
-        >
-          <ul>
-            <li v-for="detail in verification.details" :key="detail.name">
-              {{ detail.name }}：期望 {{ detail.expected }}，实际 {{ detail.actual }}
-            </li>
-          </ul>
-        </el-alert>
-
-        <el-alert
-          v-if="store.lastResult.warnings.length"
-          type="warning"
-          :closable="false"
-          show-icon
-          title="提示"
-        >
-          <ul>
-            <li v-for="warning in store.lastResult.warnings" :key="warning">{{ warning }}</li>
-          </ul>
-        </el-alert>
-
-        <el-button
-          v-if="verification?.status === 'restart_required'"
-          type="warning"
-          :loading="restarting"
-          class="result__restart"
-          @click="restartScanner"
-        >
-          重启扫描容器使参数生效
-        </el-button>
-      </el-card>
+      <SaveResultPanel
+        :result="store.lastResult"
+        @close="store.lastResult = null"
+        @restart="restartScanner"
+        @verify="verifyNow"
+        @run="runNow"
+      />
 
       <div class="actionbar">
         <span class="panel-muted">

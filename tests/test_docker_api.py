@@ -21,6 +21,20 @@ def test_exec_script_passes_run_id_env(fake_client, fake_container):
     assert handle.wait() == 0
 
 
+def test_exec_starts_immediately(fake_client):
+    import time
+
+    handle = ScannerController(fake_client, "scanner").exec_script(
+        "/usr/local/bin/scan-and-publish.sh", {"RUN_ID": "r2"}
+    )
+    for _ in range(100):
+        if getattr(fake_client.api, "started", 0):
+            break
+        time.sleep(0.02)
+    assert getattr(fake_client.api, "started", 0) == 1
+    handle.wait()
+
+
 def test_no_arbitrary_container_id_accepted():
     assert "container_id" not in inspect.signature(ScannerController).parameters
 

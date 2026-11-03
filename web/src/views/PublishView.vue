@@ -5,6 +5,7 @@ import { ElMessage, ElMessageBox } from "element-plus";
 
 import { get, put } from "../api";
 import ParamField from "../components/ParamField.vue";
+import SaveResultPanel from "../components/SaveResultPanel.vue";
 import EmptyState from "../components/EmptyState.vue";
 import type { Param, RunRecord, SaveResult } from "../types";
 
@@ -134,14 +135,7 @@ onBeforeRouteLeave(async () => {
             <el-button type="primary" :disabled="!dirty" :loading="saving" @click="save">保存</el-button>
           </div>
         </div>
-        <el-alert
-          v-if="result"
-          type="success"
-          :closable="false"
-          show-icon
-          :title="`已写入 ${result.changed.length} 项；核对状态：${result.verification.status}`"
-          class="panel-page__alert"
-        />
+        <SaveResultPanel :result="result" @close="result = null" />
       </el-tab-pane>
 
       <el-tab-pane label="最近结果" name="last">
