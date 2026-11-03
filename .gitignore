@@ -6,6 +6,11 @@
 # 运行时目录：产物与本地产物缓存
 /output/
 /cache/
+# 面板数据：数据库、密钥、备份（可能含明文令牌，绝不入库）
+/panel-data/
+
+# Superpowers 计划执行工作区（scratch）
+/.superpowers/
 
 # 迁移前的历史素材（原仓库快照，仅本地保留）
 /.legacy/

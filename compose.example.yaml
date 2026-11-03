@@ -19,11 +19,11 @@ name: best-cf-ip-scanner
 x-scanner-common: &scanner-common
   # 官方镜像（多架构 amd64/arm64）。锁定版本可把 IMAGE_TAG 改成 sha-xxxxxxx 或 1.2.3
   image: ${IMAGE_NAME:-ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner}:${IMAGE_TAG:-latest}
-  # 全部运行参数来自 .env（改完 up -d --force-recreate 生效）
-  env_file:
-    - .env
+  # 不再用 env_file 注入：`.env` 是唯一配置源，扫描器每轮自己重新读取
+  # /project/.env（面板与手工编辑同源）。显式 environment 仍优先于 .env。
   # 容器内路径固定；对应宿主目录见下方 volumes
   environment:
+    DOTENV_PATH: /project/.env
     OUTPUT_DIR: /output
     DATA_DIR: /data
     GIT_REPO_DIR: /cache/repo
@@ -51,6 +51,8 @@ x-scanner-common: &scanner-common
     - ./output:/output
     # 发布缓存：目标仓库的浅克隆，删掉即可让下一轮重新克隆
     - ./cache:/cache
+    # 项目目录只读挂载：扫描器从这里每轮读取 .env
+    - ./:/project:ro
 
 services:
   # 常驻服务：容器内按 CRON_SCHEDULE 调度
@@ -88,3 +90,55 @@ services:
     profiles: ["manual"]
     restart: "no"
     entrypoint: ["/usr/local/bin/scan-and-publish.sh"]
+
+  # 运维面板：与扫描器同一镜像、同一 compose 项目，通过 docker.sock 只操作本项目扫描容器。
+  #   浏览器访问 http://<宿主IP>:${PANEL_PORT}
+  # 以 root 运行：需要访问 docker.sock，并把写入 .env 的属主对齐到宿主机原文件。
+  panel:
+    image: ${IMAGE_NAME:-ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner}:${IMAGE_TAG:-latest}
+    container_name: ${PANEL_CONTAINER_NAME:-best-cf-ip-scanner-panel}
+    entrypoint: ["/usr/local/bin/panel-entrypoint.sh"]
+    ports:
+      - "${PANEL_BIND:-0.0.0.0}:${PANEL_PORT:-8080}:8080"
+    environment:
+      PROJECT_DIR: /project
+      DOTENV_PATH: /project/.env
+      PANEL_DATA_DIR: /panel-data
+      PANEL_PORT: 8080
+      SCANNER_CONTAINER: ${CONTAINER_NAME:-best-cf-ip-scanner}
+      DATA_DIR: /data
+      OUTPUT_DIR: /output
+      CACHE_DIR: /cache
+      PANEL_TRUST_PROXY: ${PANEL_TRUST_PROXY:-false}
+      PANEL_SESSION_DAYS: ${PANEL_SESSION_DAYS:-7}
+      HOME: /tmp
+    volumes:
+      # 只读挂载 docker.sock：面板只能通过 Engine API 操作容器，不落任意命令执行
+      - /var/run/docker.sock:/var/run/docker.sock
+      # 项目目录读写：面板原子改写 .env
+      - ./:/project
+      - ./data:/data
+      - ./output:/output
+      - ./cache:/cache
+      - ./panel-data:/panel-data
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    restart: unless-stopped
+    depends_on:
+      - scanner
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

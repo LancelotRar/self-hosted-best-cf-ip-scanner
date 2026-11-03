@@ -10,8 +10,9 @@ WORKDIR /build
 # 依赖清单用 bind mount 引入（不进镜像层），pip 缓存走 BuildKit cache mount：
 # 只改代码时不会重装依赖，重装依赖时也能复用下载缓存。
 RUN --mount=type=bind,source=requirements.txt,target=requirements.txt \
+    --mount=type=bind,source=requirements-panel.txt,target=requirements-panel.txt \
     --mount=type=cache,target=/root/.cache/pip \
-    pip install --prefix=/install -r requirements.txt
+    pip install --prefix=/install -r requirements.txt -r requirements-panel.txt
 
 
 # ---------------------------------------------------------------- 运行阶段 --
@@ -91,7 +92,9 @@ COPY --from=builder /install /usr/local
 WORKDIR /app
 COPY --link best_cf_ip_scanner.py ./
 COPY --link scanner ./scanner
+COPY --link panel ./panel
 COPY --link docker/entrypoint.sh docker/scan-and-publish.sh docker/publish.sh docker/doctor.sh /usr/local/bin/
+COPY --link docker/panel-entrypoint.sh /usr/local/bin/
 COPY --link docker/startup-report.py /usr/local/bin/startup-report.py
 COPY --link docker/check-config.py /usr/local/bin/check-config.py
 COPY --link docker/export-dotenv.py docker/print-config.py /usr/local/bin/
@@ -105,6 +108,7 @@ RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/scan-and-publish.sh \
       /usr/local/bin/publish.sh /usr/local/bin/doctor.sh /usr/local/bin/check-config.py \
       /usr/local/bin/export-dotenv.py /usr/local/bin/print-config.py \
       /usr/local/bin/apply-config.sh /usr/local/bin/config-watcher.sh \
+      /usr/local/bin/panel-entrypoint.sh \
  && adduser -D -u 1000 -h /home/scanner scanner \
  && mkdir -p /output /cache \
  && chown -R 1000:1000 /output /cache /opt/default-data
