@@ -264,6 +264,8 @@ a {
 }
 
 .el-table {
+  border-radius: var(--radius-sm);
+  overflow: hidden;
   --el-table-bg-color: var(--surface);
   --el-table-tr-bg-color: var(--surface);
   --el-table-header-bg-color: var(--surface-2);
@@ -278,6 +280,14 @@ a {
   font-weight: 600;
   font-size: 12px;
   letter-spacing: 0.02em;
+}
+
+.el-table th.el-table__cell:first-child {
+  border-top-left-radius: var(--radius-sm);
+}
+
+.el-table th.el-table__cell:last-child {
+  border-top-right-radius: var(--radius-sm);
 }
 
 .el-table .cell {

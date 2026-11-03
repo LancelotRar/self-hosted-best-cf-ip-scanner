@@ -64,7 +64,7 @@ async function load() {
   }
 }
 
-async function save() {
+async function save(): Promise<boolean> {
   store.applyLocal({ CRON_SCHEDULE: cron.value });
   try {
     const result = await store.save();
@@ -74,8 +74,10 @@ async function save() {
       : "已保存；调度未变化或扫描容器离线（watcher 会补应用）";
     ElMessage.success("已保存");
     await loadPreview();
+    return true;
   } catch (error) {
     ElMessage.error((error as Error).message);
+    return false;
   }
 }
 
@@ -132,15 +134,15 @@ onMounted(load);
 onBeforeRouteLeave(async () => {
   if (!dirty.value) return true;
   try {
-    await ElMessageBox.confirm("有未保存的调度修改，确定离开？", "未保存的修改", {
-      confirmButtonText: "离开",
-      cancelButtonText: "留下",
+    await ElMessageBox.confirm("有未保存的调度修改，是否保存后离开？", "未保存的修改", {
+      confirmButtonText: "保存并离开",
+      cancelButtonText: "继续编辑",
       type: "warning",
     });
-    return true;
   } catch {
     return false;
   }
+  return save();
 });
 </script>
 

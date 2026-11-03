@@ -94,8 +94,8 @@ function focusLine(line: number) {
   element.setSelectionRange(offset, offset + (lines[line - 1]?.length ?? 0));
 }
 
-async function save() {
-  if (!document.value) return;
+async function save(): Promise<boolean> {
+  if (!document.value) return false;
   saving.value = true;
   lineErrors.value = [];
   try {
@@ -106,6 +106,7 @@ async function save() {
     applyDocument(result);
     ElMessage.success("已保存地址库");
     await loadBackups();
+    return true;
   } catch (exception) {
     const failure = exception as Error & { details?: Array<{ line: number; message: string }> };
     if (Array.isArray(failure.details)) {
@@ -115,6 +116,7 @@ async function save() {
       }));
     }
     ElMessage.error(failure.message);
+    return false;
   } finally {
     saving.value = false;
   }
@@ -154,15 +156,15 @@ onMounted(async () => {
 onBeforeRouteLeave(async () => {
   if (!dirty.value) return true;
   try {
-    await ElMessageBox.confirm("地址库有未保存的修改，确定离开？", "未保存的修改", {
-      confirmButtonText: "离开",
-      cancelButtonText: "留下",
+    await ElMessageBox.confirm("地址库有未保存的修改，是否保存后离开？", "未保存的修改", {
+      confirmButtonText: "保存并离开",
+      cancelButtonText: "继续编辑",
       type: "warning",
     });
-    return true;
   } catch {
     return false;
   }
+  return save();
 });
 </script>
 

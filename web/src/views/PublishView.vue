@@ -69,7 +69,7 @@ function encode(param: Param, value: unknown): string {
   return value === null || value === undefined ? "" : String(value);
 }
 
-async function save() {
+async function save(): Promise<boolean> {
   saving.value = true;
   try {
     const payload: Record<string, string> = {};
@@ -79,9 +79,11 @@ async function save() {
     result.value = await put<SaveResult>("/api/publish", { hash: hash.value, values: payload });
     ElMessage.success("已保存发布参数");
     await load();
+    return true;
   } catch (exception) {
     result.value = null;
     ElMessage.error((exception as Error).message);
+    return false;
   } finally {
     saving.value = false;
   }
@@ -96,15 +98,15 @@ onMounted(load);
 onBeforeRouteLeave(async () => {
   if (!dirty.value) return true;
   try {
-    await ElMessageBox.confirm("发布参数有未保存的修改，确定离开？", "未保存的修改", {
-      confirmButtonText: "离开",
-      cancelButtonText: "留下",
+    await ElMessageBox.confirm("发布参数有未保存的修改，是否保存后离开？", "未保存的修改", {
+      confirmButtonText: "保存并离开",
+      cancelButtonText: "继续编辑",
       type: "warning",
     });
-    return true;
   } catch {
     return false;
   }
+  return save();
 });
 </script>
 

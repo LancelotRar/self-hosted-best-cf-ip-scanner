@@ -144,13 +144,20 @@ onMounted(load);
 onBeforeRouteLeave(async () => {
   if (!store.dirty) return true;
   try {
-    await ElMessageBox.confirm("有未保存的修改，确定离开？", "未保存的修改", {
-      confirmButtonText: "离开",
-      cancelButtonText: "留下",
+    await ElMessageBox.confirm("有未保存的修改，是否保存后离开？", "未保存的修改", {
+      confirmButtonText: "保存并离开",
+      cancelButtonText: "继续编辑",
       type: "warning",
     });
-    return true;
   } catch {
+    return false;
+  }
+  try {
+    await store.save();
+    ElMessage.success("已保存");
+    return true;
+  } catch (error) {
+    ElMessage.error((error as Error).message);
     return false;
   }
 });
