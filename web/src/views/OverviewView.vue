@@ -16,7 +16,7 @@ import ErrorState from "../components/ErrorState.vue";
 import PageHeader from "../components/PageHeader.vue";
 import StatusPill from "../components/StatusPill.vue";
 import type { LibraryDocument, OutputFile, Overview, Param, RunRecord } from "../types";
-import { exitLabel, formatDuration, formatSize, formatTime } from "../utils/format";
+import { exitLabel, formatDuration, formatMinute, formatSize, formatTime } from "../utils/format";
 
 interface PublishResponse {
   hash: string;
@@ -127,6 +127,15 @@ function runTone(record: RunRecord): "success" | "warning" | "info" | "neutral" 
   return "neutral";
 }
 
+/** 开始时间按分钟展示；缺失记录时从 run_id（`YYYYMMDDTHHMMSS-序号`）回退解析。 */
+function startText(record: RunRecord): string {
+  if (record.started_at) return formatMinute(record.started_at);
+  const match = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})/.exec(record.run_id);
+  if (!match) return record.run_id;
+  const [, year, month, day, hour, minute] = match;
+  return `${year}-${month}-${day} ${hour}:${minute}`;
+}
+
 async function openPreview(file: OutputFile) {
   previewVisible.value = true;
   previewLoading.value = true;
@@ -230,26 +239,25 @@ onMounted(load);
           <span class="section-title"><el-icon><VideoPlay /></el-icon>近期扫描情况</span>
         </header>
         <div class="panel__body">
-          <el-table v-if="runs.length" :data="runs" size="small" height="300" class="scroll-table">
-            <el-table-column label="轮次" min-width="180">
-              <template #default="{ row }"><span class="mono">{{ row.run_id }}</span></template>
+          <el-table v-if="runs.length" :data="runs" size="small" max-height="300" class="scroll-table">
+            <el-table-column label="开始时间" min-width="230">
+              <template #default="{ row }">
+                <span class="mono">{{ startText(row) }}</span>
+              </template>
             </el-table-column>
-            <el-table-column label="触发" width="80">
+            <el-table-column label="触发" min-width="77">
               <template #default="{ row }">{{ row.trigger ?? "—" }}</template>
             </el-table-column>
-            <el-table-column label="状态" width="100">
+            <el-table-column label="状态" min-width="102">
               <template #default="{ row }">
                 <StatusPill :tone="runTone(row)" :label="runLabel(row)" />
               </template>
             </el-table-column>
-            <el-table-column label="扫描" width="110">
+            <el-table-column label="扫描" min-width="115">
               <template #default="{ row }">{{ exitLabel(row.scan_exit) }}</template>
             </el-table-column>
-            <el-table-column label="耗时" width="90">
+            <el-table-column label="耗时" min-width="115">
               <template #default="{ row }">{{ formatDuration(row.duration_s) }}</template>
-            </el-table-column>
-            <el-table-column label="结束" min-width="170">
-              <template #default="{ row }">{{ formatTime(row.finished_at) }}</template>
             </el-table-column>
           </el-table>
           <EmptyState v-else title="尚无扫描记录" description="定时任务或手动执行完成后显示在这里" />
@@ -262,17 +270,17 @@ onMounted(load);
           <span class="section-title"><el-icon><FolderOpened /></el-icon>产物情况</span>
         </header>
         <div class="panel__body">
-          <el-table v-if="files.length" :data="files" size="small" height="280" class="scroll-table">
-            <el-table-column label="文件" min-width="200">
+          <el-table v-if="files.length" :data="files" size="small" max-height="280" class="scroll-table">
+            <el-table-column label="文件" min-width="256" show-overflow-tooltip>
               <template #default="{ row }"><span class="mono">{{ row.name }}</span></template>
             </el-table-column>
-            <el-table-column label="大小" width="110">
+            <el-table-column label="大小" min-width="102">
               <template #default="{ row }">{{ formatSize(row.size) }}</template>
             </el-table-column>
-            <el-table-column label="修改时间" width="180">
+            <el-table-column label="修改时间" min-width="179">
               <template #default="{ row }">{{ formatTime(row.mtime) }}</template>
             </el-table-column>
-            <el-table-column label="预览" width="100">
+            <el-table-column label="预览" min-width="102">
               <template #default="{ row }">
                 <el-button size="small" @click="openPreview(row)">查看</el-button>
               </template>

@@ -13,6 +13,17 @@ export function formatTime(value: string | null | undefined, withDate = true): s
   });
 }
 
+/** 分钟精度，固定 `YYYY-MM-DD HH:MM`（不随浏览器 locale 变成斜杠格式）。 */
+export function formatMinute(value: string | null | undefined): string {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const pad = (part: number) => String(part).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(
+    date.getHours(),
+  )}:${pad(date.getMinutes())}`;
+}
+
 export function formatClock(value: Date | null | undefined): string {
   if (!value) return "—";
   return value.toLocaleTimeString("zh-CN", { hour12: false });

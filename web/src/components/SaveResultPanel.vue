@@ -68,18 +68,18 @@ const canRestart = computed(
     </dl>
 
     <el-table v-if="result.changed.length" :data="result.changed" size="small" class="result__table">
-      <el-table-column prop="name" label="参数" min-width="180" />
-      <el-table-column label="原值" min-width="140">
+      <el-table-column prop="name" label="参数" min-width="240" />
+      <el-table-column label="原值" min-width="160">
         <template #default="{ row }">
           <span class="mono">{{ row.old ?? "—" }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="新值" min-width="140">
+      <el-table-column label="新值" min-width="160">
         <template #default="{ row }">
           <span class="mono">{{ row.new ?? "—" }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="生效方式" width="140">
+      <el-table-column label="生效方式" min-width="140">
         <template #default="{ row }">{{ effectLabel(row.effect) }}</template>
       </el-table-column>
     </el-table>
