@@ -1,5 +1,15 @@
 # syntax=docker/dockerfile:1
 
+# ---------------------------------------------------------------- 前端构建 --
+# 只在构建期需要 Node；产物 dist 复制进运行阶段的 panel/static。
+FROM node:24-alpine AS web
+
+WORKDIR /web
+COPY --link web/package.json web/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY --link web/ ./
+RUN npm run build
+
 # ---------------------------------------------------------------- 构建阶段 --
 # 只负责把 Python 依赖装到 /install，不进入最终镜像（无 pip 缓存、无构建残留）。
 FROM python:3.13-alpine3.23 AS builder
@@ -93,6 +103,8 @@ WORKDIR /app
 COPY --link best_cf_ip_scanner.py ./
 COPY --link scanner ./scanner
 COPY --link panel ./panel
+# 前端产物覆盖 panel/static 的占位页（Vite 构建目录 web/dist）
+COPY --from=web /web/dist ./panel/static
 COPY --link docker/entrypoint.sh docker/scan-and-publish.sh docker/publish.sh docker/doctor.sh /usr/local/bin/
 COPY --link docker/panel-entrypoint.sh /usr/local/bin/
 COPY --link docker/startup-report.py /usr/local/bin/startup-report.py

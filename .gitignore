@@ -12,6 +12,10 @@
 # Superpowers 计划执行工作区（scratch）
 /.superpowers/
 
+# 前端依赖与构建产物
+/web/node_modules/
+/web/dist/
+
 # 迁移前的历史素材（原仓库快照，仅本地保留）
 /.legacy/
 

@@ -38,6 +38,15 @@ __pycache__
 venv
 requirements-dev.txt
 
+# 前端：只把源码送进构建阶段，本地依赖与产物不进上下文
+web/node_modules
+web/dist
+web/.vite
+
+# 面板运行期数据与计划工作区
+panel-data
+.superpowers
+
 # 其它
 tests
 *.log
