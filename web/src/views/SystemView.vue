@@ -255,7 +255,7 @@ onMounted(async () => {
 
 <style scoped>
 .form-panel {
-  max-width: 560px;
+  max-width: 640px;
 }
 
 .field-label {

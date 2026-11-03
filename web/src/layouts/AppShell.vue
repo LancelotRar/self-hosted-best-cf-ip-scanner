@@ -1,6 +1,18 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
-import { Moon, Sunny } from "@element-plus/icons-vue";
+import {
+  DataLine,
+  Document,
+  FolderOpened,
+  Moon,
+  Odometer,
+  Setting,
+  Sunny,
+  Timer,
+  Tools,
+  Upload,
+  VideoPlay,
+} from "@element-plus/icons-vue";
 import { useRouter } from "vue-router";
 
 import { get } from "../api";
@@ -11,15 +23,15 @@ import type { Overview } from "../types";
 import { formatClock } from "../utils/format";
 
 const tabs = [
-  { name: "overview", label: "总览" },
-  { name: "config", label: "参数" },
-  { name: "schedule", label: "调度" },
-  { name: "runs", label: "运行" },
-  { name: "logs", label: "日志" },
-  { name: "outputs", label: "产物" },
-  { name: "library", label: "IP 库" },
-  { name: "publish", label: "发布" },
-  { name: "system", label: "系统" },
+  { name: "overview", label: "总览", icon: Odometer },
+  { name: "config", label: "参数", icon: Setting },
+  { name: "schedule", label: "调度", icon: Timer },
+  { name: "runs", label: "运行", icon: VideoPlay },
+  { name: "logs", label: "日志", icon: Document },
+  { name: "outputs", label: "产物", icon: FolderOpened },
+  { name: "library", label: "IP 库", icon: DataLine },
+  { name: "publish", label: "发布", icon: Upload },
+  { name: "system", label: "系统", icon: Tools },
 ] as const;
 
 const auth = useAuthStore();
@@ -95,8 +107,8 @@ onBeforeUnmount(() => {
       <RouterLink :to="{ name: 'overview' }" class="brand" aria-label="回到总览">
         <span class="brand__mark" aria-hidden="true">CF</span>
         <span class="brand__text">
-          <strong>Cloudflare 优选 IP 扫描器</strong>
-          <small>项目专属运维面板</small>
+          <strong>CF IP 扫描器</strong>
+          <small>项目运维面板</small>
         </span>
       </RouterLink>
 
@@ -110,7 +122,10 @@ onBeforeUnmount(() => {
           data-tab
           @keydown="onTabKey($event, index)"
         >
-          {{ tab.label }}
+          <el-icon class="nav__icon" :size="16" aria-hidden="true">
+            <component :is="tab.icon" />
+          </el-icon>
+          <span>{{ tab.label }}</span>
         </RouterLink>
       </nav>
 
@@ -178,8 +193,8 @@ onBeforeUnmount(() => {
 .sidebar {
   position: sticky;
   top: 0;
-  flex: 0 0 216px;
-  width: 216px;
+  flex: 0 0 232px;
+  width: 232px;
   height: 100vh;
   display: flex;
   flex-direction: column;
@@ -193,16 +208,18 @@ onBeforeUnmount(() => {
 .brand {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: 0 var(--space-1);
+  gap: 10px;
+  padding: 2px var(--space-1) 14px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
 }
 
 .brand__mark {
   display: inline-grid;
   place-items: center;
   flex: 0 0 auto;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: var(--radius-sm);
   background: var(--primary);
   color: var(--on-primary);
@@ -219,7 +236,7 @@ onBeforeUnmount(() => {
 }
 
 .brand__text strong {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -242,8 +259,9 @@ onBeforeUnmount(() => {
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;
-  height: 38px;
+  justify-content: flex-start;
+  gap: 10px;
+  height: 40px;
   padding: 0 var(--space-3);
   border-radius: var(--radius-sm);
   border-left: 2px solid transparent;
@@ -258,11 +276,20 @@ onBeforeUnmount(() => {
   color: var(--text);
 }
 
+.nav__icon {
+  flex: 0 0 16px;
+  color: var(--text-muted);
+}
+
 .nav__item--active {
   background: color-mix(in srgb, var(--primary) 14%, var(--surface));
   border-left-color: var(--primary);
   color: var(--text);
   font-weight: 600;
+}
+
+.nav__item--active .nav__icon {
+  color: var(--primary);
 }
 
 .sidebar__foot {
@@ -365,12 +392,16 @@ onBeforeUnmount(() => {
   }
 
   .nav__item {
-    height: 36px;
+    height: 38px;
     padding: 0 var(--space-3);
     border-left: 0;
     border-bottom: 2px solid transparent;
     border-radius: 0;
     white-space: nowrap;
+  }
+
+  .nav__icon {
+    display: none;
   }
 
   .nav__item--active {

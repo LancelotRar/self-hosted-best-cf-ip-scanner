@@ -24,11 +24,11 @@ withDefaults(
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: var(--space-4);
+  padding: var(--space-5);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  min-height: 112px;
+  min-height: 120px;
 }
 
 .metric__label {

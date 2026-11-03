@@ -312,27 +312,12 @@ onBeforeRouteLeave(async () => {
   padding-left: 18px;
 }
 
-.page-head,
-.config-tabs {
-  max-width: 1040px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
 .config-tabs :deep(.el-tabs__content) {
   padding-top: var(--space-3);
 }
 
-.actionbar {
-  max-width: 1040px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
 .config-card {
-  max-width: 1040px;
-  margin: 0 auto;
-  padding: var(--space-4) var(--space-5);
+  padding: var(--space-5) var(--space-6);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);

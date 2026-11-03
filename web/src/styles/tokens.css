@@ -21,7 +21,7 @@
 
   --header-h: 56px;
   --tabs-h: 44px;
-  --content-max: 1440px;
+  --content-max: 1180px;
 }
 
 html[data-theme="dark"] {

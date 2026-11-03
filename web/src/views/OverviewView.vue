@@ -50,6 +50,14 @@ function runLabel(record: RunRecord): string {
   return "—";
 }
 
+function healthLabel(value?: string | null): string {
+  if (!value) return "";
+  if (value === "healthy") return "健康";
+  if (value === "unhealthy") return "异常";
+  if (value === "starting") return "启动中";
+  return value;
+}
+
 function summaryValue(value: unknown): string {
   if (Array.isArray(value)) return value.join(",");
   if (typeof value === "boolean") return value ? "开启" : "关闭";
@@ -77,7 +85,9 @@ onMounted(load);
               :tone="data.scanner.state === 'running' ? 'success' : 'danger'"
               :label="data.scanner.state === 'running' ? '运行中' : '不可用'"
             />
-            <span v-if="data.scanner.health" class="muted">健康 {{ data.scanner.health }}</span>
+            <span v-if="data.scanner.health" class="muted">
+              健康状态 {{ healthLabel(data.scanner.health) }}
+            </span>
           </div>
           <p class="muted metric-note" v-if="data.scanner.reason">{{ data.scanner.reason }}</p>
           <p class="muted metric-note mono" v-else>{{ data.scanner.image ?? "—" }}</p>
