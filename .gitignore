@@ -15,6 +15,8 @@
 # 前端依赖与构建产物
 /web/node_modules/
 /web/dist/
+/web/test-results/
+/web/playwright-report/
 
 # 迁移前的历史素材（原仓库快照，仅本地保留）
 /.legacy/
