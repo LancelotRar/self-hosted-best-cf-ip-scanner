@@ -105,7 +105,9 @@ onMounted(load);
       <el-tab-pane label="明细表" name="detail" />
     </el-tabs>
 
-    <el-table v-if="filtered.length" :data="filtered" size="small">
+    <section v-if="filtered.length" class="panel output-panel">
+      <div class="panel__body">
+    <el-table :data="filtered" size="small">
       <el-table-column prop="name" label="文件" min-width="200">
         <template #default="{ row }"><span class="mono">{{ row.name }}</span></template>
       </el-table-column>
@@ -127,6 +129,8 @@ onMounted(load);
         </template>
       </el-table-column>
     </el-table>
+      </div>
+    </section>
     <EmptyState
       v-else
       title="尚无产物"
@@ -166,6 +170,10 @@ onMounted(load);
 </template>
 
 <style scoped>
+.output-panel {
+  margin-top: var(--space-2);
+}
+
 .preview-meta {
   margin: 0 0 var(--space-3);
   font-size: 12px;

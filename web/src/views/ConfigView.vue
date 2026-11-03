@@ -312,8 +312,17 @@ onBeforeRouteLeave(async () => {
   padding-left: 18px;
 }
 
+.page-head,
+.config-tabs {
+  max-width: 1040px;
+}
+
 .config-tabs :deep(.el-tabs__content) {
   padding-top: var(--space-3);
+}
+
+.actionbar {
+  max-width: 1040px;
 }
 
 .config-card {
