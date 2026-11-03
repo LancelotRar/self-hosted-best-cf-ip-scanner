@@ -31,7 +31,7 @@ html[data-theme="dark"] {
   --surface-3: #202531;
   --border: #262c3a;
   --border-soft: #1e232e;
-  --border-strong: #3b4457;
+  --border-strong: #5b6a86;
   --text: #e8ebf2;
   --text-muted: #a8b0c2;
   --text-faint: #6b7488;
@@ -57,7 +57,7 @@ html[data-theme="light"] {
   --surface-3: #eceef3;
   --border: #e2e5ec;
   --border-soft: #eceef3;
-  --border-strong: #c9ced9;
+  --border-strong: #767e91;
   --text: #14171f;
   --text-muted: #545c6e;
   --text-faint: #8b93a5;

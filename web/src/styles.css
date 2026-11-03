@@ -244,7 +244,8 @@ a {
 .el-textarea__inner,
 .el-select__wrapper {
   background: var(--surface-2);
-  box-shadow: 0 0 0 1px var(--border) inset;
+  /* 输入边界按 WCAG 1.4.11 取 3:1 以上的 --border-strong（--border 仅用于装饰性分隔） */
+  box-shadow: 0 0 0 1px var(--border-strong) inset;
   border-radius: var(--radius-sm);
 }
 
@@ -405,7 +406,12 @@ a {
 
 .el-switch {
   --el-switch-on-color: var(--success);
-  --el-switch-off-color: var(--surface-3);
+  /* 关闭态轨道同样属于控件边界，取 --border-strong 以满足 3:1 */
+  --el-switch-off-color: var(--border-strong);
+}
+
+.el-radio-button__inner {
+  border-color: var(--border-strong);
 }
 
 .el-skeleton {
