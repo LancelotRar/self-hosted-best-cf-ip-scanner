@@ -242,6 +242,7 @@ onBeforeUnmount(() => {
   position: relative;
   display: flex;
   align-items: center;
+  justify-content: center;
   height: 38px;
   padding: 0 var(--space-3);
   border-radius: var(--radius-sm);
