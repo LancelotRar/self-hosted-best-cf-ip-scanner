@@ -296,4 +296,18 @@ docker compose -f compose.yaml -f compose.build.yaml up -d --build
 ```
 
 构建产物直接打上 `compose.yaml` 里的镜像名，本地优先于拉取；构建期需要代理时把
-`HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY` 写进 `.env`。
+`HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY` 写进 `.env`（或作为环境变量传入 compose），
+它们会作为 BuildKit 代理参数传入。
+
+中国网络下还可以用镜像站加速（留空 = 官方源）：
+
+```dotenv
+APK_MIRROR=https://mirrors.aliyun.com/alpine
+PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+NPM_CONFIG_REGISTRY=https://registry.npmmirror.com
+```
+
+```bash
+HTTP_PROXY=http://<代理>:7890 HTTPS_PROXY=http://<代理>:7890 NO_PROXY=localhost,127.0.0.1 \
+  docker compose -f compose.yaml -f compose.build.yaml up -d --build
+```

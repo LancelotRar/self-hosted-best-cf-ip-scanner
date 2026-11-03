@@ -4,6 +4,10 @@
 # 只在构建期需要 Node；产物 dist 复制进运行阶段的 panel/static。
 FROM node:24-alpine AS web
 
+# 镜像加速（可选）：中国网络下 npm 很慢时可指向 npmmirror。
+ARG NPM_CONFIG_REGISTRY=https://registry.npmjs.org
+ENV NPM_CONFIG_REGISTRY=${NPM_CONFIG_REGISTRY}
+
 WORKDIR /web
 COPY --link web/package.json web/package-lock.json ./
 RUN npm ci --no-audit --no-fund
@@ -14,7 +18,10 @@ RUN npm run build
 # 只负责把 Python 依赖装到 /install，不进入最终镜像（无 pip 缓存、无构建残留）。
 FROM python:3.13-alpine3.23 AS builder
 
-ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+# 镜像加速（可选）：pip 默认走 pypi.org，可改成国内镜像站。
+ARG PIP_INDEX_URL=https://pypi.org/simple
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_INDEX_URL=${PIP_INDEX_URL}
 
 WORKDIR /build
 # 依赖清单用 bind mount 引入（不进镜像层），pip 缓存走 BuildKit cache mount：
@@ -32,6 +39,11 @@ FROM python:3.13-alpine3.23 AS runtime
 # compose 的 build.args 传入，也可直接 docker build --build-arg 覆盖。
 ARG SUPERCRONIC_VERSION=v0.2.51
 ARG TARGETARCH=amd64
+# 可选的构建期代理与 Alpine 镜像站（中国网络下显著加速/可用）
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ARG NO_PROXY
+ARG APK_MIRROR=
 
 # 元数据：发布流水线会用 metadata-action 覆盖，本地构建也带上，便于 docker inspect。
 LABEL org.opencontainers.image.title="best-cf-ip-scanner" \
@@ -45,7 +57,10 @@ LABEL org.opencontainers.image.title="best-cf-ip-scanner" \
 # su-exec  —— 极小的 setuid 工具：入口以 root 准备挂载目录后降权到 PUID/PGID
 # 包缓存走 BuildKit cache mount，不写进镜像层（因此不需要 --no-cache）。
 RUN --mount=type=cache,target=/etc/apk/cache,sharing=locked \
-    apk add git tzdata ca-certificates su-exec
+    if [ -n "$APK_MIRROR" ]; then \
+      sed -i "s|https://dl-cdn.alpinelinux.org|$APK_MIRROR|g" /etc/apk/repositories; \
+    fi \
+ && apk add git tzdata ca-certificates su-exec
 
 # supercronic —— 面向容器的 cron 实现：日志直出、不重叠同作业、可热重载。
 # 下载用 python 的 urllib 而不是 busybox wget：后者经 HTTP 代理跟随 302 到

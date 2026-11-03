@@ -20,6 +20,10 @@ services:
         HTTP_PROXY: ${HTTP_PROXY:-}
         HTTPS_PROXY: ${HTTPS_PROXY:-}
         NO_PROXY: ${NO_PROXY:-}
+        # 镜像加速（可选）：留空使用官方源
+        APK_MIRROR: ${APK_MIRROR:-}
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.org/simple}
+        NPM_CONFIG_REGISTRY: ${NPM_CONFIG_REGISTRY:-https://registry.npmjs.org}
 
 volumes:
   scanner-out:
