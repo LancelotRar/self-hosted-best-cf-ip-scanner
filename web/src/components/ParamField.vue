@@ -149,6 +149,7 @@ function onBool(value: string | number | boolean) {
     <el-input-number
       v-else-if="param.kind === 'int' || param.kind === 'float'"
       :id="`param-${param.name}`"
+      class="control control--number"
       :model-value="numberValue"
       :min="bounds.min"
       :max="bounds.max"
@@ -163,6 +164,7 @@ function onBool(value: string | number | boolean) {
     <el-select
       v-else-if="param.kind === 'ports'"
       :id="`param-${param.name}`"
+      class="control control--select"
       :model-value="listValue"
       multiple
       filterable
@@ -184,6 +186,7 @@ function onBool(value: string | number | boolean) {
     <el-select
       v-else-if="param.kind === 'csv_int'"
       :id="`param-${param.name}`"
+      class="control control--select"
       :model-value="listValue"
       multiple
       filterable
@@ -231,6 +234,7 @@ function onBool(value: string | number | boolean) {
     <el-select
       v-else-if="param.name === 'TZ'"
       :id="`param-${param.name}`"
+      class="control control--select control--short"
       :model-value="textValue"
       filterable
       allow-create
@@ -251,6 +255,7 @@ function onBool(value: string | number | boolean) {
     <el-select
       v-else-if="param.name === 'GIT_BRANCH'"
       :id="`param-${param.name}`"
+      class="control control--select control--short"
       :model-value="textValue"
       filterable
       allow-create
@@ -385,8 +390,26 @@ function onBool(value: string | number | boolean) {
   margin-top: 2px;
 }
 
-.field :deep(.el-select),
+.control--number {
+  width: 220px;
+}
+
 .field :deep(.el-input-number) {
+  width: 220px;
+}
+
+/* 数字框默认居中，宽输入里会显得漂浮；改为左对齐 */
+.field :deep(.el-input-number .el-input__inner) {
+  text-align: left;
+  padding-left: 12px;
+}
+
+.field :deep(.el-select) {
   width: 100%;
+  max-width: 560px;
+}
+
+.field :deep(.el-select.control--short) {
+  max-width: 340px;
 }
 </style>
