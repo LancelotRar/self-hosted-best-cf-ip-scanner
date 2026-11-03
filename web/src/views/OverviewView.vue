@@ -55,6 +55,23 @@ const previewVisible = ref(false);
 const previewLoading = ref(false);
 const currentPreview = ref<Preview | null>(null);
 
+const scannerOnline = computed(() => overview.value?.scanner.state === "running");
+
+/** 容器已运行时长：分钟级即可，超过一天用 d/h。 */
+function uptimeText(started?: string | null): string {
+  if (!started) return "—";
+  const start = new Date(started).getTime();
+  if (Number.isNaN(start)) return "—";
+  const minutes = Math.max(0, Math.floor((Date.now() - start) / 60_000));
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (hours < 24) return rest ? `${hours}h ${rest}m` : `${hours}h`;
+  return `${Math.floor(hours / 24)}d ${hours % 24}h`;
+}
+
+const uptime = computed(() => uptimeText(overview.value?.scanner.started_at));
+
 /** 注释说明已移到「参数调整 · 自定义 IP 库」，总览只列地址条目。 */
 const libraryEntries = computed(() =>
   (library.value?.content ?? "")
@@ -182,29 +199,45 @@ onMounted(load);
           <span class="section-title"><el-icon><Monitor /></el-icon>容器状态</span>
         </header>
         <div class="panel__body">
-          <div class="status-line">
-            <span
-              class="status-dot"
-              :class="overview.scanner.state === 'running' ? 'status-dot--on' : 'status-dot--off'"
-              aria-hidden="true"
-            />
-            <strong>{{ overview.scanner.state === "running" ? "扫描容器在线" : "扫描容器离线" }}</strong>
-            <StatusPill
-              :tone="overview.running ? 'info' : 'neutral'"
-              :label="overview.running ? '运行中' : '空闲'"
-              :pulse="overview.running"
-            />
+          <div class="stat-row">
+            <article class="stat">
+              <span class="stat__label">扫描容器</span>
+              <strong class="stat__value" :class="scannerOnline ? 'is-on' : 'is-off'">
+                {{ scannerOnline ? "在线" : "离线" }}
+              </strong>
+              <span class="stat__note">健康状态 · {{ healthLabel(overview.scanner.health) || "—" }}</span>
+            </article>
+
+            <article class="stat">
+              <span class="stat__label">当前任务</span>
+              <strong class="stat__value">
+                <StatusPill
+                  :tone="overview.running ? 'info' : 'neutral'"
+                  :label="overview.running ? '运行中' : '空闲'"
+                  :pulse="overview.running"
+                />
+              </strong>
+              <span class="stat__note">
+                上次完成 · {{ formatTime(overview.last_run?.finished_at) }}
+              </span>
+            </article>
+
+            <article class="stat">
+              <span class="stat__label">镜像</span>
+              <strong class="stat__value stat__value--mono">{{ overview.scanner.image ?? "—" }}</strong>
+              <span class="stat__note">与面板同一 compose 堆栈</span>
+            </article>
+
+            <article class="stat">
+              <span class="stat__label">已运行</span>
+              <strong class="stat__value stat__value--num">{{ uptime }}</strong>
+              <span class="stat__note">启动于 {{ formatTime(overview.scanner.started_at, false) }}</span>
+            </article>
           </div>
-          <dl class="kv">
-            <dt>健康状态</dt>
-            <dd>{{ healthLabel(overview.scanner.health) || "—" }}</dd>
-            <dt>镜像</dt>
-            <dd class="mono">{{ overview.scanner.image ?? "—" }}</dd>
-            <dt>启动时间</dt>
-            <dd class="mono">{{ formatTime(overview.scanner.started_at) }}</dd>
-            <dt v-if="overview.scanner.reason">离线原因</dt>
-            <dd v-if="overview.scanner.reason">{{ overview.scanner.reason }}</dd>
-          </dl>
+
+          <p v-if="overview.scanner.reason" class="stat-alert">
+            离线原因：{{ overview.scanner.reason }}
+          </p>
         </div>
       </section>
 
@@ -408,6 +441,82 @@ onMounted(load);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+}
+
+/* 容器状态：四个等宽统计块 */
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.stat {
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--primary);
+}
+
+.stat__label {
+  display: block;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.stat__value {
+  display: block;
+  margin-top: 6px;
+  color: var(--text);
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 650;
+}
+
+.stat__value.is-on {
+  color: var(--success);
+}
+
+.stat__value.is-off {
+  color: var(--danger);
+}
+
+.stat__value--mono {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 20px;
+  word-break: break-all;
+}
+
+.stat__value--num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat__note {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-faint);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.stat-alert {
+  margin: var(--space-3) 0 0;
+  color: var(--danger);
+  font-size: 12.5px;
+}
+
+@media (max-width: 1023px) {
+  .stat-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 639px) {
+  .stat-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .section-title {
