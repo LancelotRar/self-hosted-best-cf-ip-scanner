@@ -170,6 +170,14 @@ class FakeController:
         self.raise_unavailable = False
         self.apply_exit = 0
         self.exec_calls: list[tuple[str, dict[str, str]]] = []
+        self.log_chunks: list[bytes] = [b"line-1\nline-2\n"]
+
+    def logs(self, tail=200, follow=True):
+        from panel.docker_api import ScannerUnavailable
+
+        if self.raise_unavailable:
+            raise ScannerUnavailable("扫描容器不在线")
+        return iter(self.log_chunks)
 
     def exec_script(self, script, env=None):
         from panel.docker_api import ScannerUnavailable
