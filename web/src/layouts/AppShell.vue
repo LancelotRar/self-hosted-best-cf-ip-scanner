@@ -141,8 +141,8 @@ onBeforeUnmount(() => {
 .sidebar {
   position: sticky;
   top: 0;
-  flex: 0 0 208px;
-  width: 208px;
+  flex: 0 0 var(--sidebar-w);
+  width: var(--sidebar-w);
   height: 100vh;
   display: flex;
   flex-direction: column;

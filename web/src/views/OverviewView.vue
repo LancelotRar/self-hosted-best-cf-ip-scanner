@@ -302,16 +302,16 @@ onMounted(load);
             class="scroll-table"
             @header-dragend="onFilesDragEnd"
           >
-            <el-table-column label="文件" :width="filesWidth('文件')" min-width="256" show-overflow-tooltip>
+            <el-table-column label="文件" :width="filesWidth('文件')" min-width="175" show-overflow-tooltip>
               <template #default="{ row }"><span class="mono">{{ row.name }}</span></template>
             </el-table-column>
-            <el-table-column label="大小" :width="filesWidth('大小')" min-width="102">
+            <el-table-column label="大小" :width="filesWidth('大小')" min-width="175">
               <template #default="{ row }">{{ formatSize(row.size) }}</template>
             </el-table-column>
-            <el-table-column label="修改时间" :width="filesWidth('修改时间')" min-width="179">
+            <el-table-column label="修改时间" :width="filesWidth('修改时间')" min-width="175">
               <template #default="{ row }">{{ formatTime(row.mtime) }}</template>
             </el-table-column>
-            <el-table-column label="预览" :width="filesWidth('预览')" min-width="102" >
+            <el-table-column label="预览" :width="filesWidth('预览')" min-width="175" >
               <template #default="{ row }">
                 <el-button size="small" @click="openPreview(row)">查看</el-button>
               </template>
@@ -366,7 +366,8 @@ onMounted(load);
     <el-dialog
       v-model="previewVisible"
       :title="currentPreview?.name ?? '产物预览'"
-      width="min(900px, 92vw)"
+      width="min(640px, 92vw)"
+      align-center
       destroy-on-close
     >
       <el-skeleton v-if="previewLoading" :rows="6" animated />

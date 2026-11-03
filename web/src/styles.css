@@ -374,6 +374,13 @@ a {
 }
 
 .el-drawer,
+/* 对话框在内容区（侧栏右侧）上下左右居中，而不是整个视口 */
+@media (min-width: 960px) {
+  .el-overlay-dialog {
+    padding-left: var(--sidebar-w);
+  }
+}
+
 .el-dialog {
   background: var(--surface);
   color: var(--text);

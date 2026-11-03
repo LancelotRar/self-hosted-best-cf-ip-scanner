@@ -2,20 +2,36 @@ import { expect, test } from "@playwright/test";
 
 import { ensureSession } from "./helpers";
 
+/** 保存按钮在底部操作栏（自定义 IP 库标签里也有保存，必须限定范围）。 */
+function saveButton(page: import("@playwright/test").Page) {
+  return page.locator(".actionbar").getByRole("button", { name: "保存", exact: true });
+}
+
+function cancelButton(page: import("@playwright/test").Page) {
+  return page.locator(".actionbar").getByRole("button", { name: "取消" });
+}
+
 test("保存结果面板显示写入/核对/生效方式/下次执行", async ({ page }) => {
   await ensureSession(page);
   await page.goto("/config");
 
   const field = page.locator("#param-MAX_CANDIDATES");
-  await field.fill("200");
+  const original = await field.inputValue();
+  const next = original === "200" ? "201" : "200";
+  await field.fill(next);
   await expect(page.getByText("未保存 1 项")).toBeVisible();
 
-  await page.locator(".actionbar").getByRole("button", { name: "保存", exact: true }).click();
+  await saveButton(page).click();
   await expect(page.getByText("保存结果")).toBeVisible();
-  await expect(page.getByText("已写入")).toBeVisible();
-  await expect(page.getByText("核对状态")).toBeVisible();
-  await expect(page.getByText("生效方式")).toBeVisible();
+  await expect(page.getByText(/已写入|无变化/)).toBeVisible();
+  await expect(page.getByText(/已核对通过|当前无法核对|需重启扫描容器/)).toBeVisible();
+  await expect(page.getByText("调度热重载")).toBeVisible();
   await expect(page.getByText("下次执行")).toBeVisible();
+
+  // 还原，避免污染测试栈的 .env
+  await field.fill(original);
+  await saveButton(page).click();
+  await expect(page.getByText("没有未保存的修改")).toBeVisible();
 });
 
 test("取消恢复服务端快照", async ({ page }) => {
@@ -24,29 +40,34 @@ test("取消恢复服务端快照", async ({ page }) => {
 
   const field = page.locator("#param-MAX_CANDIDATES");
   const original = await field.inputValue();
-  await field.fill("123");
+  const next = original === "123" ? "124" : "123";
+  await field.fill(next);
   await expect(page.getByText("未保存 1 项")).toBeVisible();
 
-  await page.locator(".actionbar").getByRole("button", { name: "取消" }).click();
+  await cancelButton(page).click();
   await expect(field).toHaveValue(original);
   await expect(page.getByText("没有未保存的修改")).toBeVisible();
 });
 
-test("非法值保存失败并保留输入", async ({ page }) => {
+test("数字控件把越界值夹到范围内", async ({ page }) => {
   await ensureSession(page);
   await page.goto("/config");
 
   const field = page.locator("#param-TCP_MIN_SUCCESS");
   const original = await field.inputValue();
+  const atMax = original === "10";
   await field.fill("99");
-  await page.locator(".actionbar").getByRole("button", { name: "保存", exact: true }).click();
+  await field.press("Tab");
 
-  await expect(page.getByText(/TCP_MIN_SUCCESS/)).toBeVisible();
-  await expect(field).toHaveValue("99");
-  await expect(page.getByText("未保存 1 项")).toBeVisible();
-
-  await page.locator(".actionbar").getByRole("button", { name: "取消" }).click();
-  await expect(field).toHaveValue(original);
+  // 失焦后控件把越界值夹到 max=10；本来就在上限时不再产生改动
+  await expect(field).toHaveValue("10");
+  if (atMax) {
+    await expect(page.getByText("没有未保存的修改")).toBeVisible();
+  } else {
+    await expect(page.getByText("未保存 1 项")).toBeVisible();
+    await cancelButton(page).click();
+    await expect(field).toHaveValue(original);
+  }
 });
 
 test("两个窗口同时保存时提示文件已被修改", async ({ browser }) => {
@@ -61,13 +82,18 @@ test("两个窗口同时保存时提示文件已被修改", async ({ browser }) 
     await pageA.goto("/config");
     await pageB.goto("/config");
 
-    await pageA.locator("#param-MAX_CANDIDATES").fill("300");
-    await pageB.locator("#param-MAX_CANDIDATES").fill("400");
+    const fieldA = pageA.locator("#param-MAX_CANDIDATES");
+    const original = await fieldA.inputValue();
+    const first = original === "300" ? "301" : "300";
+    const second = original === "400" ? "401" : "400";
 
-    await pageA.locator(".actionbar").getByRole("button", { name: "保存", exact: true }).click();
+    await fieldA.fill(first);
+    await pageB.locator("#param-MAX_CANDIDATES").fill(second);
+
+    await saveButton(pageA).click();
     await expect(pageA.getByText("保存结果")).toBeVisible();
 
-    await pageB.locator(".actionbar").getByRole("button", { name: "保存", exact: true }).click();
+    await saveButton(pageB).click();
     await expect(pageB.getByText("文件已被修改")).toBeVisible();
   } finally {
     await contextA.close();

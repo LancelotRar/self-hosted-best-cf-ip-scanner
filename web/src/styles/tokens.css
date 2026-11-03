@@ -4,6 +4,9 @@
   --font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
+  /* 左侧主导航宽度：页面内容与对话框居中都以此为界 */
+  --sidebar-w: 208px;
+
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 10px;

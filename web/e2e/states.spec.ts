@@ -85,7 +85,7 @@ test("IP 库非法行给出行号且不写入文件", async ({ page }) => {
   await expect(page.getByText("第 1 行")).toBeVisible();
 
   await actions.getByRole("button", { name: "还原" }).click();
-  await expect(page.getByText("没有未保存的修改")).toBeVisible();
+  await expect(actions.getByText("没有未保存的修改")).toBeVisible();
 });
 
 test("表格列宽拖动后写入 localStorage", async ({ page }) => {
@@ -106,4 +106,22 @@ test("表格列宽拖动后写入 localStorage", async ({ page }) => {
 
   const stored = await page.evaluate(() => localStorage.getItem("panel-table-widths"));
   expect(stored).toContain("overview-outputs");
+});
+
+test("未保存离开弹窗提供继续编辑 / 放弃修改 / 保存并离开", async ({ page }) => {
+  await ensureSession(page);
+  await page.goto("/config");
+
+  const field = page.locator("#param-MAX_CANDIDATES");
+  const original = await field.inputValue();
+  await field.fill(original === "200" ? "201" : "200");
+
+  await page.locator(".nav__item").filter({ hasText: "查看日志" }).click();
+  const dialog = page.locator(".el-dialog").filter({ hasText: "未保存的修改" });
+  await expect(dialog.getByRole("button", { name: "继续编辑" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "放弃修改" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "保存并离开" })).toBeVisible();
+
+  await dialog.getByRole("button", { name: "放弃修改" }).click();
+  await expect(page).toHaveURL(/\/logs/);
 });
