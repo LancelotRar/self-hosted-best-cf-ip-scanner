@@ -173,6 +173,8 @@ onMounted(async () => {
       <el-tab-pane label="审计" name="audit">
         <ErrorState v-if="auditError" :message="auditError" @retry="loadAudit()" />
         <template v-else>
+          <section class="panel">
+            <div class="panel__body">
           <el-table v-if="audits.length" :data="audits" size="small">
             <el-table-column label="时间" width="180">
               <template #default="{ row }">{{ formatTime(row.at) }}</template>
@@ -201,6 +203,8 @@ onMounted(async () => {
             :total="total"
             @current-change="loadAudit"
           />
+            </div>
+          </section>
         </template>
       </el-tab-pane>
 

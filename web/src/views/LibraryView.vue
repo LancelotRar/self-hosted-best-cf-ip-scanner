@@ -212,7 +212,9 @@ onBeforeRouteLeave(async () => {
       </el-tab-pane>
 
       <el-tab-pane label="备份" name="backups">
-        <el-table v-if="backups.length" :data="backups" size="small">
+        <section v-if="backups.length" class="panel">
+          <div class="panel__body">
+        <el-table :data="backups" size="small">
           <el-table-column prop="name" label="备份文件" min-width="220">
             <template #default="{ row }"><span class="mono">{{ row.name }}</span></template>
           </el-table-column>
@@ -228,6 +230,8 @@ onBeforeRouteLeave(async () => {
             </template>
           </el-table-column>
         </el-table>
+          </div>
+        </section>
         <EmptyState
           v-else
           title="尚无备份"

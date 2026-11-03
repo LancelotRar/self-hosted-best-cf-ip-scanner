@@ -145,7 +145,9 @@ onMounted(async () => {
         <div class="toolbar">
           <el-button :loading="loading" @click="loadHistory">刷新</el-button>
         </div>
-        <el-table v-if="history.length" :data="history" size="small">
+        <section v-if="history.length" class="panel">
+          <div class="panel__body">
+        <el-table :data="history" size="small">
           <el-table-column label="轮次" min-width="180">
             <template #default="{ row }"><span class="mono">{{ row.run_id }}</span></template>
           </el-table-column>
@@ -175,6 +177,8 @@ onMounted(async () => {
             </template>
           </el-table-column>
         </el-table>
+          </div>
+        </section>
         <EmptyState
           v-else
           title="尚无轮次记录"
