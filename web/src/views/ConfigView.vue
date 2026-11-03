@@ -78,7 +78,8 @@ const groupedFor = (tab: string): Array<{ name: string; params: Param[] }> =>
   (GROUPS[tab] ?? [])
     .map((name) => ({
       name,
-      params: store.params.filter((param) => param.group === name),
+      // 时区在「设置 · 常规」里维护，参数页不再重复出现
+      params: store.params.filter((param) => param.group === name && param.name !== "TZ"),
     }))
     .filter((group) => group.params.length > 0);
 

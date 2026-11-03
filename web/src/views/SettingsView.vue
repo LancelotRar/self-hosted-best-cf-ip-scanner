@@ -7,9 +7,11 @@ import { get, post } from "../api";
 import EmptyState from "../components/EmptyState.vue";
 import ErrorState from "../components/ErrorState.vue";
 import PageHeader from "../components/PageHeader.vue";
+import ParamField from "../components/ParamField.vue";
 import { PROJECT_URL } from "../config";
 import { useTheme, type Theme } from "../composables/useTheme";
 import { useTableWidths } from "../composables/useTableWidths";
+import { useConfigStore } from "../stores/config";
 import { useUiSettings, type FontSize } from "../composables/useUiSettings";
 
 interface AuditItem {
@@ -23,6 +25,7 @@ interface AuditItem {
 
 const activeTab = ref("appearance");
 
+const config = useConfigStore();
 const { theme, set } = useTheme();
 const { widthFor: colWidth, onHeaderDragEnd: onColumnDragEnd } = useTableWidths("settings-audit");
 const { fontSize, setFontSize, reset } = useUiSettings();
@@ -135,17 +138,66 @@ async function loadInfo() {
   }
 }
 
+const tzParam = computed(() => config.params.find((param) => param.name === "TZ") ?? null);
+
+function updateTz(value: unknown) {
+  config.applyLocal({ TZ: value });
+}
+
+async function saveTimezone() {
+  try {
+    await config.save();
+    ElMessage.success("时区已保存，重启扫描容器后生效");
+  } catch (exception) {
+    ElMessage.error((exception as Error).message);
+  }
+}
+
 onMounted(async () => {
   await loadAudit();
   await loadInfo();
+  await config.load().catch((exception: Error) => ElMessage.error(exception.message));
 });
 </script>
 
 <template>
   <section class="page">
-    <PageHeader title="设置" subtitle="外观、账号、审计、容器与版本信息" />
+    <PageHeader title="设置" subtitle="时区、外观、账号、审计、容器与版本信息" />
 
     <el-tabs v-model="activeTab">
+      <el-tab-pane label="常规" name="general">
+        <section class="panel">
+          <header class="panel__head">时区</header>
+          <div class="panel__body">
+            <p class="muted settings-hint">
+              影响调度表达式、运行记录与日志时间；保存后需重启扫描容器生效。
+            </p>
+            <ErrorState v-if="!tzParam && config.lastError" :message="config.lastError.message" />
+            <ParamField
+              v-if="tzParam"
+              :param="tzParam"
+              :model-value="config.values.TZ"
+              @update:model-value="updateTz"
+            />
+            <div class="settings-actions">
+              <span class="muted">
+                {{ config.dirty ? `未保存 ${config.dirtyCount} 项` : "没有未保存的修改" }}
+              </span>
+              <span class="spacer" />
+              <el-button :disabled="!config.dirty" @click="config.cancel()">取消</el-button>
+              <el-button
+                type="primary"
+                :disabled="!config.dirty"
+                :loading="config.saving"
+                @click="saveTimezone"
+              >
+                保存
+              </el-button>
+            </div>
+          </div>
+        </section>
+      </el-tab-pane>
+
       <el-tab-pane label="外观" name="appearance">
         <section class="panel settings-panel">
           <header class="panel__head">
@@ -337,6 +389,18 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.settings-hint {
+  margin: 0 0 var(--space-3);
+  font-size: 12px;
+}
+
+.settings-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
 .settings-panel {
   margin-bottom: var(--space-4);
 }
