@@ -179,6 +179,40 @@ class FakeController:
             raise ScannerUnavailable("扫描容器不在线")
         return iter(self.log_chunks)
 
+    def status(self):
+        from panel.docker_api import ScannerUnavailable
+
+        if self.raise_unavailable:
+            raise ScannerUnavailable("扫描容器不在线")
+        return {
+            "name": "best-cf-ip-scanner",
+            "state": "running",
+            "health": "healthy",
+            "started_at": "2026-11-03T00:00:00Z",
+            "image": "ghcr.io/example/scanner:test",
+        }
+
+    def restart(self, timeout=150):
+        from panel.docker_api import ScannerUnavailable
+
+        if self.raise_unavailable:
+            raise ScannerUnavailable("扫描容器不在线")
+        self.restarted = getattr(self, "restarted", 0) + 1
+
+    def stop(self, timeout=30):
+        from panel.docker_api import ScannerUnavailable
+
+        if self.raise_unavailable:
+            raise ScannerUnavailable("扫描容器不在线")
+        self.stopped = getattr(self, "stopped", 0) + 1
+
+    def start(self):
+        from panel.docker_api import ScannerUnavailable
+
+        if self.raise_unavailable:
+            raise ScannerUnavailable("扫描容器不在线")
+        self.started = getattr(self, "started", 0) + 1
+
     def exec_script(self, script, env=None):
         from panel.docker_api import ScannerUnavailable
 

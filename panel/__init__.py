@@ -5,3 +5,5 @@
     app           FastAPI 应用工厂
     其余模块按任务逐步加入：db / security / config_store / docker_api / routers ...
 """
+
+__version__ = "0.1.0"
