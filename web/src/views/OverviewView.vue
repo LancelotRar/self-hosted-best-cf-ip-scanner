@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { ElMessage } from "element-plus";
 import {
   DataLine,
@@ -12,6 +12,7 @@ import {
 
 import { get } from "../api";
 import EmptyState from "../components/EmptyState.vue";
+import { useTableWidths } from "../composables/useTableWidths";
 import ErrorState from "../components/ErrorState.vue";
 import PageHeader from "../components/PageHeader.vue";
 import StatusPill from "../components/StatusPill.vue";
@@ -43,6 +44,9 @@ const overview = ref<Overview | null>(null);
 const runs = ref<RunRecord[]>([]);
 const files = ref<OutputFile[]>([]);
 const library = ref<LibraryDocument | null>(null);
+const { widthFor: runsWidth, onHeaderDragEnd: onRunsDragEnd } = useTableWidths("overview-runs");
+const { widthFor: filesWidth, onHeaderDragEnd: onFilesDragEnd } = useTableWidths("overview-outputs");
+const { widthFor: previewWidth, onHeaderDragEnd: onPreviewDragEnd } = useTableWidths("preview-csv");
 const publish = ref<PublishResponse | null>(null);
 const cronExpression = ref("");
 const timezone = ref("");
@@ -50,6 +54,14 @@ const timezone = ref("");
 const previewVisible = ref(false);
 const previewLoading = ref(false);
 const currentPreview = ref<Preview | null>(null);
+
+/** 注释说明已移到「参数调整 · 自定义 IP 库」，总览只列地址条目。 */
+const libraryEntries = computed(() =>
+  (library.value?.content ?? "")
+    .split("\n")
+    .filter((line) => line.trim() && !line.trimStart().startsWith("#"))
+    .join("\n"),
+);
 
 function paramValue(name: string): unknown {
   return publish.value?.params.find((param) => param.name === name)?.value;
@@ -156,7 +168,7 @@ onMounted(load);
 <template>
   <section class="page">
     <PageHeader
-      title="总览"
+      title="信息总览"
       subtitle="扫描器、IP 库、计划、运行、产物与推送情况的综合视图"
     />
 
@@ -208,7 +220,10 @@ onMounted(load);
               {{ library.stats.fixed }} · 跳过 {{ library.stats.skipped }} · 修改时间
               {{ formatTime(library.mtime) }}
             </p>
-            <pre class="library-preview mono">{{ library.content }}</pre>
+            <p class="section-note muted">
+              只列出地址条目；格式说明与编辑在「参数调整 · 自定义 IP 库」。
+            </p>
+            <pre class="library-preview mono">{{ libraryEntries }}</pre>
           </template>
           <EmptyState v-else title="尚未读取到 IP 库" description="请检查 ./data/ip-library.txt" />
         </div>
@@ -239,24 +254,32 @@ onMounted(load);
           <span class="section-title"><el-icon><VideoPlay /></el-icon>近期扫描情况</span>
         </header>
         <div class="panel__body">
-          <el-table border v-if="runs.length" :data="runs" size="small" max-height="300" class="scroll-table">
-            <el-table-column label="开始时间" min-width="230">
+          <el-table
+            border
+            v-if="runs.length"
+            :data="runs"
+            size="small"
+            max-height="300"
+            class="scroll-table"
+            @header-dragend="onRunsDragEnd"
+          >
+            <el-table-column label="开始时间" :width="runsWidth('开始时间')" min-width="230">
               <template #default="{ row }">
                 <span class="mono">{{ startText(row) }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="触发" min-width="77">
+            <el-table-column label="触发" :width="runsWidth('触发')" min-width="77">
               <template #default="{ row }">{{ row.trigger ?? "—" }}</template>
             </el-table-column>
-            <el-table-column label="状态" min-width="102">
+            <el-table-column label="状态" :width="runsWidth('状态')" min-width="102">
               <template #default="{ row }">
                 <StatusPill :tone="runTone(row)" :label="runLabel(row)" />
               </template>
             </el-table-column>
-            <el-table-column label="扫描" min-width="115">
+            <el-table-column label="扫描" :width="runsWidth('扫描')" min-width="115">
               <template #default="{ row }">{{ exitLabel(row.scan_exit) }}</template>
             </el-table-column>
-            <el-table-column label="耗时" min-width="115">
+            <el-table-column label="耗时" :width="runsWidth('耗时')" min-width="115">
               <template #default="{ row }">{{ formatDuration(row.duration_s) }}</template>
             </el-table-column>
           </el-table>
@@ -270,17 +293,25 @@ onMounted(load);
           <span class="section-title"><el-icon><FolderOpened /></el-icon>产物情况</span>
         </header>
         <div class="panel__body">
-          <el-table border v-if="files.length" :data="files" size="small" max-height="280" class="scroll-table">
-            <el-table-column label="文件" min-width="256" show-overflow-tooltip>
+          <el-table
+            border
+            v-if="files.length"
+            :data="files"
+            size="small"
+            max-height="280"
+            class="scroll-table"
+            @header-dragend="onFilesDragEnd"
+          >
+            <el-table-column label="文件" :width="filesWidth('文件')" min-width="256" show-overflow-tooltip>
               <template #default="{ row }"><span class="mono">{{ row.name }}</span></template>
             </el-table-column>
-            <el-table-column label="大小" min-width="102">
+            <el-table-column label="大小" :width="filesWidth('大小')" min-width="102">
               <template #default="{ row }">{{ formatSize(row.size) }}</template>
             </el-table-column>
-            <el-table-column label="修改时间" min-width="179">
+            <el-table-column label="修改时间" :width="filesWidth('修改时间')" min-width="179">
               <template #default="{ row }">{{ formatTime(row.mtime) }}</template>
             </el-table-column>
-            <el-table-column label="预览" min-width="102" align="right">
+            <el-table-column label="预览" :width="filesWidth('预览')" min-width="102" >
               <template #default="{ row }">
                 <el-button size="small" @click="openPreview(row)">查看</el-button>
               </template>
@@ -350,11 +381,13 @@ onMounted(load);
           :data="currentPreview.rows ?? []"
           size="small"
           height="420"
+          @header-dragend="onPreviewDragEnd"
         >
           <el-table-column
             v-for="(header, index) in currentPreview.headers"
             :key="index"
             :label="header"
+            :width="previewWidth(header)"
             min-width="120"
           >
             <template #default="{ row }">{{ row[index] }}</template>

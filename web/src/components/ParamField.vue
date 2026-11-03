@@ -129,11 +129,11 @@ const defaultText = computed(() => {
 const effectTag = computed(() => {
   switch (props.param.effect) {
     case "restart_required":
-      return { label: "需重启", tone: "warning" };
+      return { label: "需重启生效", tone: "warning" };
     case "schedule_reload":
-      return { label: "热重载", tone: "info" };
+      return { label: "热重载生效", tone: "info" };
     default:
-      return { label: "下一轮", tone: "success" };
+      return { label: "下一轮生效", tone: "success" };
   }
 });
 
@@ -168,14 +168,6 @@ function onBool(value: string | number | boolean) {
         </el-icon>
         {{ param.label }}
       </label>
-      <div class="field__tags">
-        <span class="tag" :class="`tag--${effectTag.tone}`">{{ effectTag.label }}</span>
-        <span class="tag">{{ param.source === "dotenv" ? "来自 .env" : "默认值" }}</span>
-        <span v-if="param.read_only" class="tag">只读</span>
-        <span v-else-if="param.secret" class="tag">
-          {{ param.configured ? "已配置" : "未配置" }}
-        </span>
-      </div>
     </div>
 
     <el-switch
@@ -335,6 +327,14 @@ function onBool(value: string | number | boolean) {
       @input="onText"
     />
 
+    <div class="field__tags">
+      <span class="tag" :class="`tag--${effectTag.tone}`">{{ effectTag.label }}</span>
+      <span v-if="param.read_only" class="tag">只读</span>
+      <span v-else-if="param.secret" class="tag">
+        {{ param.configured ? "已配置" : "未配置" }}
+      </span>
+    </div>
+
     <p :id="`param-${param.name}-help`" class="field__help">{{ param.help }}</p>
     <p class="field__default">默认：{{ defaultText }}</p>
   </div>
@@ -357,7 +357,6 @@ function onBool(value: string | number | boolean) {
 .field__head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-3);
   margin-bottom: var(--space-2);
   flex-wrap: wrap;
@@ -375,10 +374,12 @@ function onBool(value: string | number | boolean) {
   color: var(--text-muted);
 }
 
+/* 生效方式等提醒放在控件之后，标签行只留参数名 */
 .field__tags {
   display: flex;
   gap: var(--space-1);
   flex-wrap: wrap;
+  margin-top: 6px;
 }
 
 .tag {

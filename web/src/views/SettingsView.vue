@@ -9,6 +9,7 @@ import ErrorState from "../components/ErrorState.vue";
 import PageHeader from "../components/PageHeader.vue";
 import { PROJECT_URL } from "../config";
 import { useTheme, type Theme } from "../composables/useTheme";
+import { useTableWidths } from "../composables/useTableWidths";
 import { useUiSettings, type FontSize } from "../composables/useUiSettings";
 
 interface AuditItem {
@@ -23,6 +24,7 @@ interface AuditItem {
 const activeTab = ref("appearance");
 
 const { theme, set } = useTheme();
+const { widthFor: colWidth, onHeaderDragEnd: onColumnDragEnd } = useTableWidths("settings-audit");
 const { fontSize, setFontSize, reset } = useUiSettings();
 
 const themeValue = computed<Theme>({
@@ -252,16 +254,16 @@ onMounted(async () => {
         <template v-else>
           <section class="panel">
             <div class="panel__body">
-              <el-table border v-if="audits.length" :data="audits" size="small">
-                <el-table-column label="时间" width="180">
+              <el-table border v-if="audits.length" :data="audits" size="small" @header-dragend="onColumnDragEnd">
+                <el-table-column label="时间" :width="colWidth('时间') ?? 180">
                   <template #default="{ row }">{{ formatTime(row.at) }}</template>
                 </el-table-column>
-                <el-table-column prop="actor" label="操作者" width="90" />
-                <el-table-column prop="action" label="动作" width="170">
+                <el-table-column prop="actor" label="操作者" :width="colWidth('操作者') ?? 90" />
+                <el-table-column prop="action" label="动作" :width="colWidth('动作') ?? 170">
                   <template #default="{ row }"><span class="mono">{{ row.action }}</span></template>
                 </el-table-column>
-                <el-table-column prop="detail" label="详情" min-width="220" />
-                <el-table-column prop="ip" label="来源" width="110">
+                <el-table-column prop="detail" label="详情" :width="colWidth('详情')" min-width="220" />
+                <el-table-column prop="ip" label="来源" :width="colWidth('来源') ?? 110">
                   <template #default="{ row }"><span class="mono">{{ row.ip }}</span></template>
                 </el-table-column>
               </el-table>

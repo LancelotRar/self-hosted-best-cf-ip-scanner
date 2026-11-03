@@ -51,7 +51,7 @@ onMounted(connect);
 <template>
   <section class="page">
     <PageHeader
-      title="日志"
+      title="查看日志"
       subtitle="本项目扫描容器的实时日志；断开时显示重连状态"
     />
 

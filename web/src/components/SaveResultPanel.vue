@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
+import { useTableWidths } from "../composables/useTableWidths";
 import type { SaveResult } from "../types";
 import { effectLabel, formatTime } from "../utils/format";
 import StatusPill from "./StatusPill.vue";
 
 const props = defineProps<{ result: SaveResult | null }>();
+
+const { widthFor: colWidth, onHeaderDragEnd: onColumnDragEnd } = useTableWidths("save-result");
 
 const emit = defineEmits<{
   close: [];
@@ -67,19 +70,26 @@ const canRestart = computed(
       </div>
     </dl>
 
-    <el-table border v-if="result.changed.length" :data="result.changed" size="small" class="result__table">
-      <el-table-column prop="name" label="参数" min-width="240" />
-      <el-table-column label="原值" min-width="160">
+    <el-table
+      border
+      v-if="result.changed.length"
+      :data="result.changed"
+      size="small"
+      class="result__table"
+      @header-dragend="onColumnDragEnd"
+    >
+      <el-table-column prop="name" label="参数" :width="colWidth('参数')" min-width="240" />
+      <el-table-column label="原值" :width="colWidth('原值')" min-width="160">
         <template #default="{ row }">
           <span class="mono">{{ row.old ?? "—" }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="新值" min-width="160">
+      <el-table-column label="新值" :width="colWidth('新值')" min-width="160">
         <template #default="{ row }">
           <span class="mono">{{ row.new ?? "—" }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="生效方式" min-width="140">
+      <el-table-column label="生效方式" :width="colWidth('生效方式')" min-width="140">
         <template #default="{ row }">{{ effectLabel(row.effect) }}</template>
       </el-table-column>
     </el-table>

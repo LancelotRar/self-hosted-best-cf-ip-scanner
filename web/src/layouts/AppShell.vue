@@ -9,10 +9,10 @@ import { useAuthStore } from "../stores/auth";
 import type { Overview } from "../types";
 
 const tabs = [
-  { name: "overview", label: "总览", icon: Odometer },
-  { name: "config", label: "参数", icon: Setting },
-  { name: "runs", label: "运行", icon: VideoPlay },
-  { name: "logs", label: "日志", icon: Document },
+  { name: "overview", label: "信息总览", icon: Odometer },
+  { name: "config", label: "参数调整", icon: Setting },
+  { name: "runs", label: "手动运行", icon: VideoPlay },
+  { name: "logs", label: "查看日志", icon: Document },
   { name: "settings", label: "设置", icon: Operation },
 ] as const;
 

@@ -14,16 +14,19 @@ import { ElMessage, ElMessageBox } from "element-plus";
 
 import { post } from "../api";
 import EmptyState from "../components/EmptyState.vue";
+import ConfigLibraryTab from "../components/ConfigLibraryTab.vue";
 import ConfigScheduleTab from "../components/ConfigScheduleTab.vue";
 import ErrorState from "../components/ErrorState.vue";
 import PageHeader from "../components/PageHeader.vue";
 import ParamField from "../components/ParamField.vue";
 import SaveResultPanel from "../components/SaveResultPanel.vue";
+import { useTableWidths } from "../composables/useTableWidths";
 import { useConfigStore } from "../stores/config";
 import type { Param } from "../types";
 import { formatTime } from "../utils/format";
 
 const store = useConfigStore();
+const { widthFor: versionWidth, onHeaderDragEnd: onVersionDragEnd } = useTableWidths("config-versions");
 const route = useRoute();
 const activeTab = ref(route.query.tab === "schedule" ? "schedule" : "scanner");
 const versionsVisible = ref(false);
@@ -168,7 +171,7 @@ onBeforeRouteLeave(async () => {
 <template>
   <section class="page page--flush">
     <PageHeader
-      title="参数"
+      title="参数调整"
       subtitle="保存即改写 .env；扫描器下一轮读取，调度变更热重载"
     />
 
@@ -227,6 +230,10 @@ onBeforeRouteLeave(async () => {
             </el-collapse-item>
           </el-collapse>
           </div>
+        </el-tab-pane>
+
+        <el-tab-pane label="自定义 IP 库" name="library" lazy>
+          <ConfigLibraryTab />
         </el-tab-pane>
 
         <el-tab-pane label="发布与代理" name="publish" lazy>
@@ -302,18 +309,18 @@ onBeforeRouteLeave(async () => {
     </template>
 
     <el-drawer v-model="versionsVisible" title="配置版本" size="60%">
-      <el-table border v-if="store.versions.length" :data="store.versions" size="small">
-        <el-table-column prop="id" label="版本" width="70" />
-        <el-table-column label="时间" width="180">
+      <el-table border v-if="store.versions.length" :data="store.versions" size="small" @header-dragend="onVersionDragEnd">
+        <el-table-column prop="id" label="版本" :width="versionWidth('版本') ?? 70" />
+        <el-table-column label="时间" :width="versionWidth('时间') ?? 180">
           <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
         </el-table-column>
-        <el-table-column prop="actor" label="操作者" width="90" />
-        <el-table-column prop="diff" label="变更（已脱敏）" min-width="240">
+        <el-table-column prop="actor" label="操作者" :width="versionWidth('操作者') ?? 90" />
+        <el-table-column prop="diff" label="变更（已脱敏）" :width="versionWidth('变更（已脱敏）')" min-width="240">
           <template #default="{ row }">
             <span class="mono diff">{{ row.diff }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="90">
+        <el-table-column label="操作" :width="versionWidth('操作') ?? 90">
           <template #default="{ row }">
             <el-button size="small" @click="rollback(row.id)">回滚</el-button>
           </template>

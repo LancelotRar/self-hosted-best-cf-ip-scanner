@@ -14,10 +14,12 @@ import LogConsole from "../components/LogConsole.vue";
 import PageHeader from "../components/PageHeader.vue";
 import StatusPill from "../components/StatusPill.vue";
 import { useEventStream } from "../composables/useEventStream";
+import { useTableWidths } from "../composables/useTableWidths";
 import type { RunRecord } from "../types";
 import { exitLabel, formatDuration, formatTime } from "../utils/format";
 
 const router = useRouter();
+const { widthFor: colWidth, onHeaderDragEnd: onColumnDragEnd } = useTableWidths("runs-history");
 const activeTab = ref("run");
 const ended = ref(false);
 const runId = ref("");
@@ -106,7 +108,7 @@ onMounted(async () => {
 <template>
   <section class="page">
     <PageHeader
-      title="运行"
+      title="手动运行"
       subtitle="手动执行与定时任务共用同一份 .env，仅触发方式不同"
     />
 
@@ -155,31 +157,31 @@ onMounted(async () => {
         </div>
         <section v-if="history.length" class="panel">
           <div class="panel__body">
-        <el-table border :data="history" size="small">
-          <el-table-column label="轮次" min-width="180">
+        <el-table border :data="history" size="small" @header-dragend="onColumnDragEnd">
+          <el-table-column label="轮次" :width="colWidth('轮次')" min-width="180">
             <template #default="{ row }"><span class="mono">{{ row.run_id }}</span></template>
           </el-table-column>
-          <el-table-column label="触发" width="80">
+          <el-table-column label="触发" :width="colWidth('触发') ?? 80">
             <template #default="{ row }">{{ row.trigger ?? "—" }}</template>
           </el-table-column>
-          <el-table-column label="状态" width="100">
+          <el-table-column label="状态" :width="colWidth('状态') ?? 100">
             <template #default="{ row }">
               <StatusPill :tone="runTone(row)" :label="runLabel(row)" />
             </template>
           </el-table-column>
-          <el-table-column label="扫描" width="110">
+          <el-table-column label="扫描" :width="colWidth('扫描') ?? 110">
             <template #default="{ row }">{{ exitLabel(row.scan_exit) }}</template>
           </el-table-column>
-          <el-table-column label="发布" width="110">
+          <el-table-column label="发布" :width="colWidth('发布') ?? 110">
             <template #default="{ row }">{{ exitLabel(row.publish_exit) }}</template>
           </el-table-column>
-          <el-table-column label="耗时" width="90">
+          <el-table-column label="耗时" :width="colWidth('耗时') ?? 90">
             <template #default="{ row }">{{ formatDuration(row.duration_s) }}</template>
           </el-table-column>
-          <el-table-column label="开始" min-width="170">
+          <el-table-column label="开始" :width="colWidth('开始')" min-width="170">
             <template #default="{ row }">{{ formatTime(row.started_at) }}</template>
           </el-table-column>
-          <el-table-column label="摘要" min-width="160">
+          <el-table-column label="摘要" :width="colWidth('摘要')" min-width="160">
             <template #default="{ row }">
               <span class="muted">{{ row.summary ?? "—" }}</span>
             </template>

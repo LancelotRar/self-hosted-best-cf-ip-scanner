@@ -11,14 +11,20 @@ export async function ensureSession(page: Page): Promise<void> {
     await page.getByPlaceholder("至少 8 个字符").fill(PASSWORD);
     await page.getByPlaceholder("再输入一次").fill(PASSWORD);
     await page.getByRole("button", { name: "设置并登录" }).click();
-    await expect(page.getByRole("heading", { name: "总览" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "信息总览" })).toBeVisible();
     return;
   }
 
-  const loginHeading = page.getByRole("heading", { name: "登录运维面板" });
+  const loginHeading = page.getByRole("heading", { name: "登录", exact: true });
   if (await loginHeading.isVisible().catch(() => false)) {
-    await page.getByPlaceholder("管理员密码").fill(PASSWORD);
+    await page.getByLabel("管理员密码").fill(PASSWORD);
     await page.getByRole("button", { name: "登录" }).click();
   }
-  await expect(page.getByRole("heading", { name: "总览" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "信息总览" })).toBeVisible();
+}
+
+/** 退出登录：新布局把退出按钮放在侧栏底部。 */
+export async function logout(page: Page): Promise<void> {
+  await page.locator(".footer-logout").click();
+  await expect(page.getByRole("heading", { name: "登录", exact: true })).toBeVisible();
 }
