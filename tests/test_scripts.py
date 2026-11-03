@@ -39,6 +39,12 @@ def test_compose_example_declares_panel_and_project_mount():
     assert "env_file" not in services["scanner"]
 
 
+def test_entrypoint_does_not_leak_params_into_long_running_env():
+    text = (ROOT / "docker/entrypoint.sh").read_text(encoding="utf-8")
+    # 这些键若被 export，会让 watcher / supercronic 永远用容器启动时的旧值。
+    assert '--plain --keys PUID,PGID,TZ,CRON_SCHEDULE,RUN_ON_START' in text
+
+
 def test_apply_config_uses_supercronic_reload_signal():
     text = (ROOT / "docker/apply-config.sh").read_text(encoding="utf-8")
     # supercronic 用 SIGUSR2 重载；SIGHUP 会终止 PID 1 导致容器重启。

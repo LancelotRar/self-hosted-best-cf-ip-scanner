@@ -28,10 +28,12 @@ is_true() {
   esac
 }
 
-if ! dotenv_exports="$(python "$EXPORT_DOTENV" --keys PUID,PGID,TZ,CRON_SCHEDULE,RUN_ON_START)"; then
+if ! dotenv_exports="$(python "$EXPORT_DOTENV" --plain --keys PUID,PGID,TZ,CRON_SCHEDULE,RUN_ON_START)"; then
   log "[错误] 读取 .env 失败，容器不进入调度"
   exit 1
 fi
+# 用本地变量而非 export：这些键必须每轮/每次应用都从当前 .env 现读，
+# 不能以容器启动时的旧值污染 supercronic / watcher 的长驻环境。
 eval "$dotenv_exports"
 
 PUID="${PUID:-1000}"

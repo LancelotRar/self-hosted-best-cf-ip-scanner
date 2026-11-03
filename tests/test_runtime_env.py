@@ -17,6 +17,20 @@ def test_export_skips_existing_and_empty(tmp_path):
     assert "PROBE_HOST" not in out
 
 
+def test_export_plain_omits_shell_export(tmp_path):
+    env_file = tmp_path / ".env"
+    env_file.write_text("CRON_SCHEDULE=30 */6 * * *\n", encoding="utf-8")
+    env = {key: value for key, value in os.environ.items() if key != "CRON_SCHEDULE"}
+    env["DOTENV_PATH"] = str(env_file)
+    out = subprocess.check_output(
+        [sys.executable, str(ROOT / "docker/export-dotenv.py"), "--plain"],
+        env=env,
+        text=True,
+    )
+    assert out.strip() == "CRON_SCHEDULE='30 */6 * * *'"
+    assert "export " not in out
+
+
 def test_export_quotes_shell_metacharacters(tmp_path):
     env_file = tmp_path / ".env"
     env_file.write_text("PROBE_USER_AGENT='a $(danger) b'\n", encoding="utf-8")

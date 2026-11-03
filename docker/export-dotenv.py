@@ -39,9 +39,15 @@ from scanner.schema import KNOWN_KEYS  # noqa: E402
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="导出 .env 中的已知键")
     parser.add_argument("--keys", default="", help="只导出这些键（逗号分隔）")
+    parser.add_argument(
+        "--plain",
+        action="store_true",
+        help="输出 KEY='value' 而不带 export（供入口脚本取本地变量，避免污染长驻进程环境）",
+    )
     args = parser.parse_args(argv)
 
     selected = {name for name in args.keys.split(",") if name} or None
+    prefix = "" if args.plain else "export "
     try:
         values = load()
     except DotenvError as exc:
@@ -57,7 +63,7 @@ def main(argv: list[str] | None = None) -> int:
             continue
         if os.environ.get(name, "").strip():
             continue
-        print(f"export {name}={shlex.quote(value)}")
+        print(f"{prefix}{name}={shlex.quote(value)}")
     return 0
 
 
