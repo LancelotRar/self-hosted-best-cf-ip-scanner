@@ -232,6 +232,12 @@ def client(anon_client):
 
 
 @pytest.fixture
+def output_dir(settings):
+    """产物目录（`Settings.for_tests` 已创建）。"""
+    return settings.output_dir
+
+
+@pytest.fixture
 def runs_tsv(settings):
     """预置一份轮次记录：扫描成功、发布失败。"""
     path = settings.data_dir / "runtime" / "runs.tsv"

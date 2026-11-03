@@ -18,6 +18,7 @@ from .routers import config as config_routes
 from .routers import schedule as schedule_routes
 from .routers import runs as runs_routes
 from .routers import logs as logs_routes
+from .routers import outputs as outputs_routes
 from .security import configure
 from .settings import Settings
 
@@ -71,6 +72,7 @@ def create_app(settings: Settings | None = None, controller=None) -> FastAPI:
     app.include_router(schedule_routes.router)
     app.include_router(runs_routes.router)
     app.include_router(logs_routes.router)
+    app.include_router(outputs_routes.router)
 
     # 前端构建产物由后端托管；Task 16 之后是 Vite 生成的 SPA。
     static_dir = Path(__file__).resolve().parent / "static"
