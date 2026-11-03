@@ -20,6 +20,7 @@ import ErrorState from "../components/ErrorState.vue";
 import PageHeader from "../components/PageHeader.vue";
 import ParamField from "../components/ParamField.vue";
 import SaveResultPanel from "../components/SaveResultPanel.vue";
+import UnsavedDialog from "../components/UnsavedDialog.vue";
 import { useTableWidths } from "../composables/useTableWidths";
 import { useConfigStore } from "../stores/config";
 import type { Param } from "../types";
@@ -33,6 +34,38 @@ const versionsVisible = ref(false);
 const loadError = ref("");
 const saveError = ref("");
 const restarting = ref(false);
+const unsavedVisible = ref(false);
+const leaving = ref<((ok: boolean) => void) | null>(null);
+
+/** 离开前弹三选一：继续编辑 / 放弃修改 / 保存并离开。 */
+function askLeave(): Promise<boolean> {
+  unsavedVisible.value = true;
+  return new Promise((resolve) => {
+    leaving.value = resolve;
+  });
+}
+
+function resolveLeave(ok: boolean) {
+  unsavedVisible.value = false;
+  leaving.value?.(ok);
+  leaving.value = null;
+}
+
+async function saveAndLeave() {
+  try {
+    await store.save();
+    ElMessage.success("已保存");
+    resolveLeave(true);
+  } catch (error) {
+    ElMessage.error((error as Error).message);
+    resolveLeave(false);
+  }
+}
+
+function discardAndLeave() {
+  store.cancel();
+  resolveLeave(true);
+}
 
 const GROUPS: Record<string, string[]> = {
   scanner: ["探测端点", "探测参数", "采样", "输入输出", "运行身份"],
@@ -148,23 +181,7 @@ onMounted(load);
 
 onBeforeRouteLeave(async () => {
   if (!store.dirty) return true;
-  try {
-    await ElMessageBox.confirm("有未保存的修改，是否保存后离开？", "未保存的修改", {
-      confirmButtonText: "保存并离开",
-      cancelButtonText: "继续编辑",
-      type: "warning",
-    });
-  } catch {
-    return false;
-  }
-  try {
-    await store.save();
-    ElMessage.success("已保存");
-    return true;
-  } catch (error) {
-    ElMessage.error((error as Error).message);
-    return false;
-  }
+  return askLeave();
 });
 </script>
 
@@ -328,6 +345,14 @@ onBeforeRouteLeave(async () => {
       </el-table>
       <EmptyState v-else title="尚无配置版本" description="每次成功保存都会生成一个可回滚版本" />
     </el-drawer>
+
+    <UnsavedDialog
+      v-model="unsavedVisible"
+      :saving="store.saving"
+      description="有未保存的参数修改，离开后这些修改会丢失。"
+      @save="saveAndLeave"
+      @discard="discardAndLeave"
+    />
   </section>
 </template>
 

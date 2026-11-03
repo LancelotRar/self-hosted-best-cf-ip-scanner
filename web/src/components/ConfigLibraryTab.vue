@@ -6,6 +6,7 @@ import { Check, Document, RefreshLeft } from "@element-plus/icons-vue";
 
 import { ApiError, get, put } from "../api";
 import ErrorState from "./ErrorState.vue";
+import UnsavedDialog from "./UnsavedDialog.vue";
 import type { LibraryDocument } from "../types";
 import { formatTime } from "../utils/format";
 
@@ -16,6 +17,8 @@ const saving = ref(false);
 const loadError = ref("");
 const saveError = ref("");
 const fieldErrors = ref<Array<{ line?: number; raw?: string; message?: string }>>([]);
+const unsavedVisible = ref(false);
+const leaving = ref<((ok: boolean) => void) | null>(null);
 
 const dirty = computed(() => Boolean(library.value) && draft.value !== library.value?.content);
 
@@ -54,6 +57,30 @@ function restore() {
   draft.value = library.value?.content ?? "";
   fieldErrors.value = [];
   saveError.value = "";
+}
+
+/** 离开前弹三选一：继续编辑 / 放弃修改 / 保存并离开。 */
+function askLeave(): Promise<boolean> {
+  unsavedVisible.value = true;
+  return new Promise((resolve) => {
+    leaving.value = resolve;
+  });
+}
+
+function resolveLeave(ok: boolean) {
+  unsavedVisible.value = false;
+  leaving.value?.(ok);
+  leaving.value = null;
+}
+
+async function saveAndLeave() {
+  await save();
+  resolveLeave(!saveError.value);
+}
+
+function discardAndLeave() {
+  restore();
+  resolveLeave(true);
 }
 
 async function save() {
@@ -99,17 +126,7 @@ onMounted(load);
 
 onBeforeRouteLeave(async () => {
   if (!dirty.value) return true;
-  try {
-    await ElMessageBox.confirm("IP 库有未保存的修改，是否保存后离开？", "未保存的修改", {
-      confirmButtonText: "保存并离开",
-      cancelButtonText: "继续编辑",
-      type: "warning",
-    });
-  } catch {
-    return false;
-  }
-  await save();
-  return !saveError.value;
+  return askLeave();
 });
 </script>
 
@@ -178,6 +195,14 @@ onBeforeRouteLeave(async () => {
         </div>
       </section>
     </div>
+
+    <UnsavedDialog
+      v-model="unsavedVisible"
+      :saving="saving"
+      description="IP 库有未保存的修改，离开后这些修改会丢失。"
+      @save="saveAndLeave"
+      @discard="discardAndLeave"
+    />
   </template>
 </template>
 

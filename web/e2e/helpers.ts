@@ -7,7 +7,14 @@ export async function ensureSession(page: Page): Promise<void> {
   await page.goto("/");
 
   const setupHeading = page.getByRole("heading", { name: "首次设置" });
-  if (await setupHeading.isVisible().catch(() => false)) {
+  const loginHeading = page.getByRole("heading", { name: "登录", exact: true });
+
+  // SPA 首屏渲染有延迟：先等到「设置 / 登录 / 已登录」三者之一出现，再决定走哪条路。
+  await expect(
+    setupHeading.or(loginHeading).or(page.locator(".nav__item").first()),
+  ).toBeVisible();
+
+  if (await setupHeading.isVisible()) {
     await page.getByPlaceholder("至少 8 个字符").fill(PASSWORD);
     await page.getByPlaceholder("再输入一次").fill(PASSWORD);
     await page.getByRole("button", { name: "设置并登录" }).click();
@@ -15,8 +22,7 @@ export async function ensureSession(page: Page): Promise<void> {
     return;
   }
 
-  const loginHeading = page.getByRole("heading", { name: "登录", exact: true });
-  if (await loginHeading.isVisible().catch(() => false)) {
+  if (await loginHeading.isVisible()) {
     await page.getByLabel("管理员密码").fill(PASSWORD);
     await page.getByRole("button", { name: "登录" }).click();
   }
