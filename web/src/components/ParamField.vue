@@ -190,7 +190,7 @@ function onBool(value: string | number | boolean) {
       controls-position="right"
       :disabled="disabled"
       :aria-describedby="`param-${param.name}-help`"
-      @change="onNumber"
+      @update:model-value="onNumber"
     />
 
     <el-select
