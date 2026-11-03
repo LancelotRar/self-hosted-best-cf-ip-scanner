@@ -406,8 +406,7 @@ onMounted(load);
       <el-skeleton v-if="previewLoading" :rows="6" animated />
       <template v-else-if="currentPreview">
         <p class="section-note">
-          {{ formatSize(currentPreview.size) }} · {{ formatTime(currentPreview.mtime) }} · sha256
-          <span class="mono">{{ currentPreview.sha256.slice(0, 12) }}…</span>
+          {{ formatSize(currentPreview.size) }} · {{ formatTime(currentPreview.mtime) }}
         </p>
         <el-table
           border
