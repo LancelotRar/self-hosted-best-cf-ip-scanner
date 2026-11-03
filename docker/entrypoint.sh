@@ -11,8 +11,26 @@
 # - 渲染结果写 /tmp：容器以只读根文件系统运行，/etc 不可写。
 set -eu
 
+# `.env` 是唯一配置源：入口阶段先用共享导出器把运行身份/调度键导入环境。
+# 已存在的非空环境变量优先（导出器不覆盖），保证 `docker compose run -e` 的
+# 临时覆盖仍然有效。`.env` 写错时在这里明确失败，而不是带着错值进入调度。
+PROJECT_DIR="${PROJECT_DIR:-/project}"
+export DOTENV_PATH="${DOTENV_PATH:-$PROJECT_DIR/.env}"
+EXPORT_DOTENV="${EXPORT_DOTENV:-/usr/local/bin/export-dotenv.py}"
+
+log() { echo "[entrypoint] $*"; }
+
+if ! dotenv_exports="$(python "$EXPORT_DOTENV" --keys PUID,PGID,TZ,CRON_SCHEDULE,RUN_ON_START)"; then
+  log "[错误] 读取 .env 失败，容器不进入调度"
+  exit 1
+fi
+eval "$dotenv_exports"
+
 PUID="${PUID:-1000}"
 PGID="${PGID:-1000}"
+# 镜像不再写死 TZ：时区统一由 .env 或这里的默认值提供。
+TZ="${TZ:-Asia/Shanghai}"
+export TZ
 DATA_DIR="${DATA_DIR:-/data}"
 OUTPUT_DIR="${OUTPUT_DIR:-/output}"
 STATE_DIR="${STATE_DIR:-/cache}"
@@ -22,8 +40,8 @@ CRON_SCHEDULE="${CRON_SCHEDULE:-30 */6 * * *}"
 RUN_ON_START="${RUN_ON_START:-false}"
 CRONTAB_TEMPLATE="${CRONTAB_TEMPLATE:-/etc/supercronic/crontab.template}"
 CRONTAB_PATH="${CRONTAB_PATH:-/tmp/supercronic.crontab}"
+CONFIG_WATCHER="${CONFIG_WATCHER:-/usr/local/bin/config-watcher.sh}"
 
-log() { echo "[entrypoint] $*"; }
 
 # ---------------------------------------------------------------- 特权阶段 --
 if [ "$(id -u)" = "0" ]; then
@@ -81,6 +99,15 @@ sed "s|@CRON_SCHEDULE@|${CRON_SCHEDULE}|" "$CRONTAB_TEMPLATE" > "$CRONTAB_PATH"
 # 语法错误在启动期暴露：容器直接退出并重启，日志里能看到原因，
 # 而不是带着一个永不触发的调度器"看起来健康"地空转。
 supercronic -test "$CRONTAB_PATH"
+
+# 后台监听 .env：手工编辑（备用路径）也能在 WATCH_INTERVAL 内热重载调度。
+# 必须在初始 crontab 渲染之后启动，watcher 首轮只记录基线。
+if [ -x "$CONFIG_WATCHER" ]; then
+  "$CONFIG_WATCHER" &
+  log "已启动 .env 变更监听（每 ${WATCH_INTERVAL:-5} 秒检查一次）"
+else
+  log "[警告] 未找到 ${CONFIG_WATCHER}，手工修改 .env 后需重启容器才生效"
+fi
 
 if [ "$RUN_ON_START" = "true" ]; then
   # 放到后台执行：让 supercronic 立刻成为 PID 1 并接管信号，

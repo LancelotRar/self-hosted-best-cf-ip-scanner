@@ -14,6 +14,16 @@ if [ "$(id -u)" = "0" ]; then
   exec su-exec "${PUID:-1000}:${PGID:-1000}" "$0" "$@"
 fi
 
+# 每轮都重新读 `.env`：扫描进程与 git/curl 子进程都能拿到最新值。
+# 已存在的非空环境变量优先，不覆盖本轮显式覆盖。
+PROJECT_DIR="${PROJECT_DIR:-/project}"
+export DOTENV_PATH="${DOTENV_PATH:-$PROJECT_DIR/.env}"
+if ! dotenv_exports="$(python "${EXPORT_DOTENV:-/usr/local/bin/export-dotenv.py}")"; then
+  echo "[job] 读取 .env 失败，本轮跳过"
+  exit 1
+fi
+eval "$dotenv_exports"
+
 # 单实例锁：定时任务与 `scan-once` 可能同时被触发，两轮并发会互相清空产物目录。
 # 拿不到锁说明已有一轮在跑，直接跳过（不算失败）。
 LOCK_FILE="${SCAN_LOCK_FILE:-/cache/scan.lock}"
