@@ -234,15 +234,15 @@ onBeforeUnmount(() => {
   opacity: 0.82;
 }
 
-.nav__item--active {
+.nav__item--active,
+.nav__item--active:hover {
   background: var(--primary-soft);
-  color: var(--primary-text);
+  color: var(--text);
   font-weight: 600;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 18%, transparent);
 }
 
 .nav__item--active .nav__icon {
-  color: var(--primary-text);
+  color: var(--text);
   opacity: 1;
 }
 

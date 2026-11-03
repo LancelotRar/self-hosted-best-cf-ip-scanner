@@ -7,10 +7,10 @@
   /* 左侧主导航宽度：页面内容与对话框居中都以此为界 */
   --sidebar-w: 208px;
 
-  --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
 
   /* 排版尺度：页面标题 / 区块标题 / 正文 / 标签 */
   --fs-display: 24px;
@@ -21,8 +21,8 @@
   --lh-title: 20px;
 
   /* 控件尺寸 */
-  --control-h: 34px;
-  --control-radius: 8px;
+  --control-h: 36px;
+  --control-radius: 10px;
 
   --space-1: 4px;
   --space-2: 8px;
@@ -41,57 +41,58 @@
 }
 
 html[data-theme="dark"] {
-  --bg: #0c0e14;
-  --surface: #14171f;
-  --surface-2: #1a1e28;
-  --surface-3: #202531;
-  --border: #262c3a;
-  --border-soft: #1e232e;
-  --border-strong: #5b6a86;
-  --text: #e8ebf2;
-  --text-muted: #a8b0c2;
-  --text-faint: #6b7488;
-  --primary: #4567ea;
-  --primary-hover: #5575f0;
-  --primary-text: #5b7cfa;
-  --on-primary: #ffffff;
-  --primary-soft: rgb(91 124 250 / 13%);
-  --focus: #5b7cfa;
+  --bg: #0d0f13;
+  --surface: #15181e;
+  --surface-2: #1b1f26;
+  --surface-3: #232830;
+  --border: #262b34;
+  --border-soft: #1e222a;
+  --border-strong: #5b6474;
+  --text: #f2f3f5;
+  --text-muted: #9aa1ac;
+  --text-faint: #6b7280;
+  --primary: #f2f3f5;
+  --primary-hover: #ffffff;
+  --primary-text: #f2f3f5;
+  --on-primary: #14161a;
+  --primary-soft: #232830;
+  --focus: #f2f3f5;
   --success: #3ddc97;
-  --warning: #f5b544;
+  --warning: #f0b64a;
   --danger: #f0655f;
-  --info: #6d8cff;
+  --info: #7fa2ff;
   --log-bg: #0a0c11;
-  --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 10px 28px -16px rgb(0 0 0 / 55%);
-  --shadow-pop: 0 12px 32px -12px rgb(0 0 0 / 60%), 0 2px 6px rgb(0 0 0 / 40%);
+  --shadow: 0 2px 6px rgb(0 0 0 / 35%), 0 16px 40px -20px rgb(0 0 0 / 60%);
+  --shadow-pop: 0 18px 48px -16px rgb(0 0 0 / 65%), 0 2px 8px rgb(0 0 0 / 40%);
   --ring: 0 0 0 3px color-mix(in srgb, var(--focus) 24%, transparent);
   color-scheme: dark;
 }
 
 html[data-theme="light"] {
-  --bg: #f4f5f8;
+  --bg: #f6f7f9;
   --surface: #ffffff;
-  --surface-2: #f8f9fb;
-  --surface-3: #eceef3;
-  --border: #e2e5ec;
-  --border-soft: #eceef3;
+  --surface-2: #f2f4f7;
+  --surface-3: #e8eaee;
+  --border: #ecedf1;
+  --border-soft: #f3f4f7;
   --border-strong: #767e91;
-  --text: #14171f;
-  --text-muted: #545c6e;
-  --text-faint: #8b93a5;
-  --primary: #3d5fe0;
-  --primary-hover: #3355d6;
-  --primary-text: #3d5fe0;
+  --text: #14161a;
+  /* SnowUI 的浅灰在 12–13px 下不满足 AA，这里压深到 ≥4.5:1 */
+  --text-muted: #6b7280;
+  --text-faint: #757b86;
+  --primary: #16181d;
+  --primary-hover: #2a2d34;
+  --primary-text: #16181d;
   --on-primary: #ffffff;
-  --primary-soft: rgb(61 95 224 / 9%);
-  --focus: #3d5fe0;
-  --success: #0a7546;
-  --warning: #8a5a0c;
-  --danger: #b7302a;
-  --info: #3d5fe0;
+  --primary-soft: #eef0f3;
+  --focus: #16181d;
+  --success: #17835f;
+  --warning: #9a6a12;
+  --danger: #c33a31;
+  --info: #2f6fed;
   --log-bg: #0f1116;
-  --shadow: 0 1px 2px rgb(16 24 40 / 5%), 0 10px 28px -18px rgb(16 24 40 / 16%);
-  --shadow-pop: 0 16px 40px -16px rgb(16 24 40 / 24%), 0 2px 8px rgb(16 24 40 / 6%);
+  --shadow: 0 1px 2px rgb(16 24 40 / 4%);
+  --shadow-pop: 0 16px 40px -16px rgb(16 24 40 / 16%), 0 2px 6px rgb(16 24 40 / 5%);
   --ring: 0 0 0 3px color-mix(in srgb, var(--focus) 18%, transparent);
   color-scheme: light;
 }

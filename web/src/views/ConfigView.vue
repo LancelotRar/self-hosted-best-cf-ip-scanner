@@ -238,13 +238,15 @@ onBeforeRouteLeave(async () => {
               :name="group.name"
               :title="group.name"
             >
-              <ParamField
-                v-for="param in group.params"
-                :key="param.name"
-                :param="param"
-                :model-value="store.values[param.name]"
-                @update:model-value="update(param, $event)"
-              />
+              <div class="field-grid">
+                <ParamField
+                  v-for="param in group.params"
+                  :key="param.name"
+                  :param="param"
+                  :model-value="store.values[param.name]"
+                  @update:model-value="update(param, $event)"
+                />
+              </div>
             </el-collapse-item>
           </el-collapse>
           </div>
@@ -263,13 +265,15 @@ onBeforeRouteLeave(async () => {
               :name="group.name"
               :title="group.name"
             >
-              <ParamField
-                v-for="param in group.params"
-                :key="param.name"
-                :param="param"
-                :model-value="store.values[param.name]"
-                @update:model-value="update(param, $event)"
-              />
+              <div class="field-grid">
+                <ParamField
+                  v-for="param in group.params"
+                  :key="param.name"
+                  :param="param"
+                  :model-value="store.values[param.name]"
+                  @update:model-value="update(param, $event)"
+                />
+              </div>
             </el-collapse-item>
           </el-collapse>
           </div>
@@ -291,13 +295,15 @@ onBeforeRouteLeave(async () => {
               :name="group.name"
               :title="group.name"
             >
-              <ParamField
-                v-for="param in group.params"
-                :key="param.name"
-                :param="param"
-                :model-value="store.values[param.name]"
-                @update:model-value="update(param, $event)"
-              />
+              <div class="field-grid">
+                <ParamField
+                  v-for="param in group.params"
+                  :key="param.name"
+                  :param="param"
+                  :model-value="store.values[param.name]"
+                  @update:model-value="update(param, $event)"
+                />
+              </div>
             </el-collapse-item>
           </el-collapse>
           </div>
@@ -391,6 +397,22 @@ onBeforeRouteLeave(async () => {
 
 .config-tabs :deep(.el-tabs__content) {
   padding-top: var(--space-3);
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 40px;
+}
+
+.field-grid :deep(.field--wide) {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 1199px) {
+  .field-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .config-card {

@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 import { ElMessage } from "element-plus";
 import {
+  Box,
   DataLine,
   FolderOpened,
   Monitor,
@@ -218,15 +219,18 @@ onMounted(load);
     <el-skeleton v-else-if="loading" :rows="8" animated />
 
     <div v-else-if="overview" class="overview">
-      <!-- 1. 容器状态 -->
-      <section class="panel">
+      <!-- 1. 容器状态：四张独立卡片直接落在页面底色上（DashStack 风格） -->
+      <section class="panel panel--plain">
         <header class="panel__head">
           <span class="section-title"><el-icon><Monitor /></el-icon>容器状态</span>
         </header>
         <div class="panel__body">
           <div class="stat-row">
             <article class="stat">
-              <span class="stat__label">扫描容器</span>
+              <div class="stat__head">
+                <span class="stat__label">扫描容器</span>
+                <span class="stat__icon stat__icon--green"><el-icon><Monitor /></el-icon></span>
+              </div>
               <strong class="stat__value" :class="scannerOnline ? 'is-on' : 'is-off'">
                 {{ scannerOnline ? "在线" : "离线" }}
               </strong>
@@ -234,7 +238,10 @@ onMounted(load);
             </article>
 
             <article class="stat">
-              <span class="stat__label">当前任务</span>
+              <div class="stat__head">
+                <span class="stat__label">当前任务</span>
+                <span class="stat__icon stat__icon--blue"><el-icon><VideoPlay /></el-icon></span>
+              </div>
               <strong class="stat__value" :class="overview.running ? 'is-busy' : ''">
                 {{ overview.running ? "运行中" : "空闲" }}
               </strong>
@@ -244,7 +251,10 @@ onMounted(load);
             </article>
 
             <article class="stat">
-              <span class="stat__label">镜像</span>
+              <div class="stat__head">
+                <span class="stat__label">镜像</span>
+                <span class="stat__icon stat__icon--violet"><el-icon><Box /></el-icon></span>
+              </div>
               <strong class="stat__value">{{ imageTag }}</strong>
               <span class="stat__note" :title="overview.scanner.image ?? ''">
                 {{ overview.scanner.image ?? "—" }}
@@ -252,7 +262,10 @@ onMounted(load);
             </article>
 
             <article class="stat">
-              <span class="stat__label">已运行</span>
+              <div class="stat__head">
+                <span class="stat__label">已运行</span>
+                <span class="stat__icon stat__icon--amber"><el-icon><Timer /></el-icon></span>
+              </div>
               <strong class="stat__value">{{ uptime }}</strong>
               <span class="stat__note">启动于 {{ formatTime(overview.scanner.started_at, false) }}</span>
             </article>
@@ -484,27 +497,97 @@ onMounted(load);
   gap: var(--space-3);
 }
 
+.panel--plain {
+  background: transparent;
+  box-shadow: none;
+}
+
+.panel--plain .panel__head {
+  padding: 0 2px 12px;
+}
+
+.panel--plain .panel__body {
+  padding: 0;
+  overflow: visible;
+}
+
 .stat {
-  padding: var(--space-3) var(--space-4);
-  background: var(--surface-2);
-  border-radius: var(--radius-sm);
-  border-left: 3px solid var(--primary);
+  padding: 18px 20px 20px;
+  border-radius: var(--radius-md);
+}
+
+.stat:nth-child(1) {
+  background: #eaf4ff;
+}
+
+.stat:nth-child(2) {
+  background: #eef0f3;
+}
+
+.stat:nth-child(3) {
+  background: #f0edff;
+}
+
+.stat:nth-child(4) {
+  background: #e9f7f0;
+}
+
+html[data-theme="dark"] .stat:nth-child(1) {
+  background: #16283c;
+}
+
+html[data-theme="dark"] .stat:nth-child(2) {
+  background: #1e222a;
+}
+
+html[data-theme="dark"] .stat:nth-child(3) {
+  background: #221f38;
+}
+
+html[data-theme="dark"] .stat:nth-child(4) {
+  background: #12291f;
+}
+
+.stat__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.stat__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  font-size: 18px;
+}
+
+.stat__icon {
+  background: rgb(255 255 255 / 70%);
+  color: var(--text);
+}
+
+html[data-theme="dark"] .stat__icon {
+  background: rgb(255 255 255 / 8%);
 }
 
 .stat__label {
   display: block;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 18px;
 }
 
 .stat__value {
   display: block;
-  margin-top: 6px;
+  margin-top: 8px;
   color: var(--text);
-  font-size: 22px;
-  line-height: 28px;
-  font-weight: 650;
+  font-size: 26px;
+  line-height: 32px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   overflow: hidden;

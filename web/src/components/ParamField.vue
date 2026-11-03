@@ -160,7 +160,13 @@ function onBool(value: string | number | boolean) {
 </script>
 
 <template>
-  <div class="field" :class="{ 'field--readonly': disabled }">
+  <div
+    class="field"
+    :class="{
+      'field--readonly': disabled,
+      'field--wide': param.kind === 'cron' || param.kind === 'ports' || param.kind === 'csv_int',
+    }"
+  >
     <div class="field__head">
       <label class="field__label" :for="`param-${param.name}`">
         <el-icon class="field__kind" :size="14" aria-hidden="true">
@@ -444,11 +450,10 @@ function onBool(value: string | number | boolean) {
   font-size: 11.5px;
 }
 
-/* 文本类控件不铺满整行，避免超宽输入框 */
 .field :deep(.el-input),
 .field :deep(.el-select),
 .field :deep(.el-textarea) {
-  max-width: 620px;
+  max-width: 100%;
 }
 
 .field :deep(.el-input-number) {

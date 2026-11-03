@@ -72,18 +72,18 @@ a {
 
 .page-title {
   margin: 0;
-  font-size: var(--fs-display);
-  line-height: var(--lh-display);
-  font-weight: 650;
-  letter-spacing: -0.01em;
+  font-size: 28px;
+  line-height: 36px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   text-wrap: balance;
 }
 
 .page-sub {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   color: var(--text-muted);
-  font-size: var(--fs-body);
-  line-height: 20px;
+  font-size: 14px;
+  line-height: 21px;
   text-wrap: pretty;
 }
 
@@ -141,7 +141,6 @@ a {
 
 .panel {
   background: var(--surface);
-  border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow);
 }
@@ -151,16 +150,15 @@ a {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  min-height: 48px;
-  padding: 12px 20px;
-  border-bottom: 1px solid var(--border-soft);
-  font-size: var(--fs-title);
-  font-weight: 600;
-  letter-spacing: 0.01em;
+  min-height: 56px;
+  padding: 16px 24px 0;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
 }
 
 .panel__body {
-  padding: 20px;
+  padding: 16px 24px 24px;
   overflow-x: auto;
 }
 
@@ -296,22 +294,22 @@ a {
 .el-table {
   border-radius: var(--radius-sm);
   overflow: hidden;
-  --el-table-bg-color: var(--surface);
-  --el-table-tr-bg-color: var(--surface);
-  --el-table-header-bg-color: var(--surface-2);
+  --el-table-bg-color: transparent;
+  --el-table-tr-bg-color: transparent;
+  --el-table-header-bg-color: transparent;
   --el-table-row-hover-bg-color: var(--surface-2);
   --el-table-border-color: var(--border);
   --el-table-text-color: var(--text);
   --el-table-header-text-color: var(--text-muted);
-  font-size: 13px;
+  font-size: 13.5px;
 }
 
 .el-table th.el-table__cell {
   font-weight: 600;
-  font-size: var(--fs-label);
-  letter-spacing: 0.03em;
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
   color: var(--text-muted);
-  padding: 11px 0;
+  padding: 12px 0;
 }
 
 .el-table td.el-table__cell {

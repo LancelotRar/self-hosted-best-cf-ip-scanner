@@ -138,17 +138,18 @@ onMounted(async () => {
           :last-received="lastReceived"
           :ended="ended"
         />
-        <EmptyState
-          v-else
-          :title="running ? '定时任务正在执行' : '尚无运行输出'"
-          :description="
-            running
-              ? '定时轮次的输出请到「日志」页查看；手动执行时会在这里实时显示。'
-              : '点击右上角「立即执行一轮」开始；执行期间可实时查看输出。'
-          "
-          :action-label="running ? '去日志页' : ''"
-          @action="router.push({ name: 'logs' })"
-        />
+        <section v-else class="panel empty-panel">
+          <EmptyState
+            :title="running ? '定时任务正在执行' : '尚无运行输出'"
+            :description="
+              running
+                ? '定时轮次的输出请到「日志」页查看；手动执行时会在这里实时显示。'
+                : '点击右上角「立即执行一轮」开始；执行期间可实时查看输出。'
+            "
+            :action-label="running ? '去日志页' : ''"
+            @action="router.push({ name: 'logs' })"
+          />
+        </section>
       </el-tab-pane>
 
       <el-tab-pane label="历史轮次" name="history">
@@ -202,6 +203,14 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.empty-panel {
+  padding: 56px 24px;
+}
+
+.empty-panel :deep(.empty) {
+  padding: 0;
+}
+
 .run-head {
   display: flex;
   align-items: center;
