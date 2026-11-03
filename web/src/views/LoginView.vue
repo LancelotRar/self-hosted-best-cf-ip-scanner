@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import {
+  Lock,
+  Right,
+} from "@element-plus/icons-vue";
 import { ref } from "vue";
 import { useRouter } from "vue-router";
 
@@ -46,6 +50,7 @@ async function submit() {
           type="password"
           show-password
           autocomplete="current-password"
+          :prefix-icon="Lock"
           placeholder="输入密码"
           @keyup.enter="submit"
         />
@@ -54,6 +59,7 @@ async function submit() {
 
         <el-button type="primary" class="auth__submit" :loading="auth.loading" @click="submit">
           登录
+          <el-icon class="el-icon--right"><Right /></el-icon>
         </el-button>
       </form>
 

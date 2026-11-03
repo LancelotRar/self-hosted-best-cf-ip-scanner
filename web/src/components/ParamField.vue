@@ -1,5 +1,15 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import {
+  Connection,
+  Document,
+  Files,
+  Key,
+  List,
+  Odometer,
+  Select,
+  Timer,
+} from "@element-plus/icons-vue";
 
 import type { Param } from "../types";
 
@@ -66,6 +76,20 @@ const DEFAULT_BOUNDS = { min: 0, max: 999999, step: 1 };
 
 const bounds = computed(() => NUMERIC_BOUNDS[props.param.name] ?? DEFAULT_BOUNDS);
 
+const KIND_ICONS = {
+  bool: Select,
+  int: Odometer,
+  float: Odometer,
+  ports: Connection,
+  csv_int: List,
+  cron: Timer,
+  secret: Key,
+  path: Files,
+  str: Document,
+} as const;
+
+const kindIcon = computed(() => KIND_ICONS[props.param.kind as keyof typeof KIND_ICONS] ?? Document);
+
 const disabled = computed(() => props.disabled || props.param.read_only);
 
 const textValue = computed(() => {
@@ -128,7 +152,12 @@ function onBool(value: string | number | boolean) {
 <template>
   <div class="field" :class="{ 'field--readonly': disabled }">
     <div class="field__head">
-      <label class="field__label" :for="`param-${param.name}`">{{ param.label }}</label>
+      <label class="field__label" :for="`param-${param.name}`">
+        <el-icon class="field__kind" :size="14" aria-hidden="true">
+          <component :is="kindIcon" />
+        </el-icon>
+        {{ param.label }}
+      </label>
       <div class="field__tags">
         <span class="tag" :class="`tag--${effectTag.tone}`">{{ effectTag.label }}</span>
         <span class="tag">{{ param.source === "dotenv" ? "来自 .env" : "默认值" }}</span>
@@ -324,8 +353,15 @@ function onBool(value: string | number | boolean) {
 }
 
 .field__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-weight: 600;
   font-size: 13px;
+}
+
+.field__kind {
+  color: var(--text-muted);
 }
 
 .field__tags {

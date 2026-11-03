@@ -1,5 +1,15 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
+import {
+  Clock,
+  List,
+  Monitor,
+  Odometer,
+  Refresh,
+  Setting,
+  Timer,
+  VideoPlay,
+} from "@element-plus/icons-vue";
 import { useRouter } from "vue-router";
 
 import { get } from "../api";
@@ -69,9 +79,19 @@ onMounted(load);
 
 <template>
   <section class="page">
-    <PageHeader title="总览" subtitle="扫描器健康、上一轮结果与下一次执行">
-      <el-button :loading="loading" @click="load">刷新</el-button>
-      <el-button type="primary" plain @click="router.push({ name: 'runs' })">立即运行</el-button>
+    <PageHeader
+      title="总览"
+      subtitle="扫描器健康、上一轮结果与下一次执行"
+      :icon="Odometer"
+    >
+      <el-button :loading="loading" @click="load">
+        <el-icon><Refresh /></el-icon>
+        刷新
+      </el-button>
+      <el-button type="primary" plain @click="router.push({ name: 'runs' })">
+        <el-icon><VideoPlay /></el-icon>
+        立即运行
+      </el-button>
     </PageHeader>
 
     <ErrorState v-if="error" :message="error" @retry="load" />
@@ -79,7 +99,7 @@ onMounted(load);
 
     <template v-else-if="data">
       <div class="metrics">
-        <MetricCard label="扫描容器">
+        <MetricCard label="扫描容器" :icon="Monitor">
           <div class="row">
             <StatusPill
               :tone="data.scanner.state === 'running' ? 'success' : 'danger'"
@@ -96,7 +116,7 @@ onMounted(load);
           <p class="muted metric-note mono" v-else>{{ data.scanner.image ?? "—" }}</p>
         </MetricCard>
 
-        <MetricCard label="上次结果">
+        <MetricCard label="上次结果" :icon="Clock">
           <div class="row">
             <StatusPill
               :tone="data.last_run?.scan_exit === 0 ? 'success' : data.last_run ? 'danger' : 'neutral'"
@@ -113,14 +133,14 @@ onMounted(load);
           <p class="muted metric-note" v-else>等待第一轮扫描</p>
         </MetricCard>
 
-        <MetricCard label="下次执行">
+        <MetricCard label="下次执行" :icon="Timer">
           <span class="mono">{{ formatTime(data.next_runs[0]) }}</span>
           <p class="muted metric-note">
             {{ data.next_runs.length ? `共 ${data.next_runs.length} 次预览` : "调度表达式无效或未配置" }}
           </p>
         </MetricCard>
 
-        <MetricCard label="轮次状态">
+        <MetricCard label="轮次状态" :icon="VideoPlay">
           <StatusPill
             :tone="data.running ? 'info' : 'neutral'"
             :label="data.running ? '运行中' : '空闲'"
@@ -135,8 +155,11 @@ onMounted(load);
       <div class="grid overview-lower">
         <section class="panel">
           <header class="panel__head">
-            <span>未来执行</span>
-            <el-button text size="small" @click="router.push({ name: 'schedule' })">调度设置</el-button>
+            <span class="panel-title"><el-icon><Timer /></el-icon>未来执行</span>
+            <el-button text size="small" @click="router.push({ name: 'schedule' })">
+              <el-icon><Setting /></el-icon>
+              调度设置
+            </el-button>
           </header>
           <div class="panel__body">
             <ol v-if="data.next_runs.length" class="next-list">
@@ -148,8 +171,11 @@ onMounted(load);
 
         <section class="panel">
           <header class="panel__head">
-            <span>生效配置</span>
-            <el-button text size="small" @click="router.push({ name: 'config' })">参数设置</el-button>
+            <span class="panel-title"><el-icon><Setting /></el-icon>生效配置</span>
+            <el-button text size="small" @click="router.push({ name: 'config' })">
+              <el-icon><Setting /></el-icon>
+              参数设置
+            </el-button>
           </header>
           <div class="panel__body">
             <dl class="kv">
@@ -164,8 +190,11 @@ onMounted(load);
 
       <section class="panel overview-runs">
         <header class="panel__head">
-          <span>最近轮次</span>
-          <el-button text size="small" @click="router.push({ name: 'runs' })">全部轮次</el-button>
+          <span class="panel-title"><el-icon><List /></el-icon>最近轮次</span>
+          <el-button text size="small" @click="router.push({ name: 'runs' })">
+            <el-icon><List /></el-icon>
+            全部轮次
+          </el-button>
         </header>
         <div class="panel__body">
           <el-table v-if="runs.length" :data="runs" size="small">
@@ -195,6 +224,16 @@ onMounted(load);
 </template>
 
 <style scoped>
+.panel-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.panel-title :deep(.el-icon) {
+  color: var(--text-muted);
+}
+
 .metrics {
   display: grid;
   gap: var(--space-3);
@@ -244,7 +283,17 @@ onMounted(load);
 }
 
 @media (max-width: 1199px) {
-  .metrics {
+  .panel-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.panel-title :deep(.el-icon) {
+  color: var(--text-muted);
+}
+
+.metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -256,7 +305,17 @@ onMounted(load);
 }
 
 @media (max-width: 639px) {
-  .metrics {
+  .panel-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.panel-title :deep(.el-icon) {
+  color: var(--text-muted);
+}
+
+.metrics {
     grid-template-columns: 1fr;
   }
 }

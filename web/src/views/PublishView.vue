@@ -1,4 +1,10 @@
 <script setup lang="ts">
+import {
+  Check,
+  Close,
+  Refresh,
+  Upload,
+} from "@element-plus/icons-vue";
 import { computed, onMounted, ref } from "vue";
 import { onBeforeRouteLeave } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
@@ -104,12 +110,16 @@ onBeforeRouteLeave(async () => {
 
 <template>
   <section class="page page--flush">
-    <PageHeader title="发布" subtitle="Git 推送参数与最近一次推送结果">
+    <PageHeader
+      title="发布"
+      subtitle="Git 推送参数与最近一次推送结果"
+      :icon="Upload"
+    >
       <StatusPill
         :tone="pushEnabled ? 'success' : 'neutral'"
         :label="pushEnabled ? '推送已开启' : '推送已关闭'"
       />
-      <el-button @click="load">重新加载</el-button>
+      <el-button @click="load"><el-icon><Refresh /></el-icon>重新加载</el-button>
     </PageHeader>
 
     <ErrorState v-if="error" :message="error" @retry="load" />
@@ -131,9 +141,9 @@ onBeforeRouteLeave(async () => {
         <div class="actionbar">
           <span class="muted">{{ dirty ? "有未保存的修改" : "与服务端一致" }}</span>
           <div class="actionbar__buttons">
-            <el-button :disabled="!dirty" @click="cancel">取消</el-button>
+            <el-button :disabled="!dirty" @click="cancel"><el-icon><Close /></el-icon>取消</el-button>
             <el-button type="primary" :disabled="!dirty" :loading="saving" @click="save">
-              保存
+              <el-icon><Check /></el-icon>保存
             </el-button>
           </div>
         </div>

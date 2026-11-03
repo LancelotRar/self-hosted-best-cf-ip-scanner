@@ -1,4 +1,11 @@
 <script setup lang="ts">
+import {
+  CopyDocument,
+  Download,
+  FolderOpened,
+  Refresh,
+  View,
+} from "@element-plus/icons-vue";
 import { computed, onMounted, ref } from "vue";
 import { ElMessage } from "element-plus";
 
@@ -92,9 +99,13 @@ onMounted(load);
 
 <template>
   <section class="page">
-    <PageHeader title="产物" subtitle="TXT / CSV 预览、下载与订阅复制">
+    <PageHeader
+      title="产物"
+      subtitle="TXT / CSV 预览、下载与订阅复制"
+      :icon="FolderOpened"
+    >
       <span v-if="readAt" class="muted">本次读取 {{ formatTime(readAt) }}</span>
-      <el-button :loading="loading" @click="load">刷新</el-button>
+      <el-button :loading="loading" @click="load"><el-icon><Refresh /></el-icon>刷新</el-button>
     </PageHeader>
 
     <ErrorState v-if="error" :message="error" @retry="load" />
@@ -119,12 +130,14 @@ onMounted(load);
       </el-table-column>
       <el-table-column label="操作" width="230">
         <template #default="{ row }">
-          <el-button size="small" @click="openPreview(row)">预览</el-button>
+          <el-button size="small" @click="openPreview(row)">
+            <el-icon><View /></el-icon>预览
+          </el-button>
           <el-button v-if="row.name.endsWith('.txt')" size="small" @click="copySubscription(row)">
-            复制
+            <el-icon><CopyDocument /></el-icon>复制
           </el-button>
           <a :href="`/api/outputs/${encodeURIComponent(row.name)}?download=true`">
-            <el-button size="small" text>下载</el-button>
+            <el-button size="small" text><el-icon><Download /></el-icon>下载</el-button>
           </a>
         </template>
       </el-table-column>

@@ -1,4 +1,11 @@
 <script setup lang="ts">
+import {
+  Check,
+  Close,
+  DataLine,
+  RefreshLeft,
+  RefreshRight,
+} from "@element-plus/icons-vue";
 import { computed, nextTick, onMounted, ref } from "vue";
 import { onBeforeRouteLeave } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
@@ -161,8 +168,12 @@ onBeforeRouteLeave(async () => {
 
 <template>
   <section class="page page--flush">
-    <PageHeader title="IP 库" subtitle="在线编辑候选地址库；保存前逐行校验并自动备份">
-      <el-button :loading="loading" @click="load">重新加载</el-button>
+    <PageHeader
+      title="IP 库"
+      subtitle="在线编辑候选地址库；保存前逐行校验并自动备份"
+      :icon="DataLine"
+    >
+      <el-button :loading="loading" @click="load"><el-icon><RefreshRight /></el-icon>重新加载</el-button>
     </PageHeader>
 
     <ErrorState v-if="loadError" :message="loadError" @retry="load" />
@@ -203,9 +214,9 @@ onBeforeRouteLeave(async () => {
         <div class="actionbar">
           <span class="muted">{{ dirty ? "有未保存的修改" : "与服务端一致" }}</span>
           <div class="actionbar__buttons">
-            <el-button :disabled="!dirty" @click="cancel">取消</el-button>
+            <el-button :disabled="!dirty" @click="cancel"><el-icon><Close /></el-icon>取消</el-button>
             <el-button type="primary" :disabled="!dirty" :loading="saving" @click="save">
-              保存
+              <el-icon><Check /></el-icon>保存
             </el-button>
           </div>
         </div>
@@ -226,7 +237,7 @@ onBeforeRouteLeave(async () => {
           </el-table-column>
           <el-table-column label="操作" width="100">
             <template #default="{ row }">
-              <el-button size="small" @click="restore(row.name)">恢复</el-button>
+              <el-button size="small" @click="restore(row.name)"><el-icon><RefreshLeft /></el-icon>恢复</el-button>
             </template>
           </el-table-column>
         </el-table>

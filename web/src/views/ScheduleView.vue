@@ -1,4 +1,10 @@
 <script setup lang="ts">
+import {
+  Check,
+  Close,
+  RefreshRight,
+  Timer,
+} from "@element-plus/icons-vue";
 import { computed, onMounted, ref, watch } from "vue";
 import { onBeforeRouteLeave } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
@@ -140,8 +146,12 @@ onBeforeRouteLeave(async () => {
 
 <template>
   <section class="page page--flush">
-    <PageHeader title="调度" subtitle="cron 表达式保存后热重载，无需重启容器">
-      <el-button :loading="applying" @click="applyNow">重新应用调度</el-button>
+    <PageHeader
+      title="调度"
+      subtitle="cron 表达式保存后热重载，无需重启容器"
+      :icon="Timer"
+    >
+      <el-button :loading="applying" @click="applyNow"><el-icon><RefreshRight /></el-icon>重新应用调度</el-button>
     </PageHeader>
 
     <ErrorState v-if="loadError" :message="loadError" @retry="load" />
@@ -196,13 +206,14 @@ onBeforeRouteLeave(async () => {
       <div class="actionbar">
         <span class="muted">{{ dirty ? "有未保存的调度修改" : "与已保存值一致" }}</span>
         <div class="actionbar__buttons">
-          <el-button :disabled="!dirty" @click="cancel">取消</el-button>
+          <el-button :disabled="!dirty" @click="cancel"><el-icon><Close /></el-icon>取消</el-button>
           <el-button
             type="primary"
             :disabled="!dirty || Boolean(previewError)"
             :loading="store.saving"
             @click="save"
           >
+            <el-icon><Check /></el-icon>
             保存
           </el-button>
         </div>

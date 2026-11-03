@@ -1,4 +1,11 @@
 <script setup lang="ts">
+import {
+  Delete,
+  Document,
+  Download,
+  VideoPause,
+  VideoPlay,
+} from "@element-plus/icons-vue";
 import { computed, onMounted, ref } from "vue";
 
 import EmptyState from "../components/EmptyState.vue";
@@ -44,9 +51,13 @@ onMounted(connect);
 
 <template>
   <section class="page">
-    <PageHeader title="日志" subtitle="本项目扫描容器的实时日志；断开时显示重连状态">
+    <PageHeader
+      title="日志"
+      subtitle="本项目扫描容器的实时日志；断开时显示重连状态"
+      :icon="Document"
+    >
       <a href="/api/logs/download?tail=5000">
-        <el-button>下载最近日志</el-button>
+        <el-button><el-icon><Download /></el-icon>下载最近日志</el-button>
       </a>
     </PageHeader>
 
@@ -54,8 +65,14 @@ onMounted(connect);
       <el-tab-pane label="实时日志" name="live">
         <div class="toolbar">
           <el-input v-model="filter" placeholder="关键字过滤" clearable class="filter" />
-          <el-button @click="togglePause">{{ paused ? "继续" : "暂停" }}</el-button>
-          <el-button @click="clear">清空</el-button>
+          <el-button @click="togglePause">
+            <el-icon>
+              <VideoPlay v-if="paused" />
+              <VideoPause v-else />
+            </el-icon>
+            {{ paused ? "继续" : "暂停" }}
+          </el-button>
+          <el-button @click="clear"><el-icon><Delete /></el-icon>清空</el-button>
         </div>
         <LogConsole :lines="visible" :status="status" :last-received="lastReceived" height="480px" />
       </el-tab-pane>
@@ -66,7 +83,7 @@ onMounted(connect);
             <p class="muted">下载按钮在页面右上角，包含最近 5000 行容器日志。</p>
             <div>
               <a href="/api/logs/download?tail=5000">
-                <el-button type="primary">下载 scanner-logs.txt</el-button>
+                <el-button type="primary"><el-icon><Download /></el-icon>下载 scanner-logs.txt</el-button>
               </a>
             </div>
             <p class="muted">下载失败时请检查扫描容器是否在线；面板会返回明确错误。</p>

@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import {
+  Lock,
+} from "@element-plus/icons-vue";
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 
@@ -54,6 +57,7 @@ async function submit() {
           show-password
           autocomplete="new-password"
           placeholder="至少 8 个字符"
+          :prefix-icon="Lock"
         />
         <p v-if="tooShort" class="auth__hint">至少 8 个字符</p>
 
@@ -65,6 +69,7 @@ async function submit() {
           show-password
           autocomplete="new-password"
           placeholder="再输入一次"
+          :prefix-icon="Lock"
           @keyup.enter="submit"
         />
 

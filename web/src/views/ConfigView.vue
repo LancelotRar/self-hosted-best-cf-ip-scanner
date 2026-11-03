@@ -1,4 +1,14 @@
 <script setup lang="ts">
+import {
+  Check,
+  Clock,
+  Close,
+  Refresh,
+  RefreshLeft,
+  RefreshRight,
+  Setting,
+  VideoPlay,
+} from "@element-plus/icons-vue";
 import { onMounted, ref } from "vue";
 import { onBeforeRouteLeave } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
@@ -148,14 +158,18 @@ onBeforeRouteLeave(async () => {
 
 <template>
   <section class="page page--flush">
-    <PageHeader title="参数" subtitle="保存即改写 .env；扫描器下一轮读取，调度变更热重载">
+    <PageHeader
+      title="参数"
+      subtitle="保存即改写 .env；扫描器下一轮读取，调度变更热重载"
+      :icon="Setting"
+    >
       <span v-if="store.hash" class="muted file-meta">
         {{ formatTime(store.mtime) }} ·
         <span class="mono">sha256 {{ store.hash.slice(0, 12) }}…</span> ·
         {{ store.fileSize }} B
       </span>
-      <el-button @click="openVersions">版本历史</el-button>
-      <el-button :loading="store.loading" @click="load">重新加载</el-button>
+      <el-button @click="openVersions"><el-icon><Clock /></el-icon>版本历史</el-button>
+      <el-button :loading="store.loading" @click="load"><el-icon><RefreshRight /></el-icon>重新加载</el-button>
     </PageHeader>
 
     <ErrorState v-if="loadError" :message="loadError" @retry="load" />
@@ -261,8 +275,9 @@ onBeforeRouteLeave(async () => {
           {{ store.dirty ? `未保存 ${store.dirtyCount} 项` : "没有未保存的修改" }}
         </span>
         <div class="actionbar__buttons">
-          <el-button :disabled="!store.dirty" @click="store.cancel()">取消</el-button>
+          <el-button :disabled="!store.dirty" @click="store.cancel()"><el-icon><Close /></el-icon>取消</el-button>
           <el-button type="primary" :disabled="!store.dirty" :loading="store.saving" @click="save">
+            <el-icon><Check /></el-icon>
             保存
           </el-button>
         </div>

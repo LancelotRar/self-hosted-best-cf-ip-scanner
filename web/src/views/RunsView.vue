@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import {
+  Refresh,
+  VideoPlay,
+} from "@element-plus/icons-vue";
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
@@ -101,8 +105,13 @@ onMounted(async () => {
 
 <template>
   <section class="page">
-    <PageHeader title="运行" subtitle="手动执行与定时任务共用同一份 .env，仅触发方式不同">
+    <PageHeader
+      title="运行"
+      subtitle="手动执行与定时任务共用同一份 .env，仅触发方式不同"
+      :icon="VideoPlay"
+    >
       <el-button type="primary" :loading="triggering" :disabled="running" @click="trigger">
+        <el-icon><VideoPlay /></el-icon>
         立即执行一轮
       </el-button>
     </PageHeader>
@@ -143,7 +152,7 @@ onMounted(async () => {
 
       <el-tab-pane label="历史轮次" name="history">
         <div class="toolbar">
-          <el-button :loading="loading" @click="loadHistory">刷新</el-button>
+          <el-button :loading="loading" @click="loadHistory"><el-icon><Refresh /></el-icon>刷新</el-button>
         </div>
         <section v-if="history.length" class="panel">
           <div class="panel__body">

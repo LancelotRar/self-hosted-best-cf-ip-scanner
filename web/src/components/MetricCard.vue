@@ -1,17 +1,25 @@
 <script setup lang="ts">
+import type { Component } from "vue";
+
 withDefaults(
   defineProps<{
     label: string;
     value?: string | number;
     hint?: string;
+    icon?: Component;
   }>(),
-  { value: undefined, hint: undefined },
+  { value: undefined, hint: undefined, icon: undefined },
 );
 </script>
 
 <template>
   <section class="metric">
-    <span class="metric__label">{{ label }}</span>
+    <div class="metric__head">
+      <span v-if="icon" class="metric__icon" aria-hidden="true">
+        <el-icon :size="16"><component :is="icon" /></el-icon>
+      </span>
+      <span class="metric__label">{{ label }}</span>
+    </div>
     <div class="metric__value">
       <slot>{{ value }}</slot>
     </div>
@@ -23,12 +31,28 @@ withDefaults(
 .metric {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
   padding: var(--space-5);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   min-height: 120px;
+}
+
+.metric__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.metric__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-muted);
 }
 
 .metric__label {

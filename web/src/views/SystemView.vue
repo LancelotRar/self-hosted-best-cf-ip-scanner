@@ -1,4 +1,11 @@
 <script setup lang="ts">
+import {
+  Lock,
+  RefreshLeft,
+  Tools,
+  VideoPause,
+  VideoPlay,
+} from "@element-plus/icons-vue";
 import { onMounted, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 
@@ -124,7 +131,11 @@ onMounted(async () => {
 
 <template>
   <section class="page">
-    <PageHeader title="系统" subtitle="账号、审计、容器操作与版本信息" />
+    <PageHeader
+      title="系统"
+      subtitle="账号、审计、容器操作与版本信息"
+      :icon="Tools"
+    />
 
     <el-tabs v-model="activeTab">
       <el-tab-pane label="账号" name="account">
@@ -163,7 +174,7 @@ onMounted(async () => {
 
             <div>
               <el-button type="primary" :loading="savingPassword" @click="changePassword">
-                修改密码
+                <el-icon><Lock /></el-icon>修改密码
               </el-button>
             </div>
           </div>
@@ -217,10 +228,14 @@ onMounted(async () => {
             </p>
             <div class="row">
               <el-button :loading="busy === 'restart'" @click="operate('restart')">
-                重启扫描容器
+                <el-icon><RefreshLeft /></el-icon>重启扫描容器
               </el-button>
-              <el-button :loading="busy === 'stop'" @click="operate('stop')">停止</el-button>
-              <el-button :loading="busy === 'start'" @click="operate('start')">启动</el-button>
+              <el-button :loading="busy === 'stop'" @click="operate('stop')">
+                <el-icon><VideoPause /></el-icon>停止
+              </el-button>
+              <el-button :loading="busy === 'start'" @click="operate('start')">
+                <el-icon><VideoPlay /></el-icon>启动
+              </el-button>
             </div>
           </div>
         </section>
