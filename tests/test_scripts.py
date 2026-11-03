@@ -39,6 +39,15 @@ def test_compose_example_declares_panel_and_project_mount():
     assert "env_file" not in services["scanner"]
 
 
+def test_apply_config_uses_supercronic_reload_signal():
+    text = (ROOT / "docker/apply-config.sh").read_text(encoding="utf-8")
+    # supercronic 用 SIGUSR2 重载；SIGHUP 会终止 PID 1 导致容器重启。
+    assert "kill -USR2 1" in text
+    assert "kill -HUP" not in text
+    # 面板以 root exec 时必须在 sticky /tmp 里降权，才能替换业务用户的 crontab。
+    assert 'su-exec "${PUID:-1000}:${PGID:-1000}"' in text
+
+
 def test_shell_boolean_defaults_match_schema():
     entrypoint = (ROOT / "docker/entrypoint.sh").read_text(encoding="utf-8")
     publish = (ROOT / "docker/publish.sh").read_text(encoding="utf-8")

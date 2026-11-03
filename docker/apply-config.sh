@@ -16,6 +16,17 @@ CRONTAB_PATH="${CRONTAB_PATH:-/tmp/supercronic.crontab}"
 
 log() { echo "[apply-config] $(date '+%Y-%m-%d %H:%M:%S %Z') $*"; }
 
+# 面板通过 docker exec 以 root 调用；/tmp 是 sticky，而 crontab 属主是业务用户，
+# root 直接覆盖会被 EPERM 拒绝。先按 .env 的 PUID/PGID 降权，与扫描任务一致。
+if [ "$(id -u)" = "0" ]; then
+  PUID_EXPORTS="$(python "$EXPORT_DOTENV" --keys PUID,PGID)" || {
+    log "[错误] 读取 .env 身份失败，保留旧 crontab"
+    exit 1
+  }
+  eval "$PUID_EXPORTS"
+  exec su-exec "${PUID:-1000}:${PGID:-1000}" "$0" "$@"
+fi
+
 if ! exports="$(python "$EXPORT_DOTENV" --keys CRON_SCHEDULE)"; then
   log "[错误] 读取 .env 失败，保留旧 crontab"
   exit 1
@@ -42,9 +53,14 @@ if ! supercronic -test "$new_path"; then
   exit 1
 fi
 
-mv "$new_path" "$CRONTAB_PATH"
+if ! mv "$new_path" "$CRONTAB_PATH"; then
+  log "[错误] 无法替换 crontab（权限不足？），保留旧 crontab"
+  rm -f "$new_path"
+  exit 1
+fi
 log "已应用 CRON_SCHEDULE='${CRON_SCHEDULE}'"
-if ! kill -HUP 1 2>/dev/null; then
-  log "SIGHUP 未送达（可能不在容器内）；新 crontab 已写入，下次启动生效"
+# supercronic 的 crontab 重载信号是 SIGUSR2（SIGHUP 会终止 PID 1 → 容器重启）
+if ! kill -USR2 1 2>/dev/null; then
+  log "SIGUSR2 未送达（可能不在容器内）；新 crontab 已写入，下次启动生效"
 fi
 exit 0

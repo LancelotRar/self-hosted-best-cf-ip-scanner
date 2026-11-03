@@ -1,7 +1,7 @@
 #!/bin/sh
 # 监听 `.env` 变化并热重载调度，兜住"手工编辑 .env"这条备用路径。
 #
-# 只处理调度：CRON_SCHEDULE 变化后重渲染 crontab 并 SIGHUP；
+# 只处理调度：CRON_SCHEDULE 变化后重渲染 crontab 并 SIGUSR2；
 # PUID/PGID/TZ/RUN_ON_START 属于入口阶段参数，必须重启扫描容器才生效。
 # 应用失败只记录日志，不退出——监听要一直活着，等用户修正 .env。
 set -u
