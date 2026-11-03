@@ -81,6 +81,21 @@ def read_library(path: str | Path) -> tuple[list[ipaddress.IPv4Network], FixedPo
     return networks, fixed, skipped
 
 
+def library_errors(text: str) -> list[tuple[int, str]]:
+    """逐行校验候选地址库，返回 `[(行号, 原文行)]`；行号从 1 开始。
+
+    跳过空行、`#` 注释与表头；其余行用与扫描器相同的解析器判断。
+    """
+    errors: list[tuple[int, str]] = []
+    for line_no, raw in enumerate(text.splitlines(), start=1):
+        line = raw.strip().lstrip("\ufeff").strip()
+        if not line or line.startswith("#") or line.casefold() in _HEADER_WORDS:
+            continue
+        if _parse_entry(line) is None:
+            errors.append((line_no, line))
+    return errors
+
+
 def merge_to_runs(networks: list[ipaddress.IPv4Network]) -> list[tuple[int, int]]:
     """把网段合并为最大连续地址区间，返回升序 [(首地址, 末地址)]（整数对）。
 

@@ -11,7 +11,6 @@ import hashlib
 import json
 import os
 import re
-import stat
 import subprocess
 import sys
 import tempfile
@@ -25,6 +24,7 @@ from scanner.schema import BY_NAME, PARAMS, coerce, format_value
 
 from .audit import record as audit_record
 from .docker_api import ScannerUnavailable
+from .files import atomic_write
 from .redact import redact_secrets
 from .settings import Settings
 
@@ -265,38 +265,8 @@ def _backup_env(settings: Settings, document: EnvDocument) -> Path:
 
 
 def _write_env(settings: Settings, text: str) -> None:
-    """同目录临时文件 + fsync + os.replace；尽量保留原文件属主与权限。"""
-    path = settings.env_path
-    original = path.stat() if path.exists() else None
-    descriptor, temporary = tempfile.mkstemp(
-        dir=str(path.parent), prefix=".env.", suffix=".tmp"
-    )
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as handle:
-            handle.write(text)
-            handle.flush()
-            os.fsync(handle.fileno())
-        if original is not None:
-            try:
-                os.chmod(temporary, stat.S_IMODE(original.st_mode))
-            except OSError:
-                pass
-            try:
-                os.chown(temporary, original.st_uid, original.st_gid)
-            except (OSError, AttributeError):
-                pass
-        else:
-            try:
-                os.chmod(temporary, 0o600)
-            except OSError:
-                pass
-        os.replace(temporary, path)
-    except BaseException:
-        try:
-            os.unlink(temporary)
-        except OSError:
-            pass
-        raise
+    """原子替换 `.env`（实现见 `panel.files.atomic_write`）。"""
+    atomic_write(settings.env_path, text)
 
 
 def _restore(settings: Settings, backup: Path) -> None:

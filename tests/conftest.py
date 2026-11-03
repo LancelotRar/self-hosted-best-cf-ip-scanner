@@ -238,6 +238,12 @@ def output_dir(settings):
 
 
 @pytest.fixture
+def data_dir(settings):
+    """数据目录（地址库与机房映射）。"""
+    return settings.data_dir
+
+
+@pytest.fixture
 def runs_tsv(settings):
     """预置一份轮次记录：扫描成功、发布失败。"""
     path = settings.data_dir / "runtime" / "runs.tsv"

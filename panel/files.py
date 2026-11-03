@@ -9,6 +9,9 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
+import os
+import stat
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -43,11 +46,13 @@ def resolve_child(root: Path, name: str) -> Path:
 
 
 def _meta(path: Path) -> dict[str, object]:
-    stat = path.stat()
+    stat_result = path.stat()
     return {
         "name": path.name,
-        "size": stat.st_size,
-        "mtime": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
+        "size": stat_result.st_size,
+        "mtime": datetime.fromtimestamp(
+            stat_result.st_mtime, tz=timezone.utc
+        ).isoformat(),
     }
 
 
@@ -97,4 +102,46 @@ def preview(path: Path, max_rows: int = 200) -> dict[str, object]:
     return {**base, "kind": "binary"}
 
 
-__all__ = ["FileAccessError", "list_files", "preview", "resolve_child"]
+def atomic_write(path: Path, text: str) -> None:
+    """同目录临时文件 + fsync + os.replace；尽量保留原文件属主与权限。"""
+    file_path = Path(path)
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    original = file_path.stat() if file_path.exists() else None
+    descriptor, temporary = tempfile.mkstemp(
+        dir=str(file_path.parent), prefix=f".{file_path.name}.", suffix=".tmp"
+    )
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        if original is not None:
+            try:
+                os.chmod(temporary, stat.S_IMODE(original.st_mode))
+            except OSError:
+                pass
+            try:
+                os.chown(temporary, original.st_uid, original.st_gid)
+            except (OSError, AttributeError):
+                pass
+        else:
+            try:
+                os.chmod(temporary, 0o600)
+            except OSError:
+                pass
+        os.replace(temporary, file_path)
+    except BaseException:
+        try:
+            os.unlink(temporary)
+        except OSError:
+            pass
+        raise
+
+
+__all__ = [
+    "FileAccessError",
+    "atomic_write",
+    "list_files",
+    "preview",
+    "resolve_child",
+]
