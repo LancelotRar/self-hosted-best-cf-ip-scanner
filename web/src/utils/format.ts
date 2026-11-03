@@ -24,7 +24,14 @@ export function formatMinute(value: string | null | undefined): string {
   )}:${pad(date.getMinutes())}`;
 }
 
-/** docker 日志行首的 RFC3339（UTC）时间戳：转成本地 `MM-DD HH:MM:SS`；无前缀的行原样返回。 */
+/** 从消息文本推断日志等级：只有明确的标记才算警告/错误，避免把正文里的"失败"误判。 */
+function logLevel(message: string): "错误" | "警告" | "信息" {
+  if (/\[错误\]|\[error\]|\btraceback\b|\bcritical\b|\bfatal\b/i.test(message)) return "错误";
+  if (/\[警告\]|\[warn\]|\bwarning\b/i.test(message)) return "警告";
+  return "信息";
+}
+
+/** docker 日志行首的 RFC3339（UTC）时间戳 → `[YYYY-MM-DD HH:MM:SS][等级]：消息`。无时间戳前缀的行原样返回。 */
 export function formatLogLine(line: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?Z ?/.exec(line);
   if (!match) return line;
@@ -34,10 +41,11 @@ export function formatLogLine(line: string): string {
   );
   if (Number.isNaN(date.getTime())) return line;
   const pad = (part: number) => String(part).padStart(2, "0");
-  const stamp = `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(
-    date.getMinutes(),
-  )}:${pad(date.getSeconds())}`;
-  return `${stamp}  ${line.slice(match[0].length)}`;
+  const stamp = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(
+    date.getHours(),
+  )}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  const message = line.slice(match[0].length);
+  return `[${stamp}][${logLevel(message)}]：${message}`;
 }
 
 export function formatClock(value: Date | null | undefined): string {

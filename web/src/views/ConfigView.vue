@@ -302,7 +302,7 @@ onBeforeRouteLeave(async () => {
     </template>
 
     <el-drawer v-model="versionsVisible" title="配置版本" size="60%">
-      <el-table v-if="store.versions.length" :data="store.versions" size="small">
+      <el-table border v-if="store.versions.length" :data="store.versions" size="small">
         <el-table-column prop="id" label="版本" width="70" />
         <el-table-column label="时间" width="180">
           <template #default="{ row }">{{ formatTime(row.created_at) }}</template>

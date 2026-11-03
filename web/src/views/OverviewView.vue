@@ -239,7 +239,7 @@ onMounted(load);
           <span class="section-title"><el-icon><VideoPlay /></el-icon>近期扫描情况</span>
         </header>
         <div class="panel__body">
-          <el-table v-if="runs.length" :data="runs" size="small" max-height="300" class="scroll-table">
+          <el-table border v-if="runs.length" :data="runs" size="small" max-height="300" class="scroll-table">
             <el-table-column label="开始时间" min-width="230">
               <template #default="{ row }">
                 <span class="mono">{{ startText(row) }}</span>
@@ -270,7 +270,7 @@ onMounted(load);
           <span class="section-title"><el-icon><FolderOpened /></el-icon>产物情况</span>
         </header>
         <div class="panel__body">
-          <el-table v-if="files.length" :data="files" size="small" max-height="280" class="scroll-table">
+          <el-table border v-if="files.length" :data="files" size="small" max-height="280" class="scroll-table">
             <el-table-column label="文件" min-width="256" show-overflow-tooltip>
               <template #default="{ row }"><span class="mono">{{ row.name }}</span></template>
             </el-table-column>
@@ -345,6 +345,7 @@ onMounted(load);
           <span class="mono">{{ currentPreview.sha256.slice(0, 12) }}…</span>
         </p>
         <el-table
+          border
           v-if="currentPreview.kind === 'csv'"
           :data="currentPreview.rows ?? []"
           size="small"

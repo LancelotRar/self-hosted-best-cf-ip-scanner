@@ -155,7 +155,7 @@ onMounted(async () => {
         </div>
         <section v-if="history.length" class="panel">
           <div class="panel__body">
-        <el-table :data="history" size="small">
+        <el-table border :data="history" size="small">
           <el-table-column label="轮次" min-width="180">
             <template #default="{ row }"><span class="mono">{{ row.run_id }}</span></template>
           </el-table-column>

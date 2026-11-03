@@ -67,7 +67,7 @@ const canRestart = computed(
       </div>
     </dl>
 
-    <el-table v-if="result.changed.length" :data="result.changed" size="small" class="result__table">
+    <el-table border v-if="result.changed.length" :data="result.changed" size="small" class="result__table">
       <el-table-column prop="name" label="参数" min-width="240" />
       <el-table-column label="原值" min-width="160">
         <template #default="{ row }">

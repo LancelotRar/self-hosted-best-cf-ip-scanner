@@ -301,6 +301,20 @@ a {
   padding: 8px 0;
 }
 
+/* 列分界线：border 模式下 Element Plus 才会在表头右侧挂拖动热区（悬停 8px 内变 col-resize） */
+.el-table--border {
+  --el-table-border-color: var(--border);
+}
+
+.el-table--border th.el-table__cell:hover {
+  box-shadow: inset -1px 0 0 var(--border-strong);
+}
+
+.el-table__column-resize-proxy {
+  width: 0;
+  border-left: 2px solid var(--primary);
+}
+
 .el-tabs__item {
   color: var(--text-muted);
   font-size: 13px;

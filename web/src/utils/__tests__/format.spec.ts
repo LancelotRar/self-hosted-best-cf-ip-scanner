@@ -2,11 +2,23 @@ import { describe, expect, it } from "vitest";
 
 import { formatLogLine, formatMinute } from "../format";
 
+const CASE = /^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\]\[(信息|警告|错误)\]：/;
+
 describe("formatLogLine", () => {
-  it("把 docker 的 UTC 时间戳换成本地 MM-DD HH:MM:SS", () => {
-    const line = "2026-11-03T09:34:44.123456789Z [entrypoint] 启动完成";
-    const text = formatLogLine(line);
-    expect(text).toMatch(/^\d{2}-\d{2} \d{2}:\d{2}:\d{2}  \[entrypoint\] 启动完成$/);
+  it("把 docker 的 UTC 时间戳换成本地时间，并补日志等级", () => {
+    const text = formatLogLine("2026-11-03T09:34:44.123456789Z [entrypoint] 启动完成");
+    expect(text).toMatch(CASE);
+    expect(text.endsWith("[信息]：[entrypoint] 启动完成")).toBe(true);
+  });
+
+  it("识别错误与警告标记", () => {
+    expect(formatLogLine("2026-11-03T09:34:44Z [错误] 读取 .env 失败")).toContain("[错误]：");
+    expect(formatLogLine("2026-11-03T09:34:44Z [警告] 未找到监听脚本")).toContain("[警告]：");
+    expect(formatLogLine("2026-11-03T09:34:44Z Traceback (most recent call last):")).toContain("[错误]：");
+  });
+
+  it("正文里的「失败」不算错误等级", () => {
+    expect(formatLogLine("2026-11-03T09:34:44Z 未达标原因：失败 3 个")).toContain("[信息]：");
   });
 
   it("没有时间戳前缀的行原样返回", () => {

@@ -252,7 +252,7 @@ onMounted(async () => {
         <template v-else>
           <section class="panel">
             <div class="panel__body">
-              <el-table v-if="audits.length" :data="audits" size="small">
+              <el-table border v-if="audits.length" :data="audits" size="small">
                 <el-table-column label="时间" width="180">
                   <template #default="{ row }">{{ formatTime(row.at) }}</template>
                 </el-table-column>
