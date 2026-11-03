@@ -10,9 +10,10 @@ const props = withDefaults(
     lines: string[];
     status: StreamStatus;
     lastReceived: Date | null;
-    height?: string;
+      height?: string;
+    ended?: boolean;
   }>(),
-  { height: "420px" },
+  { height: "420px", ended: false },
 );
 
 const box = ref<HTMLPreElement | null>(null);
@@ -20,6 +21,7 @@ const atBottom = ref(true);
 const pending = ref(0);
 
 const meta = computed(() => {
+  if (props.ended) return { tone: "neutral" as const, label: "已结束" };
   switch (props.status) {
     case "live":
       return { tone: "success" as const, label: "实时" };

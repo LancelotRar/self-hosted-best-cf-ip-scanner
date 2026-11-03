@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 
 import { get, post } from "../api";
@@ -12,7 +13,9 @@ import { useEventStream } from "../composables/useEventStream";
 import type { RunRecord } from "../types";
 import { exitLabel, formatDuration, formatTime } from "../utils/format";
 
+const router = useRouter();
 const activeTab = ref("run");
+const ended = ref(false);
 const runId = ref("");
 const lines = ref<string[]>([]);
 const error = ref("");
@@ -25,6 +28,7 @@ const { status, lastReceived, connect } = useEventStream(
   {
     onMessage: (data) => lines.value.push(data),
     onDone: (code) => {
+      ended.value = true;
       lines.value.push(`[结束] 退出码 ${code}`);
       ElMessage.info(`本轮结束，退出码 ${code}`);
       void loadHistory();
@@ -70,6 +74,7 @@ async function trigger() {
     const data = await post<{ run_id: string }>("/api/runs");
     runId.value = data.run_id;
     lines.value = [];
+    ended.value = false;
     running.value = true;
     connect();
     activeTab.value = "run";
@@ -116,7 +121,24 @@ onMounted(async () => {
             同一时间只允许一轮；定时任务正在跑时手动触发会被拒绝（409）。
           </span>
         </div>
-        <LogConsole :lines="lines" :status="status" :last-received="lastReceived" />
+        <LogConsole
+          v-if="runId"
+          :lines="lines"
+          :status="status"
+          :last-received="lastReceived"
+          :ended="ended"
+        />
+        <EmptyState
+          v-else
+          :title="running ? '定时任务正在执行' : '尚无运行输出'"
+          :description="
+            running
+              ? '定时轮次的输出请到「日志」页查看；手动执行时会在这里实时显示。'
+              : '点击右上角「立即执行一轮」开始；执行期间可实时查看输出。'
+          "
+          :action-label="running ? '去日志页' : ''"
+          @action="router.push({ name: 'logs' })"
+        />
       </el-tab-pane>
 
       <el-tab-pane label="历史轮次" name="history">
