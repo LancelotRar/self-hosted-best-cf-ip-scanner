@@ -301,7 +301,7 @@ onBeforeUnmount(() => {
 .sidebar__actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: var(--space-1);
   margin-top: var(--space-1);
 }
 
