@@ -247,12 +247,12 @@ onBeforeUnmount(() => {
 }
 
 .scanner-state {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
+  width: 100%;
   font-size: 12px;
-  max-width: 100%;
 }
 
 .scanner-state__dot {
@@ -284,13 +284,15 @@ onBeforeUnmount(() => {
 
 .footer-actions {
   justify-content: center;
-  gap: 6px;
+  width: 100%;
+  gap: 8px;
 }
 
 .footer-user {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
   gap: 10px;
   font-size: 11.5px;
 }

@@ -24,6 +24,7 @@ defineProps<{
 .page-head {
   display: flex;
   align-items: flex-start;
+  justify-content: flex-start;
   gap: var(--space-3);
   width: 100%;
   margin-bottom: var(--space-4);

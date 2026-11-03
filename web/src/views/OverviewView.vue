@@ -305,8 +305,12 @@ onMounted(load);
               {{ paramValue("GIT_BRANCH") || "—" }} /
               {{ paramValue("GIT_OUTPUT_SUBDIR") || "—" }}
             </dd>
-            <template v-if="publish?.last">
-              <dt>上次结束</dt>
+            <template v-if="!pushEnabled()">
+              <dt>推送</dt>
+              <dd class="muted">已关闭，不执行推送</dd>
+            </template>
+            <template v-else-if="publish?.last">
+              <dt>上次推送</dt>
               <dd class="mono">{{ formatTime(publish.last.finished_at) }}</dd>
               <dt>扫描 / 推送</dt>
               <dd>
@@ -437,6 +441,7 @@ onMounted(load);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface-2);
+  color: var(--text);
   font-size: 12px;
   line-height: 18px;
   white-space: pre;
