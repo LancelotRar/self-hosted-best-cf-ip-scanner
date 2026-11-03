@@ -109,7 +109,8 @@ const numberWidth = computed(() => {
     String(value ?? ""),
   );
   const digits = Math.max(3, ...values.map((value) => value.length));
-  return `calc(${digits + 2}ch + 44px)`;
+  // 76px 覆盖右侧上下两个步进按钮（各 32px 含内边距）与输入内边距，避免数字被截断
+  return `calc(${digits}ch + 76px)`;
 });
 
 const listValue = computed<number[]>(() => {
@@ -445,6 +446,7 @@ function onBool(value: string | number | boolean) {
   text-align: center;
   padding-left: 4px;
   padding-right: 4px;
+  font-variant-numeric: tabular-nums;
 }
 
 .field :deep(.el-select) {
