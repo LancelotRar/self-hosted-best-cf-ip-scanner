@@ -108,7 +108,6 @@ onMounted(async () => {
     <PageHeader
       title="运行"
       subtitle="手动执行与定时任务共用同一份 .env，仅触发方式不同"
-      :icon="VideoPlay"
     />
 
     <ErrorState v-if="error" :message="error" @retry="loadHistory" />

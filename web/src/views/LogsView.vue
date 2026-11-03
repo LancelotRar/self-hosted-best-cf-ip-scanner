@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import {
   Delete,
-  Document,
   Download,
   VideoPause,
   VideoPlay,
@@ -54,7 +53,6 @@ onMounted(connect);
     <PageHeader
       title="日志"
       subtitle="本项目扫描容器的实时日志；断开时显示重连状态"
-      :icon="Document"
     />
 
     <el-tabs v-model="activeTab">

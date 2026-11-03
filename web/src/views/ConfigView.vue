@@ -6,7 +6,6 @@ import {
   Refresh,
   RefreshLeft,
   RefreshRight,
-  Setting,
   VideoPlay,
 } from "@element-plus/icons-vue";
 import { onMounted, ref } from "vue";
@@ -171,7 +170,6 @@ onBeforeRouteLeave(async () => {
     <PageHeader
       title="参数"
       subtitle="保存即改写 .env；扫描器下一轮读取，调度变更热重载"
-      :icon="Setting"
     />
 
     <div class="config-toolbar">

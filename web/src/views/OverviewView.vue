@@ -3,10 +3,8 @@ import { onMounted, ref } from "vue";
 import { ElMessage } from "element-plus";
 import {
   DataLine,
-  Document,
   FolderOpened,
   Monitor,
-  Odometer,
   Timer,
   Upload,
   VideoPlay,
@@ -151,7 +149,6 @@ onMounted(load);
     <PageHeader
       title="总览"
       subtitle="扫描器、IP 库、计划、运行、产物与推送情况的综合视图"
-      :icon="Odometer"
     />
 
     <ErrorState v-if="error" :message="error" @retry="load" />

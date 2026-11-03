@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Lock, Operation, RefreshLeft, VideoPause, VideoPlay } from "@element-plus/icons-vue";
+import { Lock, RefreshLeft, VideoPause, VideoPlay } from "@element-plus/icons-vue";
 
 import { get, post } from "../api";
 import EmptyState from "../components/EmptyState.vue";
@@ -141,7 +141,7 @@ onMounted(async () => {
 
 <template>
   <section class="page">
-    <PageHeader title="设置" subtitle="外观、账号、审计、容器与版本信息" :icon="Operation" />
+    <PageHeader title="设置" subtitle="外观、账号、审计、容器与版本信息" />
 
     <el-tabs v-model="activeTab">
       <el-tab-pane label="外观" name="appearance">
@@ -398,8 +398,8 @@ onMounted(async () => {
   overflow-wrap: anywhere;
 }
 
-.form-panel {
-  max-width: 640px;
+.form-panel .el-input {
+  max-width: 520px;
 }
 
 .field-label {
