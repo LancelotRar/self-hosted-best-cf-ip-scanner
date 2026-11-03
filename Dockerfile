@@ -58,7 +58,7 @@ LABEL org.opencontainers.image.title="best-cf-ip-scanner" \
 # 包缓存走 BuildKit cache mount，不写进镜像层（因此不需要 --no-cache）。
 RUN --mount=type=cache,target=/etc/apk/cache,sharing=locked \
     if [ -n "$APK_MIRROR" ]; then \
-      sed -i "s|https://dl-cdn.alpinelinux.org|$APK_MIRROR|g" /etc/apk/repositories; \
+      sed -i "s|https://dl-cdn.alpinelinux.org/alpine|$APK_MIRROR|g" /etc/apk/repositories; \
     fi \
  && apk add git tzdata ca-certificates su-exec
 
