@@ -7,6 +7,24 @@ import pytest
 from panel.settings import Settings
 
 
+class FakeClock:
+    """可手动推进的单调时钟（登录限速等时间相关逻辑用）。"""
+
+    def __init__(self) -> None:
+        self.value = 0.0
+
+    def now(self) -> float:
+        return self.value
+
+    def tick(self, seconds: float = 1.0) -> None:
+        self.value += seconds
+
+
+@pytest.fixture
+def clock() -> FakeClock:
+    return FakeClock()
+
+
 @pytest.fixture
 def settings(tmp_path: Path) -> Settings:
     """临时目录下的完整设置，附带一份最小 `.env`。"""

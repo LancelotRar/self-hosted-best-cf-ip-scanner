@@ -40,3 +40,14 @@ def test_password_change_requires_current_password(client):
     )
     assert response.status_code == 200
     assert client.post("/api/auth/login", json={"password": "another secret"}).status_code == 200
+
+
+def test_login_limiter_window_expires(clock):
+    from panel.security import LoginLimiter
+
+    limiter = LoginLimiter(max_failures=2, window_s=60, clock=clock.now)
+    limiter.record_failure("k")
+    limiter.record_failure("k")
+    assert limiter.allow("k") is False
+    clock.tick(61)
+    assert limiter.allow("k") is True
