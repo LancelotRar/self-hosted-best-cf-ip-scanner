@@ -6,9 +6,10 @@ export function formatTime(value: string | null | undefined, withDate = true): s
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString("zh-CN", {
     hour12: false,
-    ...(withDate
-      ? { year: "numeric", month: "2-digit", day: "2-digit" }
-      : { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+    ...(withDate ? { year: "numeric", month: "2-digit", day: "2-digit" } : {}),
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
   });
 }
 
