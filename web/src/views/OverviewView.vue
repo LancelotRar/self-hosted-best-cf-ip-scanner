@@ -85,7 +85,10 @@ onMounted(load);
               :tone="data.scanner.state === 'running' ? 'success' : 'danger'"
               :label="data.scanner.state === 'running' ? '运行中' : '不可用'"
             />
-            <span v-if="data.scanner.health" class="muted">
+            <span
+              v-if="data.scanner.health && data.scanner.health !== 'healthy'"
+              class="muted"
+            >
               健康状态 {{ healthLabel(data.scanner.health) }}
             </span>
           </div>
