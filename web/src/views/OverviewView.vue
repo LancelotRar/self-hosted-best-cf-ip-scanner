@@ -219,16 +219,15 @@ onMounted(load);
     <el-skeleton v-else-if="loading" :rows="8" animated />
 
     <div v-else-if="overview" class="overview">
-      <!-- 1. 容器状态：四张独立卡片直接落在页面底色上（DashStack 风格） -->
-      <section class="panel panel--plain">
-        <header class="panel__head">
-          <span class="section-title"><el-icon><Monitor /></el-icon>容器状态</span>
+      <!-- 1. 容器状态：标题在卡片外，四张统计卡直接落在页面底色上 -->
+      <section class="block">
+        <header class="block__head">
+          <el-icon><Monitor /></el-icon><span>容器状态</span>
         </header>
-        <div class="panel__body">
-          <div class="stat-row">
-            <article class="stat">
-              <div class="stat__head">
-                <span class="stat__label">扫描容器</span>
+        <div class="stat-row">
+          <article class="stat">
+            <div class="stat__head">
+              <span class="stat__label">扫描容器</span>
                 <span class="stat__icon stat__icon--green"><el-icon><Monitor /></el-icon></span>
               </div>
               <strong class="stat__value" :class="scannerOnline ? 'is-on' : 'is-off'">
@@ -274,15 +273,14 @@ onMounted(load);
           <p v-if="overview.scanner.reason" class="stat-alert">
             离线原因：{{ overview.scanner.reason }}
           </p>
-        </div>
       </section>
 
       <!-- 2. IP 库信息 -->
-      <section class="panel">
-        <header class="panel__head">
-          <span class="section-title"><el-icon><DataLine /></el-icon>IP 库信息</span>
+      <section class="block">
+        <header class="block__head">
+          <el-icon><DataLine /></el-icon><span>IP 库信息</span>
         </header>
-        <div class="panel__body">
+        <div class="panel block__card">
           <template v-if="library">
             <p class="section-note">
               {{ library.line_count }} 行 · 网段 {{ library.stats.networks }} · 固定条目
@@ -300,35 +298,29 @@ onMounted(load);
         </div>
       </section>
 
-      <!-- 3. 计划详情 -->
-      <section class="panel">
-        <header class="panel__head">
-          <span class="section-title"><el-icon><Timer /></el-icon>计划详情</span>
+      <!-- 3. 计划详情：两块（计划任务 / 下一次运行时间） -->
+      <section class="block">
+        <header class="block__head">
+          <el-icon><Timer /></el-icon><span>计划详情</span>
         </header>
-        <div class="panel__body">
-          <div class="facts">
-            <div class="fact">
-              <span class="fact__label">计划任务</span>
-              <span class="fact__value">{{ describeCron(cronExpression) }}</span>
-            </div>
-            <div class="fact">
-              <span class="fact__label">下一次运行时间</span>
-              <span class="fact__value mono">{{ formatTime(overview.next_runs[0]) }}</span>
-            </div>
-            <div class="fact">
-              <span class="fact__label">时区</span>
-              <span class="fact__value">{{ timezone || "—" }}</span>
-            </div>
-          </div>
+        <div class="card-grid card-grid--2">
+          <article class="mini-card">
+            <span class="mini-card__label">计划任务</span>
+            <strong class="mini-card__value">{{ describeCron(cronExpression) }}</strong>
+          </article>
+          <article class="mini-card">
+            <span class="mini-card__label">下一次运行时间</span>
+            <strong class="mini-card__value mono">{{ formatTime(overview.next_runs[0]) }}</strong>
+          </article>
         </div>
       </section>
 
       <!-- 4. 近期扫描情况 -->
-      <section class="panel">
-        <header class="panel__head">
-          <span class="section-title"><el-icon><VideoPlay /></el-icon>近期扫描情况</span>
+      <section class="block">
+        <header class="block__head">
+          <el-icon><VideoPlay /></el-icon><span>近期扫描情况</span>
         </header>
-        <div class="panel__body">
+        <div class="panel block__card">
           <el-table
             border
             v-if="runs.length"
@@ -363,11 +355,11 @@ onMounted(load);
       </section>
 
       <!-- 5. 产物情况 -->
-      <section class="panel">
-        <header class="panel__head">
-          <span class="section-title"><el-icon><FolderOpened /></el-icon>产物情况</span>
+      <section class="block">
+        <header class="block__head">
+          <el-icon><FolderOpened /></el-icon><span>产物情况</span>
         </header>
-        <div class="panel__body">
+        <div class="panel block__card">
           <el-table
             border
             v-if="files.length"
@@ -396,50 +388,43 @@ onMounted(load);
         </div>
       </section>
 
-      <!-- 6. 推送情况 -->
-      <section class="panel">
-        <header class="panel__head">
-          <span class="section-title"><el-icon><Upload /></el-icon>推送情况</span>
+      <!-- 6. 推送情况：三块（状态 / 目标仓库与分支目录 / 上次推送时间） -->
+      <section class="block">
+        <header class="block__head">
+          <el-icon><Upload /></el-icon><span>推送情况</span>
         </header>
-        <div class="panel__body">
-          <div class="status-line">
-            <StatusPill
-              :tone="pushEnabled() ? 'success' : 'neutral'"
-              :label="pushEnabled() ? '推送已开启' : '推送已关闭'"
-            />
-          </div>
-          <div class="facts">
-            <div class="fact">
-              <span class="fact__label">目标仓库</span>
-              <span class="fact__value mono">{{ paramValue("GIT_REPO_URL") || "—" }}</span>
-            </div>
-            <div class="fact">
-              <span class="fact__label">分支 / 目录</span>
-              <span class="fact__value mono">
-                {{ paramValue("GIT_BRANCH") || "—" }} /
-                {{ paramValue("GIT_OUTPUT_SUBDIR") || "—" }}
-              </span>
-            </div>
-            <div class="fact">
-              <span class="fact__label">推送</span>
-              <span class="fact__value" :class="{ muted: !pushEnabled() }">
-                {{ pushEnabled() ? "已开启" : "已关闭，不执行推送" }}
-              </span>
-            </div>
-            <div v-if="pushEnabled()" class="fact">
-              <span class="fact__label">上次推送</span>
-              <span class="fact__value mono">
-                {{ publish?.last ? formatTime(publish.last.finished_at) : "尚无推送记录" }}
-              </span>
-            </div>
-            <div v-if="pushEnabled() && publish?.last" class="fact">
-              <span class="fact__label">扫描 / 推送</span>
-              <span class="fact__value">
-                {{ exitLabel(publish.last.scan_exit) }} /
-                {{ exitLabel(publish.last.publish_exit) }}
-              </span>
-            </div>
-          </div>
+        <div class="card-grid card-grid--3">
+          <article class="mini-card">
+            <span class="mini-card__label">推送状态</span>
+            <strong class="mini-card__value" :class="pushEnabled() ? 'is-on' : 'is-off'">
+              {{ pushEnabled() ? "已开启" : "已关闭" }}
+            </strong>
+            <span class="mini-card__note">
+              {{ pushEnabled() ? "每轮成功后自动推送" : "已关闭，不执行推送" }}
+            </span>
+          </article>
+
+          <article class="mini-card">
+            <span class="mini-card__label">目标仓库</span>
+            <strong class="mini-card__value mono">
+              {{ paramValue("GIT_REPO_URL") || "—" }}
+            </strong>
+            <span class="mini-card__note mono">
+              {{ paramValue("GIT_BRANCH") || "—" }} /
+              {{ paramValue("GIT_OUTPUT_SUBDIR") || "—" }}
+            </span>
+          </article>
+
+          <article class="mini-card">
+            <span class="mini-card__label">上次推送时间</span>
+            <strong class="mini-card__value mono">
+              {{ pushEnabled() && publish?.last ? formatTime(publish.last.finished_at) : "—" }}
+            </strong>
+            <span v-if="pushEnabled() && publish?.last" class="mini-card__note">
+              {{ exitLabel(publish.last.scan_exit) }} / {{ exitLabel(publish.last.publish_exit) }}
+            </span>
+            <span v-else class="mini-card__note">推送关闭时不记录推送结果</span>
+          </article>
         </div>
       </section>
     </div>
@@ -487,7 +472,7 @@ onMounted(load);
 .overview {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: 24px;
 }
 
 /* 容器状态：四个等宽统计块 */
@@ -497,18 +482,93 @@ onMounted(load);
   gap: var(--space-3);
 }
 
-.panel--plain {
-  background: transparent;
-  box-shadow: none;
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.panel--plain .panel__head {
-  padding: 0 2px 12px;
+.block__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 2px;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
 }
 
-.panel--plain .panel__body {
-  padding: 0;
-  overflow: visible;
+.block__head :deep(.el-icon) {
+  color: var(--text-muted);
+  font-size: 15px;
+}
+
+.block__card {
+  padding: 20px 24px;
+}
+
+.card-grid {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.card-grid--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.card-grid--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 767px) {
+  .card-grid--2,
+  .card-grid--3 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.mini-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 18px 20px;
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+}
+
+.mini-card__label {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.mini-card__value {
+  color: var(--text);
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.mini-card__value.is-on {
+  color: var(--success);
+}
+
+.mini-card__value.is-off {
+  color: var(--text-muted);
+}
+
+.mini-card__note {
+  color: var(--text-faint);
+  font-size: 12px;
+  line-height: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .stat {
@@ -635,16 +695,6 @@ html[data-theme="dark"] .stat__icon {
   }
 }
 
-.section-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.section-title :deep(.el-icon) {
-  color: var(--text-muted);
-}
-
 .section-note {
   margin: 0 0 var(--space-3);
   color: var(--text-muted);
@@ -718,32 +768,6 @@ html[data-theme="dark"] .stat__icon {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.facts {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 16px 24px;
-}
-
-.fact {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.fact__label {
-  color: var(--text-muted);
-  font-size: 12px;
-  line-height: 18px;
-}
-
-.fact__value {
-  color: var(--text);
-  font-size: 14px;
-  line-height: 20px;
-  overflow-wrap: anywhere;
 }
 
 .dialog-preview {

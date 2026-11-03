@@ -8,7 +8,7 @@ import {
   RefreshRight,
   VideoPlay,
 } from "@element-plus/icons-vue";
-import { onMounted, ref } from "vue";
+import { nextTick, onMounted, ref } from "vue";
 import { onBeforeRouteLeave, useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 
@@ -49,6 +49,17 @@ function resolveLeave(ok: boolean) {
   unsavedVisible.value = false;
   leaving.value?.(ok);
   leaving.value = null;
+}
+
+/** 回到表单时把焦点放到第一个未保存的字段上，避免用户再找一遍。 */
+function focusFirstDirty() {
+  const name = store.changedParams[0]?.name;
+  if (!name) return;
+  void nextTick(() => {
+    const element = document.getElementById(`param-${name}`);
+    element?.focus();
+    element?.scrollIntoView({ block: "center", behavior: "smooth" });
+  });
 }
 
 function discardAndLeave() {
@@ -346,6 +357,7 @@ onBeforeRouteLeave(async () => {
       v-model="unsavedVisible"
       description="有未保存的参数修改，离开后这些修改会丢失。"
       @discard="discardAndLeave"
+      @stay="focusFirstDirty"
     />
   </section>
 </template>

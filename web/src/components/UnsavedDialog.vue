@@ -7,6 +7,7 @@ defineProps<{
 const emit = defineEmits<{
   "update:modelValue": [boolean];
   discard: [];
+  stay: [];
 }>();
 </script>
 
@@ -24,7 +25,14 @@ const emit = defineEmits<{
     </p>
     <template #footer>
       <div class="unsaved__actions">
-        <el-button @click="emit('update:modelValue', false)">继续编辑</el-button>
+        <el-button
+          @click="
+            emit('update:modelValue', false);
+            emit('stay');
+          "
+        >
+          继续编辑
+        </el-button>
         <el-button type="danger" @click="emit('discard')">放弃修改</el-button>
       </div>
     </template>

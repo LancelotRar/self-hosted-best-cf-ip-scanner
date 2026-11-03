@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, nextTick, onMounted, ref } from "vue";
 import { onBeforeRouteLeave } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Check, Document, RefreshLeft } from "@element-plus/icons-vue";
@@ -71,6 +71,13 @@ function resolveLeave(ok: boolean) {
   unsavedVisible.value = false;
   leaving.value?.(ok);
   leaving.value = null;
+}
+
+/** 回到编辑时聚焦地址库输入框。 */
+function focusEditor() {
+  void nextTick(() => {
+    document.querySelector<HTMLTextAreaElement>(".library-editor__input textarea")?.focus();
+  });
 }
 
 function discardAndLeave() {
@@ -195,6 +202,7 @@ onBeforeRouteLeave(async () => {
       v-model="unsavedVisible"
       description="IP 库有未保存的修改，离开后这些修改会丢失。"
       @discard="discardAndLeave"
+      @stay="focusEditor"
     />
   </template>
 </template>
