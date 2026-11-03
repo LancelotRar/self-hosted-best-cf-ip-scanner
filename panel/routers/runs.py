@@ -31,7 +31,15 @@ def list_runs(request: Request, limit: int = 50) -> dict[str, object]:
     path = runs_store.runs_path(settings)
     runs_store.sync(request.app.state.conn, path)
     records = runs_store.parse(path)[-max(1, min(limit, 200)):]
-    return {"runs": [record.to_dict() for record in reversed(records)]}
+    active_ids = {
+        run_id
+        for run_id, handle in request.app.state.active_runs.items()
+        if not getattr(handle, "finished", False)
+    }
+    decorated = runs_store.with_status(
+        records, runs_store.scan_lock_held(settings), active_ids
+    )
+    return {"runs": list(reversed(decorated))}
 
 
 def _run_env(settings, run_id: str) -> dict[str, str]:

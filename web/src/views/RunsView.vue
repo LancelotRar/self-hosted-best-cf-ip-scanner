@@ -24,6 +24,7 @@ const { status, lastReceived, connect } = useEventStream(
       void loadHistory();
     },
     onError: (message) => lines.value.push(`[${message}]`),
+    retryOnError: false,
   },
 );
 
@@ -64,7 +65,18 @@ function formatTime(value: string | null): string {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString("zh-CN", { hour12: false });
 }
 
-onMounted(loadHistory);
+onMounted(async () => {
+  await loadHistory();
+  // 切回运行页时自动接上"面板触发且仍在跑"的那一轮（定时轮次无法回放 stdout）。
+  const live = history.value.find(
+    (record) => record.status === "running" && record.trigger === "panel",
+  );
+  if (live) {
+    runId.value = live.run_id;
+    lines.value = [`[已接上进行中的轮次 ${live.run_id}]`];
+    connect();
+  }
+});
 </script>
 
 <template>
@@ -105,7 +117,8 @@ onMounted(loadHistory);
           <el-table-column prop="duration_s" label="耗时(s)" width="100" />
           <el-table-column label="状态" width="100">
             <template #default="{ row }">
-              <el-tag v-if="row.interrupted" type="warning" size="small">中断</el-tag>
+              <el-tag v-if="row.status === 'running'" type="primary" size="small">运行中</el-tag>
+              <el-tag v-else-if="row.status === 'interrupted'" type="warning" size="small">中断</el-tag>
               <span v-else class="panel-muted">完成</span>
             </template>
           </el-table-column>

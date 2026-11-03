@@ -127,6 +127,34 @@ def sync(conn: sqlite3.Connection, path: Path, limit: int = 200) -> int:
     return len(records)
 
 
+def with_status(
+    records: list[RunRecord],
+    lock_held: bool,
+    active_ids: set[str] | frozenset[str] = frozenset(),
+) -> list[dict[str, object]]:
+    """给每条记录补 `status`：done / running / interrupted。
+
+    START 没有 END 时不能一律算"中断"：正在跑的一轮也会先写 START。
+    只有「未结束 + 不是当前活跃执行 + 没有持有扫描锁」才是中断。
+    """
+    last_unfinished = max(
+        (index for index, record in enumerate(records) if not record.finished_at),
+        default=None,
+    )
+    decorated: list[dict[str, object]] = []
+    for index, record in enumerate(records):
+        if record.finished_at:
+            status = "done"
+        elif record.run_id in active_ids or (lock_held and index == last_unfinished):
+            status = "running"
+        else:
+            status = "interrupted"
+        item = record.to_dict()
+        item["status"] = status
+        decorated.append(item)
+    return decorated
+
+
 def scan_lock_held(settings: Settings) -> bool:
     """`/cache/scan.lock` 是否被占用；文件不存在视为空闲。
 
@@ -150,4 +178,4 @@ def scan_lock_held(settings: Settings) -> bool:
             return False
 
 
-__all__ = ["RunRecord", "parse", "runs_path", "scan_lock_held", "sync"]
+__all__ = ["RunRecord", "parse", "runs_path", "scan_lock_held", "sync", "with_status"]

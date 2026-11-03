@@ -6,6 +6,8 @@ export interface StreamHandlers {
   onMessage: (data: string, event: string) => void;
   onError?: (message: string) => void;
   onDone?: (data: string) => void;
+  /** 默认 true；运行输出这类一次性流应关掉重连，避免对已结束的 run 反复 404。 */
+  retryOnError?: boolean;
 }
 
 /**
@@ -59,7 +61,7 @@ export function useEventStream(url: () => string, handlers: StreamHandlers) {
       close();
       status.value = paused ? "paused" : "disconnected";
       handlers.onError?.("连接断开，正在重连");
-      if (!paused) scheduleReconnect();
+      if (!paused && handlers.retryOnError !== false) scheduleReconnect();
     };
   }
 

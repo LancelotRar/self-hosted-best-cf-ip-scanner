@@ -85,6 +85,7 @@ export interface RunRecord {
   duration_s: number | null;
   summary: string | null;
   interrupted: boolean;
+  status?: "done" | "running" | "interrupted";
 }
 
 export interface Overview {

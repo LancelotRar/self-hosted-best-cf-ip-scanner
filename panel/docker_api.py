@@ -68,6 +68,10 @@ class ExecHandle:
         finally:
             self._done.set()
 
+    @property
+    def finished(self) -> bool:
+        return self._done.is_set()
+
     def stream(self) -> Iterator[bytes]:
         index = 0
         while True:
