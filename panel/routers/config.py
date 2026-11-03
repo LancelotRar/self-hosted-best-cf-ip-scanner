@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from .. import config_store
-from ..docker_api import default_controller
+from ..deps import controller_of as _controller, settings_of as _settings
 from ..security import require_user, verify_csrf
 from scanner.dotenv import DotenvError
 
@@ -22,21 +22,6 @@ class ConfigPayload(BaseModel):
 
 class RollbackPayload(BaseModel):
     hash: str | None = None
-
-
-def _settings(request: Request):
-    return request.app.state.settings
-
-
-def _controller(request: Request):
-    controller = request.app.state.controller
-    if controller is None:
-        try:
-            controller = default_controller(_settings(request))
-        except Exception:  # noqa: BLE001 - 降级为"不可核对"，不影响保存
-            return None
-        request.app.state.controller = controller
-    return controller
 
 
 def _document(request: Request) -> config_store.EnvDocument:
