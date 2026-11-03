@@ -280,7 +280,7 @@ onMounted(load);
             <el-table-column label="修改时间" min-width="179">
               <template #default="{ row }">{{ formatTime(row.mtime) }}</template>
             </el-table-column>
-            <el-table-column label="预览" min-width="102">
+            <el-table-column label="预览" min-width="102" align="right">
               <template #default="{ row }">
                 <el-button size="small" @click="openPreview(row)">查看</el-button>
               </template>

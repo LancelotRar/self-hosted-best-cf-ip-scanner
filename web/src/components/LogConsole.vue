@@ -2,7 +2,7 @@
 import { computed, nextTick, ref, watch } from "vue";
 
 import type { StreamStatus } from "../composables/useEventStream";
-import { formatClock } from "../utils/format";
+import { formatClock, formatLogLine } from "../utils/format";
 import StatusPill from "./StatusPill.vue";
 
 const props = withDefaults(
@@ -19,6 +19,9 @@ const props = withDefaults(
 const box = ref<HTMLPreElement | null>(null);
 const atBottom = ref(true);
 const pending = ref(0);
+
+/** 每行补本地时间戳（后端已带 docker 的 UTC 时间戳前缀）。 */
+const rendered = computed(() => props.lines.map(formatLogLine).join("\n"));
 
 const meta = computed(() => {
   if (props.ended) return { tone: "neutral" as const, label: "已结束" };
@@ -86,7 +89,7 @@ watch(
         aria-live="off"
         tabindex="0"
         @scroll="onScroll"
-      >{{ lines.join("\n") }}</pre>
+      >{{ rendered }}</pre>
       <button v-if="!atBottom" class="console__jump" type="button" @click="jumpToBottom">
         回到底部<template v-if="pending">（{{ pending }} 条新日志）</template>
       </button>

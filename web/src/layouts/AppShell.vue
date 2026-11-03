@@ -154,8 +154,9 @@ onBeforeUnmount(() => {
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 20px 18px 16px;
+  gap: 9px;
+  /* 侧栏只有 208px，压缩左右内边距给 27 字符的仓库名留出两行空间 */
+  padding: 18px 13px 16px;
   border-bottom: 1px solid var(--border-soft);
 }
 
@@ -176,7 +177,7 @@ onBeforeUnmount(() => {
 .brand__text {
   display: flex;
   flex-direction: column;
-  line-height: 1.25;
+  line-height: 1.22;
   min-width: 0;
 }
 

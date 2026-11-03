@@ -159,9 +159,16 @@ class ScannerController:
             "memory_limit": memory.get("limit"),
         }
 
-    def logs(self, tail: int = 200, follow: bool = True) -> Iterator[bytes]:
+    def logs(
+        self, tail: int = 200, follow: bool = True, timestamps: bool = True
+    ) -> Iterator[bytes]:
+        """读取容器日志；默认带 docker 的 RFC3339 时间戳前缀，供面板逐行展示。"""
         try:
-            return iter(self.resolve().logs(tail=tail, follow=follow, stream=True))
+            return iter(
+                self.resolve().logs(
+                    tail=tail, follow=follow, stream=True, timestamps=timestamps
+                )
+            )
         except ScannerUnavailable:
             raise
         except Exception as exc:  # noqa: BLE001

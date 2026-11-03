@@ -34,7 +34,7 @@ async def test_slow_log_stream_does_not_block_other_requests(settings, fake_cont
     """SSE 生成器必须在工作线程里跑，不能卡住整个 uvicorn 事件循环。"""
     from httpx import ASGITransport, AsyncClient
 
-    def slow_logs(tail=200, follow=True):
+    def slow_logs(tail=200, follow=True, timestamps=True):
         def generator():
             for _ in range(5):
                 time.sleep(0.1)

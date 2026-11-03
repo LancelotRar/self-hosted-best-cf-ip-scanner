@@ -24,6 +24,22 @@ export function formatMinute(value: string | null | undefined): string {
   )}:${pad(date.getMinutes())}`;
 }
 
+/** docker 日志行首的 RFC3339（UTC）时间戳：转成本地 `MM-DD HH:MM:SS`；无前缀的行原样返回。 */
+export function formatLogLine(line: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?Z ?/.exec(line);
+  if (!match) return line;
+  const [, year, month, day, hour, minute, second] = match;
+  const date = new Date(
+    Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second)),
+  );
+  if (Number.isNaN(date.getTime())) return line;
+  const pad = (part: number) => String(part).padStart(2, "0");
+  const stamp = `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(
+    date.getMinutes(),
+  )}:${pad(date.getSeconds())}`;
+  return `${stamp}  ${line.slice(match[0].length)}`;
+}
+
 export function formatClock(value: Date | null | undefined): string {
   if (!value) return "—";
   return value.toLocaleTimeString("zh-CN", { hour12: false });
