@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from "vue-router";
 
 import AppShell from "./layouts/AppShell.vue";
+import ConfigView from "./views/ConfigView.vue";
 import { useAuthStore } from "./stores/auth";
 import LoginView from "./views/LoginView.vue";
 import OverviewView from "./views/OverviewView.vue";
@@ -15,7 +16,7 @@ const routes: RouteRecordRaw[] = [
     component: AppShell,
     children: [
       { path: "", name: "overview", component: OverviewView, meta: { title: "总览" } },
-      { path: "config", name: "config", component: PlaceholderView, meta: { title: "参数" } },
+      { path: "config", name: "config", component: ConfigView, meta: { title: "参数" } },
       { path: "schedule", name: "schedule", component: PlaceholderView, meta: { title: "调度" } },
       { path: "runs", name: "runs", component: PlaceholderView, meta: { title: "运行" } },
       { path: "logs", name: "logs", component: PlaceholderView, meta: { title: "日志" } },
