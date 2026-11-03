@@ -156,7 +156,7 @@ onMounted(load);
         <section class="panel">
           <header class="panel__head">
             <span class="panel-title"><el-icon><Timer /></el-icon>未来执行</span>
-            <el-button text size="small" @click="router.push({ name: 'schedule' })">
+            <el-button text size="small" @click="router.push({ name: 'config', query: { tab: 'schedule' } })">
               <el-icon><Setting /></el-icon>
               调度设置
             </el-button>

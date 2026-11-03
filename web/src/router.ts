@@ -7,8 +7,6 @@ import LogsView from "./views/LogsView.vue";
 import OutputsView from "./views/OutputsView.vue";
 import PublishView from "./views/PublishView.vue";
 import RunsView from "./views/RunsView.vue";
-import ScheduleView from "./views/ScheduleView.vue";
-import SystemView from "./views/SystemView.vue";
 import { useAuthStore } from "./stores/auth";
 import LoginView from "./views/LoginView.vue";
 import OverviewView from "./views/OverviewView.vue";
@@ -24,13 +22,13 @@ const routes: RouteRecordRaw[] = [
     children: [
       { path: "", name: "overview", component: OverviewView, meta: { title: "总览" } },
       { path: "config", name: "config", component: ConfigView, meta: { title: "参数" } },
-      { path: "schedule", name: "schedule", component: ScheduleView, meta: { title: "调度" } },
+      { path: "schedule", redirect: { name: "config", query: { tab: "schedule" } } },
       { path: "runs", name: "runs", component: RunsView, meta: { title: "运行" } },
       { path: "logs", name: "logs", component: LogsView, meta: { title: "日志" } },
       { path: "outputs", name: "outputs", component: OutputsView, meta: { title: "产物" } },
       { path: "library", name: "library", component: LibraryView, meta: { title: "IP 库" } },
       { path: "publish", name: "publish", component: PublishView, meta: { title: "发布" } },
-      { path: "system", name: "system", component: SystemView, meta: { title: "系统" } },
+      { path: "system", redirect: { name: "settings" } },
       { path: "settings", name: "settings", component: SettingsView, meta: { title: "设置" } },
     ],
   },

@@ -223,7 +223,7 @@ PARAMS: tuple[ParamSpec, ...] = (
     # -------------------------------------------------------------- 调度 --
     ParamSpec(
         "CRON_SCHEDULE",
-        "调度",
+        "定时计划",
         "cron",
         "30 */6 * * *",
         "调度表达式",
@@ -232,7 +232,7 @@ PARAMS: tuple[ParamSpec, ...] = (
     ),
     ParamSpec(
         "RUN_ON_START",
-        "调度",
+        "定时计划",
         "bool",
         True,
         "启动即跑一轮",

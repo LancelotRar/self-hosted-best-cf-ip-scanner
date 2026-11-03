@@ -10,11 +10,12 @@ import {
   VideoPlay,
 } from "@element-plus/icons-vue";
 import { onMounted, ref } from "vue";
-import { onBeforeRouteLeave } from "vue-router";
+import { onBeforeRouteLeave, useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 
 import { post } from "../api";
 import EmptyState from "../components/EmptyState.vue";
+import ConfigScheduleTab from "../components/ConfigScheduleTab.vue";
 import ErrorState from "../components/ErrorState.vue";
 import PageHeader from "../components/PageHeader.vue";
 import ParamField from "../components/ParamField.vue";
@@ -24,15 +25,17 @@ import type { Param } from "../types";
 import { formatTime } from "../utils/format";
 
 const store = useConfigStore();
-const activeTab = ref("scanner");
+const route = useRoute();
+const activeTab = ref(route.query.tab === "schedule" ? "schedule" : "scanner");
 const versionsVisible = ref(false);
 const loadError = ref("");
 const saveError = ref("");
 const restarting = ref(false);
 
 const GROUPS: Record<string, string[]> = {
-  scanner: ["探测端点", "探测参数", "采样", "输入输出", "调度", "运行身份"],
+  scanner: ["探测端点", "探测参数", "采样", "输入输出", "运行身份"],
   publish: ["发布", "网络代理"],
+  schedule: ["定时计划"],
   readonly: ["只读设置"],
 };
 
@@ -242,6 +245,10 @@ onBeforeRouteLeave(async () => {
             </el-collapse-item>
           </el-collapse>
           </div>
+        </el-tab-pane>
+
+        <el-tab-pane label="定时计划" name="schedule" lazy>
+          <ConfigScheduleTab />
         </el-tab-pane>
 
         <el-tab-pane label="只读设置" name="readonly" lazy>

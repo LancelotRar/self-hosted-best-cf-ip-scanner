@@ -7,8 +7,6 @@ import {
   Odometer,
   Operation,
   Setting,
-  Timer,
-  Tools,
   Upload,
   VideoPlay,
 } from "@element-plus/icons-vue";
@@ -23,13 +21,11 @@ import { formatClock } from "../utils/format";
 const tabs = [
   { name: "overview", label: "总览", icon: Odometer },
   { name: "config", label: "参数", icon: Setting },
-  { name: "schedule", label: "调度", icon: Timer },
   { name: "runs", label: "运行", icon: VideoPlay },
   { name: "logs", label: "日志", icon: Document },
   { name: "outputs", label: "产物", icon: FolderOpened },
   { name: "library", label: "IP 库", icon: DataLine },
   { name: "publish", label: "发布", icon: Upload },
-  { name: "system", label: "系统", icon: Tools },
   { name: "settings", label: "设置", icon: Operation },
 ] as const;
 

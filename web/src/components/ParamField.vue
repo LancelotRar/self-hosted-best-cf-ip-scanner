@@ -103,6 +103,15 @@ const numberValue = computed(() =>
   typeof props.modelValue === "number" ? props.modelValue : Number(props.modelValue) || 0,
 );
 
+/** 数字框宽度按内容长度自适应，避免固定宽度造成的空洞或截断。 */
+const numberWidth = computed(() => {
+  const values = [numberValue.value, props.param.default, bounds.value.min].map((value) =>
+    String(value ?? ""),
+  );
+  const digits = Math.max(3, ...values.map((value) => value.length));
+  return `calc(${digits + 2}ch + 44px)`;
+});
+
 const listValue = computed<number[]>(() => {
   const value = props.modelValue;
   if (!Array.isArray(value)) return [];
@@ -179,6 +188,7 @@ function onBool(value: string | number | boolean) {
       v-else-if="param.kind === 'int' || param.kind === 'float'"
       :id="`param-${param.name}`"
       class="control control--number"
+      :style="{ width: numberWidth }"
       :model-value="numberValue"
       :min="bounds.min"
       :max="bounds.max"
@@ -426,18 +436,15 @@ function onBool(value: string | number | boolean) {
   margin-top: 2px;
 }
 
-.control--number {
-  width: 220px;
-}
-
 .field :deep(.el-input-number) {
-  width: 220px;
+  max-width: 100%;
 }
 
-/* 数字框默认居中，宽输入里会显得漂浮；改为左对齐 */
+/* 数字内容居中，宽度随内容自适应 */
 .field :deep(.el-input-number .el-input__inner) {
-  text-align: left;
-  padding-left: 12px;
+  text-align: center;
+  padding-left: 4px;
+  padding-right: 4px;
 }
 
 .field :deep(.el-select) {
