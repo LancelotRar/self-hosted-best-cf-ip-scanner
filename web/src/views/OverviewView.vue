@@ -72,6 +72,14 @@ function uptimeText(started?: string | null): string {
 
 const uptime = computed(() => uptimeText(overview.value?.scanner.started_at));
 
+/** 镜像名太长，卡片主值只放 tag，完整名字放到注释里。 */
+const imageTag = computed(() => {
+  const image = overview.value?.scanner.image ?? "";
+  if (!image) return "—";
+  const tag = image.split(":").pop();
+  return tag && tag !== image ? tag : image;
+});
+
 /** 注释说明已移到「参数调整 · 自定义 IP 库」，总览只列地址条目。 */
 const libraryEntries = computed(() =>
   (library.value?.content ?? "")
@@ -114,24 +122,41 @@ async function load() {
   }
 }
 
+const WEEKDAYS = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+
 /** 把常见 cron 表达成可读间隔；不认识的表达式原样说明。 */
 function describeCron(expr: string): string {
   const parts = expr.trim().split(/\s+/);
-  if (parts.length === 5) {
-    const [minute, hour] = parts;
-    const minuteStep = /^\*\/(\d+)$/.exec(minute);
-    const hourStep = /^\*\/(\d+)$/.exec(hour);
-    if (minuteStep) return `每 ${minuteStep[1]} 分钟`;
-    if (hourStep) {
-      return minute === "0"
-        ? `每 ${hourStep[1]} 小时`
-        : `每 ${hourStep[1]} 小时（第 ${minute} 分）`;
-    }
-    if (/^\d+$/.test(minute) && /^\d+$/.test(hour) && parts.slice(2).every((p) => p === "*")) {
-      return `每天 ${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`;
-    }
+  if (parts.length !== 5) return "按自定义计划执行";
+
+  const [minute, hour, day, month, weekday] = parts;
+  const clock = `${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`;
+  const numeric = (value: string) => /^\d+$/.test(value);
+
+  const minuteStep = /^\*\/(\d+)$/.exec(minute);
+  if (minuteStep) return `每 ${minuteStep[1]} 分钟`;
+
+  const hourStep = /^\*\/(\d+)$/.exec(hour);
+  if (hourStep) {
+    return minute === "0"
+      ? `每 ${hourStep[1]} 小时`
+      : `每 ${hourStep[1]} 小时（第 ${minute} 分）`;
   }
-  return parts.length === 5 ? "自定义表达式" : "自定义表达式（含秒/年）";
+
+  if (!numeric(minute) || !numeric(hour)) return "按自定义计划执行";
+
+  if (day === "*" && month === "*" && weekday === "*") return `每天 ${clock}`;
+  if (day === "*" && month === "*" && numeric(weekday)) {
+    const index = Number(weekday) % 7;
+    return `每${WEEKDAYS[index]} ${clock}`;
+  }
+  if (numeric(day) && month === "*" && weekday === "*") {
+    return `每月 ${Number(day)} 日 ${clock}`;
+  }
+  if (numeric(day) && numeric(month) && weekday === "*") {
+    return `每年 ${Number(month)} 月 ${Number(day)} 日 ${clock}`;
+  }
+  return "按自定义计划执行";
 }
 
 function healthLabel(value?: string | null): string {
@@ -210,12 +235,8 @@ onMounted(load);
 
             <article class="stat">
               <span class="stat__label">当前任务</span>
-              <strong class="stat__value">
-                <StatusPill
-                  :tone="overview.running ? 'info' : 'neutral'"
-                  :label="overview.running ? '运行中' : '空闲'"
-                  :pulse="overview.running"
-                />
+              <strong class="stat__value" :class="overview.running ? 'is-busy' : ''">
+                {{ overview.running ? "运行中" : "空闲" }}
               </strong>
               <span class="stat__note">
                 上次完成 · {{ formatTime(overview.last_run?.finished_at) }}
@@ -224,13 +245,15 @@ onMounted(load);
 
             <article class="stat">
               <span class="stat__label">镜像</span>
-              <strong class="stat__value stat__value--mono">{{ overview.scanner.image ?? "—" }}</strong>
-              <span class="stat__note">与面板同一 compose 堆栈</span>
+              <strong class="stat__value">{{ imageTag }}</strong>
+              <span class="stat__note" :title="overview.scanner.image ?? ''">
+                {{ overview.scanner.image ?? "—" }}
+              </span>
             </article>
 
             <article class="stat">
               <span class="stat__label">已运行</span>
-              <strong class="stat__value stat__value--num">{{ uptime }}</strong>
+              <strong class="stat__value">{{ uptime }}</strong>
               <span class="stat__note">启动于 {{ formatTime(overview.scanner.started_at, false) }}</span>
             </article>
           </div>
@@ -268,12 +291,10 @@ onMounted(load);
           <span class="section-title"><el-icon><Timer /></el-icon>计划详情</span>
         </header>
         <div class="panel__body">
-          <dl class="kv kv--four">
-            <dt>调度表达式</dt>
-            <dd class="mono">{{ cronExpression || "—" }}</dd>
-            <dt>执行间隔</dt>
+          <dl class="kv">
+            <dt>计划任务</dt>
             <dd>{{ describeCron(cronExpression) }}</dd>
-            <dt>下次执行</dt>
+            <dt>下一次运行时间</dt>
             <dd class="mono">{{ formatTime(overview.next_runs[0]) }}</dd>
             <dt>时区</dt>
             <dd>{{ timezone || "—" }}</dd>
@@ -470,6 +491,10 @@ onMounted(load);
   font-size: 22px;
   line-height: 28px;
   font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .stat__value.is-on {
@@ -480,16 +505,8 @@ onMounted(load);
   color: var(--danger);
 }
 
-.stat__value--mono {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  line-height: 20px;
-  word-break: break-all;
-}
-
-.stat__value--num {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
+.stat__value.is-busy {
+  color: var(--info);
 }
 
 .stat__note {
@@ -498,6 +515,9 @@ onMounted(load);
   color: var(--text-faint);
   font-size: 12px;
   line-height: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .stat-alert {
@@ -562,18 +582,19 @@ onMounted(load);
 
 .kv {
   display: grid;
-  grid-template-columns: 120px 1fr;
-  gap: 8px 16px;
+  grid-template-columns: 132px 1fr;
+  gap: 10px 16px;
   margin: 0;
 }
 
 .kv--four {
-  grid-template-columns: 110px minmax(120px, 1fr) 110px 1fr;
+  grid-template-columns: 132px minmax(140px, 1fr) 132px 1fr;
 }
 
 .kv dt {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 13.5px;
+  line-height: 21px;
 }
 
 .kv dd {

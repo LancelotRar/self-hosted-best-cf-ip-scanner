@@ -153,9 +153,10 @@ onBeforeUnmount(() => {
 
 .brand {
   display: flex;
-  /* 图标在上、文字在下，整体左对齐 */
+  /* 图标在上、文字在下，整块居中 */
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
+  text-align: center;
   gap: 10px;
   padding: 16px 14px 14px;
   border-bottom: 1px solid var(--border-soft);
@@ -178,6 +179,8 @@ onBeforeUnmount(() => {
 .brand__text {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  text-align: center;
   line-height: 1.22;
   min-width: 0;
 }
