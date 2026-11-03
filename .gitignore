@@ -33,3 +33,7 @@ venv/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# 覆盖率产物
+.coverage
+htmlcov/
