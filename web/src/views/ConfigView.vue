@@ -172,15 +172,20 @@ onBeforeRouteLeave(async () => {
       title="参数"
       subtitle="保存即改写 .env；扫描器下一轮读取，调度变更热重载"
       :icon="Setting"
-    >
+    />
+
+    <div class="config-toolbar">
       <span v-if="store.hash" class="muted file-meta">
         {{ formatTime(store.mtime) }} ·
         <span class="mono">sha256 {{ store.hash.slice(0, 12) }}…</span> ·
         {{ store.fileSize }} B
       </span>
+      <span class="spacer" />
       <el-button @click="openVersions"><el-icon><Clock /></el-icon>版本历史</el-button>
-      <el-button :loading="store.loading" @click="load"><el-icon><RefreshRight /></el-icon>重新加载</el-button>
-    </PageHeader>
+      <el-button :loading="store.loading" @click="load">
+        <el-icon><RefreshRight /></el-icon>重新加载
+      </el-button>
+    </div>
 
     <ErrorState v-if="loadError" :message="loadError" @retry="load" />
     <ErrorState v-else-if="saveError" title="保存失败" :message="saveError" action-label="关闭" @retry="saveError = ''" />
@@ -322,9 +327,16 @@ onBeforeRouteLeave(async () => {
 </template>
 
 <style scoped>
+.config-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+
 .file-meta {
   font-size: 12px;
-  margin-right: var(--space-2);
 }
 
 .field-errors {

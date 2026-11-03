@@ -55,11 +55,7 @@ onMounted(connect);
       title="日志"
       subtitle="本项目扫描容器的实时日志；断开时显示重连状态"
       :icon="Document"
-    >
-      <a href="/api/logs/download?tail=5000">
-        <el-button><el-icon><Download /></el-icon>下载最近日志</el-button>
-      </a>
-    </PageHeader>
+    />
 
     <el-tabs v-model="activeTab">
       <el-tab-pane label="实时日志" name="live">
@@ -73,6 +69,9 @@ onMounted(connect);
             {{ paused ? "继续" : "暂停" }}
           </el-button>
           <el-button @click="clear"><el-icon><Delete /></el-icon>清空</el-button>
+          <a href="/api/logs/download?tail=5000">
+            <el-button><el-icon><Download /></el-icon>下载</el-button>
+          </a>
         </div>
         <LogConsole :lines="visible" :status="status" :last-received="lastReceived" height="480px" />
       </el-tab-pane>

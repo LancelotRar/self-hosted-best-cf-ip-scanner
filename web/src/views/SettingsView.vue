@@ -141,17 +141,18 @@ onMounted(async () => {
 
 <template>
   <section class="page">
-    <PageHeader title="设置" subtitle="外观、账号、审计、容器与版本信息" :icon="Operation">
-      <el-button v-if="activeTab === 'appearance'" @click="reset">
-        <el-icon><RefreshLeft /></el-icon>
-        恢复默认
-      </el-button>
-    </PageHeader>
+    <PageHeader title="设置" subtitle="外观、账号、审计、容器与版本信息" :icon="Operation" />
 
     <el-tabs v-model="activeTab">
       <el-tab-pane label="外观" name="appearance">
         <section class="panel settings-panel">
-          <header class="panel__head">外观</header>
+          <header class="panel__head">
+            <span>外观</span>
+            <el-button size="small" @click="reset">
+              <el-icon><RefreshLeft /></el-icon>
+              恢复默认
+            </el-button>
+          </header>
           <div class="panel__body stack">
             <div class="setting-row">
               <div class="setting-label">

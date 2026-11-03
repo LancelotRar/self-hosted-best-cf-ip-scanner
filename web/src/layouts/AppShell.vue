@@ -1,31 +1,18 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
-import {
-  DataLine,
-  Document,
-  FolderOpened,
-  Odometer,
-  Operation,
-  Setting,
-  Upload,
-  VideoPlay,
-} from "@element-plus/icons-vue";
+import { Document, Odometer, Operation, Setting, VideoPlay } from "@element-plus/icons-vue";
 import { useRouter } from "vue-router";
 
 import { get } from "../api";
-import StatusPill from "../components/StatusPill.vue";
+import TopActions from "../components/TopActions.vue";
 import { useAuthStore } from "../stores/auth";
 import type { Overview } from "../types";
-import { formatClock } from "../utils/format";
 
 const tabs = [
   { name: "overview", label: "总览", icon: Odometer },
   { name: "config", label: "参数", icon: Setting },
   { name: "runs", label: "运行", icon: VideoPlay },
   { name: "logs", label: "日志", icon: Document },
-  { name: "outputs", label: "产物", icon: FolderOpened },
-  { name: "library", label: "IP 库", icon: DataLine },
-  { name: "publish", label: "发布", icon: Upload },
   { name: "settings", label: "设置", icon: Operation },
 ] as const;
 
@@ -35,14 +22,13 @@ const router = useRouter();
 const scanner = ref("unknown");
 const scannerReason = ref("");
 const running = ref(false);
-const updatedAt = ref<Date | null>(null);
-const stale = ref(false);
 let timer: number | undefined;
 
-const scannerMeta = computed(() => {
-  if (scanner.value === "running") return { tone: "success" as const, label: "扫描器在线" };
-  if (scanner.value === "unknown") return { tone: "neutral" as const, label: "状态未知" };
-  return { tone: "danger" as const, label: "扫描器离线" };
+const online = computed(() => scanner.value === "running");
+const statusText = computed(() => {
+  if (scanner.value === "unknown") return "状态未知";
+  if (!online.value) return "扫描器离线";
+  return running.value ? "扫描器在线 · 运行中" : "扫描器在线 · 空闲";
 });
 
 async function refresh() {
@@ -51,8 +37,6 @@ async function refresh() {
     scanner.value = data.scanner.state;
     scannerReason.value = data.scanner.reason ?? "";
     running.value = Boolean(data.running);
-    updatedAt.value = new Date();
-    stale.value = false;
   } catch (error) {
     scanner.value = "unavailable";
     scannerReason.value = (error as Error).message;
@@ -82,12 +66,7 @@ function onTabKey(event: KeyboardEvent, index: number) {
 
 onMounted(() => {
   void refresh();
-  timer = window.setInterval(() => {
-    void refresh();
-    if (updatedAt.value && Date.now() - updatedAt.value.getTime() > 90_000) {
-      stale.value = true;
-    }
-  }, 30_000);
+  timer = window.setInterval(() => void refresh(), 30_000);
 });
 
 onBeforeUnmount(() => {
@@ -123,40 +102,25 @@ onBeforeUnmount(() => {
         </RouterLink>
       </nav>
 
-      <div class="sidebar__foot">
-        <div class="status-line" role="status" aria-live="polite">
-          <StatusPill :tone="scannerMeta.tone" :label="scannerMeta.label" />
-          <StatusPill
-            :tone="running ? 'info' : 'neutral'"
-            :label="running ? '运行中' : '空闲'"
-            :pulse="running"
-          />
+      <footer class="sidebar__foot">
+        <div
+          class="scanner-state"
+          :class="online ? 'scanner-state--on' : 'scanner-state--off'"
+          :title="scannerReason || statusText"
+          role="status"
+          aria-live="polite"
+        >
+          <span class="scanner-state__dot" aria-hidden="true" />
+          <span class="scanner-state__text">{{ statusText }}</span>
         </div>
-        <p class="status-meta muted">
-          更新 <span class="mono">{{ formatClock(updatedAt) }}</span>
-          <span v-if="stale" class="status-stale">· 数据可能过期</span>
-        </p>
-        <p v-if="scannerReason" class="status-reason muted" :title="scannerReason">
-          {{ scannerReason }}
-        </p>
 
-        <div class="sidebar__actions">
-          <el-dropdown trigger="click">
-            <el-button text class="account">
-              {{ auth.username ?? "账号" }}
-              <span aria-hidden="true">▾</span>
-            </el-button>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item @click="router.push({ name: 'system' })">
-                  账号与系统
-                </el-dropdown-item>
-                <el-dropdown-item divided @click="logout">退出登录</el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
+        <TopActions class="footer-actions" />
+
+        <div class="footer-user">
+          <span class="footer-user__name">ADMIN</span>
+          <button type="button" class="footer-logout" @click="logout">退出登录</button>
         </div>
-      </div>
+      </footer>
     </aside>
 
     <div class="content">
@@ -182,7 +146,6 @@ onBeforeUnmount(() => {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  padding: 0;
   background: var(--surface);
   border-right: 1px solid var(--border);
   z-index: 30;
@@ -233,10 +196,8 @@ onBeforeUnmount(() => {
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 0;
   overflow-y: auto;
   flex: 1;
-  margin: 0;
   padding: 10px 8px;
 }
 
@@ -278,47 +239,105 @@ onBeforeUnmount(() => {
 .sidebar__foot {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 12px 10px 16px;
-  border-top: 1px solid var(--border-soft);
-}
-
-.status-line {
-  display: flex;
-  gap: var(--space-1);
-  flex-wrap: wrap;
-}
-
-.status-meta {
-  margin: 0;
-  font-size: 11px;
-  line-height: 16px;
-}
-
-.status-stale {
-  color: var(--warning);
-}
-
-.status-reason {
-  margin: 0;
-  font-size: 11px;
-  line-height: 16px;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.sidebar__actions {
-  display: flex;
   align-items: center;
-  gap: var(--space-1);
-  margin-top: var(--space-1);
+  gap: 10px;
+  padding: 14px 10px 16px;
+  border-top: 1px solid var(--border-soft);
+  text-align: center;
 }
 
-.account {
-  padding-left: 4px;
-  padding-right: 4px;
+.scanner-state {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 12px;
+  max-width: 100%;
+}
+
+.scanner-state__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.scanner-state--on .scanner-state__dot {
+  background: var(--success);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--success) 55%, transparent);
+  animation: breathe-ok 2.2s ease-out infinite;
+}
+
+.scanner-state--on .scanner-state__text {
+  color: var(--text-muted);
+}
+
+.scanner-state--off .scanner-state__dot {
+  background: var(--danger);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger) 55%, transparent);
+  animation: breathe-bad 1.6s ease-out infinite;
+}
+
+.scanner-state--off .scanner-state__text {
+  color: var(--danger);
+}
+
+.footer-actions {
+  justify-content: center;
+  gap: 6px;
+}
+
+.footer-user {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 11.5px;
+}
+
+.footer-user__name {
+  font-family: var(--font-mono);
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+}
+
+.footer-logout {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.footer-logout:hover {
+  color: var(--text);
+}
+
+@keyframes breathe-ok {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--success) 55%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@keyframes breathe-bad {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger) 55%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
 }
 
 .content {
@@ -332,7 +351,6 @@ onBeforeUnmount(() => {
   flex: 1;
 }
 
-/* 窄屏：侧栏改为横向顶部条，标签仍可横向滚动 */
 @media (max-width: 959px) {
   .shell {
     display: block;
@@ -355,13 +373,6 @@ onBeforeUnmount(() => {
   .nav {
     order: 3;
     flex: 0 0 100%;
-  }
-
-  .brand__text {
-    display: none;
-  }
-
-  .nav {
     flex-direction: row;
     margin: 0;
     padding: 0;
@@ -370,8 +381,8 @@ onBeforeUnmount(() => {
     gap: 2px;
   }
 
-  .nav::-webkit-scrollbar {
-    height: 0;
+  .brand__text {
+    display: none;
   }
 
   .nav__item {
@@ -381,43 +392,36 @@ onBeforeUnmount(() => {
     white-space: nowrap;
   }
 
-  .nav__icon {
-    display: none;
-  }
-
   .nav__item--active {
     background: none;
     border-bottom-color: var(--primary);
+  }
+
+  .nav__icon {
+    display: none;
   }
 
   .sidebar__foot {
     order: 2;
     margin-left: auto;
     flex-direction: row;
-    align-items: center;
-    gap: var(--space-2);
-    padding-top: 0;
+    gap: 10px;
+    padding: 0;
     border-top: 0;
   }
 
-  .status-meta,
-  .status-reason {
+  .scanner-state__text {
     display: none;
   }
 
-  .sidebar__actions {
-    margin-top: 0;
-    gap: var(--space-1);
-  }
-
-  .nav__item {
-    height: 38px;
+  .footer-user__name {
+    display: none;
   }
 }
 
-@media (max-width: 639px) {
-  .status-line .pill:last-child {
-    display: none;
+@media (prefers-reduced-motion: reduce) {
+  .scanner-state__dot {
+    animation: none !important;
   }
 }
 </style>

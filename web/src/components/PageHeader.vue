@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import type { Component } from "vue";
 
-import TopActions from "./TopActions.vue";
-
 defineProps<{
   title: string;
   subtitle?: string;
@@ -12,29 +10,23 @@ defineProps<{
 
 <template>
   <header class="page-head">
-    <div class="page-head__main">
-      <span v-if="icon" class="page-head__icon" aria-hidden="true">
-        <el-icon :size="18"><component :is="icon" /></el-icon>
-      </span>
-      <div>
-        <h1 class="page-title">{{ title }}</h1>
-        <p v-if="subtitle" class="page-sub">{{ subtitle }}</p>
-        <slot name="meta" />
-      </div>
-    </div>
-    <div class="page-actions">
-      <slot />
-      <TopActions />
+    <span v-if="icon" class="page-head__icon" aria-hidden="true">
+      <el-icon :size="18"><component :is="icon" /></el-icon>
+    </span>
+    <div class="page-head__text">
+      <h1 class="page-title">{{ title }}</h1>
+      <p v-if="subtitle" class="page-sub">{{ subtitle }}</p>
     </div>
   </header>
 </template>
 
 <style scoped>
-.page-head__main {
+.page-head {
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
-  min-width: 0;
+  width: 100%;
+  margin-bottom: var(--space-4);
 }
 
 .page-head__icon {
@@ -48,5 +40,13 @@ defineProps<{
   border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border));
   background: color-mix(in srgb, var(--primary) 12%, var(--surface));
   color: var(--primary);
+}
+
+.page-head__text {
+  min-width: 0;
+}
+
+.page-sub {
+  margin-top: 4px;
 }
 </style>

@@ -2,10 +2,7 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from "vue-router"
 
 import AppShell from "./layouts/AppShell.vue";
 import ConfigView from "./views/ConfigView.vue";
-import LibraryView from "./views/LibraryView.vue";
 import LogsView from "./views/LogsView.vue";
-import OutputsView from "./views/OutputsView.vue";
-import PublishView from "./views/PublishView.vue";
 import RunsView from "./views/RunsView.vue";
 import { useAuthStore } from "./stores/auth";
 import LoginView from "./views/LoginView.vue";
@@ -25,9 +22,9 @@ const routes: RouteRecordRaw[] = [
       { path: "schedule", redirect: { name: "config", query: { tab: "schedule" } } },
       { path: "runs", name: "runs", component: RunsView, meta: { title: "运行" } },
       { path: "logs", name: "logs", component: LogsView, meta: { title: "日志" } },
-      { path: "outputs", name: "outputs", component: OutputsView, meta: { title: "产物" } },
-      { path: "library", name: "library", component: LibraryView, meta: { title: "IP 库" } },
-      { path: "publish", name: "publish", component: PublishView, meta: { title: "发布" } },
+      { path: "outputs", redirect: { name: "overview" } },
+      { path: "library", redirect: { name: "overview" } },
+      { path: "publish", redirect: { name: "overview" } },
       { path: "system", redirect: { name: "settings" } },
       { path: "settings", name: "settings", component: SettingsView, meta: { title: "设置" } },
     ],

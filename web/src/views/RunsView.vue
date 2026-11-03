@@ -109,12 +109,7 @@ onMounted(async () => {
       title="运行"
       subtitle="手动执行与定时任务共用同一份 .env，仅触发方式不同"
       :icon="VideoPlay"
-    >
-      <el-button type="primary" :loading="triggering" :disabled="running" @click="trigger">
-        <el-icon><VideoPlay /></el-icon>
-        立即执行一轮
-      </el-button>
-    </PageHeader>
+    />
 
     <ErrorState v-if="error" :message="error" @retry="loadHistory" />
 
@@ -129,6 +124,11 @@ onMounted(async () => {
           <span class="muted">
             同一时间只允许一轮；定时任务正在跑时手动触发会被拒绝（409）。
           </span>
+          <span class="spacer" />
+          <el-button type="primary" :loading="triggering" :disabled="running" @click="trigger">
+            <el-icon><VideoPlay /></el-icon>
+            立即执行一轮
+          </el-button>
         </div>
         <LogConsole
           v-if="runId"
