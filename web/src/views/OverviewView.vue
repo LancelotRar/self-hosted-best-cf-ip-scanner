@@ -88,7 +88,7 @@ onMounted(load);
         <el-icon><Refresh /></el-icon>
         刷新
       </el-button>
-      <el-button type="primary" plain @click="router.push({ name: 'runs' })">
+      <el-button type="primary" @click="router.push({ name: 'runs' })">
         <el-icon><VideoPlay /></el-icon>
         立即运行
       </el-button>
