@@ -26,7 +26,7 @@ let timer: number | undefined;
 
 const online = computed(() => scanner.value === "running");
 const statusText = computed(() => {
-  if (scanner.value === "unknown") return "状态未知";
+  if (scanner.value === "unknown") return "正在检测…";
   if (!online.value) return "扫描器离线";
   return running.value ? "扫描器在线 · 运行中" : "扫描器在线 · 空闲";
 });
@@ -105,7 +105,7 @@ onBeforeUnmount(() => {
       <footer class="sidebar__foot">
         <div
           class="scanner-state"
-          :class="online ? 'scanner-state--on' : 'scanner-state--off'"
+          :class="scanner === 'unknown' ? 'scanner-state--idle' : online ? 'scanner-state--on' : 'scanner-state--off'"
           :title="scannerReason || statusText"
           role="status"
           aria-live="polite"
@@ -204,20 +204,23 @@ onBeforeUnmount(() => {
   flex-direction: column;
   overflow-y: auto;
   flex: 1;
-  padding: 10px 8px;
+  padding: 12px 8px;
+  gap: 2px;
 }
 
 .nav__item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 11px;
-  margin-bottom: 2px;
-  border-radius: 7px;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: var(--control-radius);
   color: var(--text-muted);
-  font-size: 13.5px;
-  transition: background-color var(--dur-fast) var(--ease),
-    color var(--dur-fast) var(--ease);
+  font-size: var(--fs-body);
+  font-weight: 500;
+  transition-property: background-color, color, box-shadow;
+  transition-duration: var(--dur-fast);
+  transition-timing-function: var(--ease);
 }
 
 .nav__item:hover {
@@ -234,7 +237,8 @@ onBeforeUnmount(() => {
 .nav__item--active {
   background: var(--primary-soft);
   color: var(--primary-text);
-  font-weight: 550;
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 18%, transparent);
 }
 
 .nav__item--active .nav__icon {
@@ -266,6 +270,10 @@ onBeforeUnmount(() => {
   height: 7px;
   border-radius: 50%;
   flex: 0 0 auto;
+}
+
+.scanner-state--idle .scanner-state__dot {
+  background: var(--text-faint);
 }
 
 .scanner-state--on .scanner-state__dot {

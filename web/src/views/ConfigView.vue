@@ -200,8 +200,8 @@ onBeforeRouteLeave(async () => {
         {{ store.fileSize }} B
       </span>
       <span class="spacer" />
-      <el-button @click="openVersions"><el-icon><Clock /></el-icon>版本历史</el-button>
-      <el-button :loading="store.loading" @click="load">
+      <el-button text @click="openVersions"><el-icon><Clock /></el-icon>版本历史</el-button>
+      <el-button text :loading="store.loading" @click="load">
         <el-icon><RefreshRight /></el-icon>重新加载
       </el-button>
     </div>
@@ -361,12 +361,17 @@ onBeforeRouteLeave(async () => {
 .config-toolbar {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 4px;
   flex-wrap: wrap;
-  margin-bottom: var(--space-3);
+  margin: -4px 0 6px;
+}
+
+.config-toolbar .file-meta {
+  margin-right: 8px;
 }
 
 .file-meta {
+  color: var(--text-faint);
   font-size: 12px;
 }
 

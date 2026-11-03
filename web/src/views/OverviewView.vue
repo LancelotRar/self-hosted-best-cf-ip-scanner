@@ -84,8 +84,8 @@ const imageTag = computed(() => {
 const libraryEntries = computed(() =>
   (library.value?.content ?? "")
     .split("\n")
-    .filter((line) => line.trim() && !line.trimStart().startsWith("#"))
-    .join("\n"),
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#")),
 );
 
 function paramValue(name: string): unknown {
@@ -279,7 +279,9 @@ onMounted(load);
             <p class="section-note muted">
               只列出地址条目；格式说明与编辑在「参数调整 · 自定义 IP 库」。
             </p>
-            <pre class="library-preview mono">{{ libraryEntries }}</pre>
+            <div class="library-preview mono">
+              <span v-for="(entry, index) in libraryEntries" :key="index">{{ entry }}</span>
+            </div>
           </template>
           <EmptyState v-else title="尚未读取到 IP 库" description="请检查 ./data/ip-library.txt" />
         </div>
@@ -291,14 +293,20 @@ onMounted(load);
           <span class="section-title"><el-icon><Timer /></el-icon>计划详情</span>
         </header>
         <div class="panel__body">
-          <dl class="kv">
-            <dt>计划任务</dt>
-            <dd>{{ describeCron(cronExpression) }}</dd>
-            <dt>下一次运行时间</dt>
-            <dd class="mono">{{ formatTime(overview.next_runs[0]) }}</dd>
-            <dt>时区</dt>
-            <dd>{{ timezone || "—" }}</dd>
-          </dl>
+          <div class="facts">
+            <div class="fact">
+              <span class="fact__label">计划任务</span>
+              <span class="fact__value">{{ describeCron(cronExpression) }}</span>
+            </div>
+            <div class="fact">
+              <span class="fact__label">下一次运行时间</span>
+              <span class="fact__value mono">{{ formatTime(overview.next_runs[0]) }}</span>
+            </div>
+            <div class="fact">
+              <span class="fact__label">时区</span>
+              <span class="fact__value">{{ timezone || "—" }}</span>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -387,32 +395,38 @@ onMounted(load);
               :label="pushEnabled() ? '推送已开启' : '推送已关闭'"
             />
           </div>
-          <dl class="kv">
-            <dt>目标仓库</dt>
-            <dd class="mono">{{ paramValue("GIT_REPO_URL") || "—" }}</dd>
-            <dt>分支 / 目录</dt>
-            <dd class="mono">
-              {{ paramValue("GIT_BRANCH") || "—" }} /
-              {{ paramValue("GIT_OUTPUT_SUBDIR") || "—" }}
-            </dd>
-            <template v-if="!pushEnabled()">
-              <dt>推送</dt>
-              <dd class="muted">已关闭，不执行推送</dd>
-            </template>
-            <template v-else-if="publish?.last">
-              <dt>上次推送</dt>
-              <dd class="mono">{{ formatTime(publish.last.finished_at) }}</dd>
-              <dt>扫描 / 推送</dt>
-              <dd>
+          <div class="facts">
+            <div class="fact">
+              <span class="fact__label">目标仓库</span>
+              <span class="fact__value mono">{{ paramValue("GIT_REPO_URL") || "—" }}</span>
+            </div>
+            <div class="fact">
+              <span class="fact__label">分支 / 目录</span>
+              <span class="fact__value mono">
+                {{ paramValue("GIT_BRANCH") || "—" }} /
+                {{ paramValue("GIT_OUTPUT_SUBDIR") || "—" }}
+              </span>
+            </div>
+            <div class="fact">
+              <span class="fact__label">推送</span>
+              <span class="fact__value" :class="{ muted: !pushEnabled() }">
+                {{ pushEnabled() ? "已开启" : "已关闭，不执行推送" }}
+              </span>
+            </div>
+            <div v-if="pushEnabled()" class="fact">
+              <span class="fact__label">上次推送</span>
+              <span class="fact__value mono">
+                {{ publish?.last ? formatTime(publish.last.finished_at) : "尚无推送记录" }}
+              </span>
+            </div>
+            <div v-if="pushEnabled() && publish?.last" class="fact">
+              <span class="fact__label">扫描 / 推送</span>
+              <span class="fact__value">
                 {{ exitLabel(publish.last.scan_exit) }} /
                 {{ exitLabel(publish.last.publish_exit) }}
-              </dd>
-            </template>
-            <template v-else>
-              <dt>上次推送</dt>
-              <dd class="muted">尚无推送记录</dd>
-            </template>
-          </dl>
+              </span>
+            </div>
+          </div>
         </div>
       </section>
     </div>
@@ -603,18 +617,50 @@ onMounted(load);
 }
 
 .library-preview {
-  margin: 0;
-  max-height: 320px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 2px 16px;
+  max-height: 216px;
   overflow: auto;
-  padding: var(--space-3);
-  border: 1px solid var(--border);
+  padding: 12px 14px;
+  border: 1px solid var(--border-soft);
   border-radius: var(--radius-sm);
   background: var(--surface-2);
   color: var(--text);
   font-size: 12px;
+  line-height: 20px;
+}
+
+.library-preview span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 16px 24px;
+}
+
+.fact {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.fact__label {
+  color: var(--text-muted);
+  font-size: 12px;
   line-height: 18px;
-  white-space: pre;
-  tab-size: 4;
+}
+
+.fact__value {
+  color: var(--text);
+  font-size: 14px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
 }
 
 .dialog-preview {

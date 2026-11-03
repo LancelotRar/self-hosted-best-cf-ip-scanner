@@ -334,15 +334,17 @@ function onBool(value: string | number | boolean) {
       @input="onText"
     />
 
-    <p :id="`param-${param.name}-help`" class="field__help">{{ param.help }}</p>
-    <p class="field__default">默认：{{ defaultText }}</p>
+    <p :id="`param-${param.name}-help`" class="field__help">
+      <span>{{ param.help }}</span>
+      <span class="field__default">默认 {{ defaultText }}</span>
+    </p>
   </div>
 </template>
 
 <style scoped>
 .field {
-  padding: var(--space-3) 0;
-  border-bottom: 1px solid var(--border);
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border-soft);
 }
 
 .field:last-child {
@@ -424,16 +426,29 @@ function onBool(value: string | number | boolean) {
   font-size: 11px;
 }
 
-.field__help,
-.field__default {
-  margin: 6px 0 0;
+.field__help {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin: 8px 0 0;
   color: var(--text-muted);
   font-size: 12px;
   line-height: 18px;
+  max-width: 720px;
 }
 
 .field__default {
-  margin-top: 2px;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+/* 文本类控件不铺满整行，避免超宽输入框 */
+.field :deep(.el-input),
+.field :deep(.el-select),
+.field :deep(.el-textarea) {
+  max-width: 620px;
 }
 
 .field :deep(.el-input-number) {
