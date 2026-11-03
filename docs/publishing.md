@@ -23,11 +23,8 @@
 </tbody>
 </table>
 
-改完生效：
-
-```bash
-docker compose up -d --force-recreate
-```
+改完在面板「发布」页保存即可，下一轮生效；手工编辑 `.env` 同样在下一轮生效。
+只有 `PUID` / `PGID` / `TZ` / `RUN_ON_START` 需要重启扫描容器。
 
 目标仓库不需要预先存在任何提交：新建的空仓库也能直接发布，首次会创建
 `GIT_BRANCH` 分支并提交产物。

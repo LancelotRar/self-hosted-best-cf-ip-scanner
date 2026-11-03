@@ -2,20 +2,25 @@
 
 [← 返回首页](../README.md) · [部署详解](deployment.md)
 
-本项目的全部可调参数只有**一个入口：`.env`**。
+本项目的全部可调参数只有**一个入口：`.env`**，面板保存与手工编辑是同一个文件。
 
 - 文件位置：与 `compose.yaml` 同目录（部署目录下）。
 - 来源：由仓库里的 `.env.example` 复制而来（见 [部署详解](deployment.md)）。
-- 生效方式：改完执行 `docker compose up -d --force-recreate`，**不需要重建镜像**。
-- 留空 = 使用镜像内默认值（`scanner/config.py`），不是"关闭"。
+- 生效方式：**面板保存即改 `.env`，扫描器每轮重新读取，无需重建容器**；
+  `CRON_SCHEDULE` 由 watcher 热重载；仅 `PUID` / `PGID` / `TZ` / `RUN_ON_START`
+  需要重启扫描容器。手工编辑同样会在下一轮生效。
+- 优先级：显式环境变量 > `.env` > schema 默认值。
+- 留空 = 使用 schema 默认值（`scanner/schema.py`），不是"关闭"。
 
 ```bash
 cd <部署目录>          # 里面有 compose.yaml 与 .env
-vi .env               # 唯一的配置文件
+vi .env               # 唯一的配置文件（或直接在面板「参数」页修改）
 grep '^PROBE_HOST=' .env      # 确认必填项已填
-docker compose up -d --force-recreate
-docker compose logs --tail=20  # 启动摘要会打印"生效配置"
+docker compose up -d          # 首次启动
+docker compose exec -T scanner python /usr/local/bin/print-config.py --json  # 查看生效值
 ```
+
+日常调参优先用面板：`http://<宿主IP>:8080` → 「参数」。完整说明见 [运维面板](panel.md)。
 
 ---
 
@@ -39,9 +44,10 @@ docker compose logs --tail=20  # 启动摘要会打印"生效配置"
 #   【可选】 保持默认即可，需要时再调
 #
 # 约定：
-#   - 留空 = 使用镜像内默认值（scanner/config.py），不是"关闭"；
+#   - 留空 = 使用 schema 默认值（scanner/schema.py），不是"关闭"；
 #   - 列表用英文逗号 / 分号分隔，不加引号、不加空格；
-#   - 改完执行 docker compose up -d --force-recreate 使新值生效，不必重建镜像；
+#   - 面板保存与手工编辑同一个文件：扫描器每轮重新读取，调度热重载；
+#     仅 PUID / PGID / TZ / RUN_ON_START 需要重启扫描容器；
 #   - 启动日志会打印「生效配置」摘要，改完对照一眼即可确认。
 # ============================================================================
 
@@ -184,6 +190,19 @@ no_proxy=localhost,127.0.0.1,::1,192.168.0.0/16,172.16.0.0/12,your-probe-domain.
 # 变量、NO_PROXY 不生效（连 TCP 握手也会被接管）。此时要在代理软件里给 Cloudflare
 # 段设直连规则，或让容器不经过 TUN。用 doctor.sh 对比"默认路径/强制直连"可确认。
 
+# --------------------------------------------- 运维面板【建议】 ----
+# 面板是默认、首选的运维入口：http://<宿主IP>:8080
+# 监听地址：0.0.0.0 = 局域网可访问；127.0.0.1 = 只允许本机（配合反向代理）。
+PANEL_BIND=0.0.0.0
+PANEL_PORT=8080
+# 面板容器名（与其他 compose 项目冲突时修改）
+PANEL_CONTAINER_NAME=best-cf-ip-scanner-panel
+# 仅在根路径反向代理后设为 true，才采信 X-Forwarded-For / X-Forwarded-Proto。
+# 子路径挂载（/panel/）v1 不支持。
+PANEL_TRUST_PROXY=false
+# 登录会话有效期（天）。
+PANEL_SESSION_DAYS=7
+
 # --------------------------------------------- 容器与镜像【可选】 ----
 # 容器名（与其他 compose 项目冲突时修改）
 CONTAINER_NAME=best-cf-ip-scanner
@@ -287,7 +306,7 @@ IMAGE_TAG=latest
 
 - **配置类错误发生在启动阶段**：容器起不来（`docker compose ps` 会显示
   `Restarting` 或退出码非 0），日志首屏就是原因。修好 `.env` 后
-  `docker compose up -d --force-recreate` 即可。
+  `docker compose up -d`（或 `--force-recreate`）即可；面板此时不可用，需先让扫描容器启动。
 - **运行期失败不杀容器**：调度器保持运行，失败信息在当轮日志里；网络抖动导致的失败
   通常下一轮自动恢复。
 - 语义类错误还会在**每轮任务开始时再校验一次**（`run()` 内），避免运行期改动绕过启动检查。
@@ -355,6 +374,10 @@ IMAGE_TAG=latest
 <tr><td align="center"><code>NO_PROXY</code> / <code>no_proxy</code></td><td align="center">见模板</td><td align="center">建议</td><td align="center"><strong>必须豁免 <code>PROBE_HOST</code></strong>，否则启动被拒绝</td></tr>
 <tr><th rowspan="2" align="center">容器与镜像</th><td align="center"><code>CONTAINER_NAME</code></td><td align="center"><code>best-cf-ip-scanner</code></td><td align="center">可选</td><td align="center">容器名</td></tr>
 <tr><td align="center"><code>IMAGE_NAME</code> / <code>IMAGE_TAG</code></td><td align="center"><code>ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner</code> / <code>latest</code></td><td align="center">可选</td><td align="center">镜像坐标与版本</td></tr>
+<tr><th rowspan="4" align="center">运维面板</th><td align="center"><code>PANEL_PORT</code> / <code>PANEL_BIND</code></td><td align="center"><code>8080</code> / <code>0.0.0.0</code></td><td align="center">可选</td><td align="center">面板端口与监听地址（需重建容器）</td></tr>
+<tr><td align="center"><code>PANEL_CONTAINER_NAME</code></td><td align="center"><code>best-cf-ip-scanner-panel</code></td><td align="center">可选</td><td align="center">面板容器名</td></tr>
+<tr><td align="center"><code>PANEL_TRUST_PROXY</code></td><td align="center"><code>false</code></td><td align="center">可选</td><td align="center">仅根路径反代后设为 true，才采信 <code>X-Forwarded-*</code></td></tr>
+<tr><td align="center"><code>PANEL_SESSION_DAYS</code></td><td align="center"><code>7</code></td><td align="center">可选</td><td align="center">登录会话有效期（天）</td></tr>
 </tbody>
 </table>
 
@@ -526,9 +549,13 @@ GIT_TOKEN=<contents:write 令牌>
 ## 改完怎么确认
 
 ```bash
-docker compose up -d --force-recreate     # 让新参数生效（不需要重建镜像）
+# 面板：参数页保存后立即生效（下一轮读取 / 调度热重载）
+docker compose exec -T scanner python /usr/local/bin/print-config.py --json  # 查看生效值
 docker compose logs --tail=30             # 看"生效配置"摘要
 docker compose exec scanner /usr/local/bin/doctor.sh   # 完整自检
+
+# 手工编辑 .env 同样在下一轮生效；仅重启类参数需要：
+docker compose restart scanner
 ```
 
 启动摘要会逐项回显：探测端点、端口、握手/校验参数、采样、数据文件、输出目录、代理

@@ -16,7 +16,7 @@
 </tr>
 </thead>
 <tbody>
-<tr><td align="center"><code>CRON_SCHEDULE</code></td><td align="center"><code>30 */6 * * *</code></td><td align="center">标准 5 段 cron：分 时 日 月 周</td></tr>
+<tr><td align="center"><code>CRON_SCHEDULE</code></td><td align="center"><code>30 */6 * * *</code></td><td align="center">5 段（分 时 日 月 周）或 6 段（秒 分 时 日 月 周）；不支持 <code>@daily</code> 宏</td></tr>
 <tr><td align="center"><code>RUN_ON_START</code></td><td align="center"><code>true</code></td><td align="center">容器启动后立即执行一轮，再进入调度</td></tr>
 <tr><td align="center"><code>TZ</code></td><td align="center"><code>Asia/Shanghai</code></td><td align="center">调度与提交信息时区；产物中的扫描时间固定为北京时间</td></tr>
 </tbody>
@@ -59,9 +59,13 @@ cron 字段含义：
 ## 生效与观察
 
 ```bash
-docker compose up -d --force-recreate    # 应用新的调度参数
-docker compose logs -f                   # 每轮开始与结束都会打印
+# 面板「调度」页保存即热重载；手工编辑 .env 由 watcher 在 5 秒内自动重载
+docker compose logs -f scanner            # 每轮开始与结束都会打印
+docker compose exec -T scanner /usr/local/bin/apply-config.sh   # 手动触发一次重渲染
 ```
+
+- 支持 5 段（分 时 日 月 周）与 6 段（秒 分 时 日 月 周）；不接受 `@daily` 这类宏。
+- `apply-config.sh` 失败时保留旧 crontab 并记录错误，调度器不会静默停摆。
 
 ## 行为说明
 

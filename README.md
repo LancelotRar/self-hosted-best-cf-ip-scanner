@@ -22,10 +22,11 @@ Cloudflare 边缘、淘汰 EIV 受限子池、取回边缘机房代码），定�
 ## 特性
 
 - **拉取即用**：只需 `compose.yaml` 与 `.env` 两个文件，不需要克隆仓库、Python 环境或本地构建。
-- **参数全在 `.env`**：调度、探测、采样、订阅规格、发布目标都可调，改完重建容器即生效。
+- **面板优先**：同一个 compose 堆栈内的运维面板（`http://<宿主IP>:8080`）覆盖参数、调度、运行、日志、产物、IP 库与发布；CLI 只作应急路径。
+- **参数全在 `.env`**：面板保存与手工编辑同一个文件，效果完全一致；改完下一轮生效，调度变更热重载，无需重建容器。
 - **数据与产物在宿主目录**：`./data` 里的候选地址库可直接编辑，`./output` 里直接看到产物。
 - **失败不覆盖**：任一筛选阶段全灭时进程返回非零、不写新产物，目标仓库保留上一轮结果。
-- **轻量且最小权限**：Alpine + Python 3.13 多阶段构建，约 120MB；业务进程非 root、只读根文件系统。
+- **轻量且最小权限**：Alpine + Python 3.13 多阶段构建；扫描业务进程非 root、只读根文件系统。
 - **日志面向排障**：启动打印生效配置，每轮打印阶段耗时与失败原因 top-5，另有 `doctor.sh` 一键自检。
 
 ## 文档导航
@@ -39,14 +40,16 @@ Cloudflare 边缘、淘汰 EIV 受限子池、取回边缘机房代码），定�
 </tr>
 </thead>
 <tbody>
-<tr><th rowspan="3" align="center">部署与运行</th><td align="center"><a href="docs/deployment.md">部署详解</a></td><td align="center">前置条件、完整 compose 文件、目录与持久化、启动与验证、本地构建</td></tr>
-<tr><td align="center"><a href="docs/scheduling.md">定时设置</a></td><td align="center">cron 表达式写法、启动即执行、暂停与恢复</td></tr>
-<tr><td align="center"><a href="docs/operations.md">日常运维</a></td><td align="center">手动执行一轮、应用配置、更新镜像、日志与清理</td></tr>
+<tr><th rowspan="4" align="center">部署与运行</th><td align="center"><a href="docs/deployment.md">部署详解</a></td><td align="center">前置条件、完整 compose 文件、目录与持久化、启动与验证、本地构建</td></tr>
+<tr><td align="center"><a href="docs/panel.md">运维面板</a></td><td align="center">首次登录、九个标签页、保存事务与核对结果、密码重置、反向代理</td></tr>
+<tr><td align="center"><a href="docs/scheduling.md">定时设置</a></td><td align="center">cron 表达式写法、启动即执行、热重载、暂停与恢复</td></tr>
+<tr><td align="center"><a href="docs/operations.md">日常运维</a></td><td align="center">面板日常操作、手动执行一轮、更新镜像、日志与清理</td></tr>
 <tr><th rowspan="4" align="center">配置与数据</th><td align="center"><a href="docs/configuration.md">配置手册</a></td><td align="center">完整 <code>.env</code> 模板、每个参数的默认值与影响、常见组合示例</td></tr>
 <tr><td align="center"><a href="docs/ip-library.md">候选地址库</a></td><td align="center">条目格式、用注释排除网段、改动如何生效与验证</td></tr>
 <tr><td align="center"><a href="docs/network.md">代理与直连</a></td><td align="center">出网代理与探测直连为何必须分开、<code>NO_PROXY</code> 机制、TUN 场景</td></tr>
 <tr><td align="center"><a href="docs/publishing.md">自动发布</a></td><td align="center">推送到 Git 仓库：开关、令牌、镜像语义与重试</td></tr>
-<tr><th align="center">排障</th><td align="center"><a href="docs/troubleshooting.md">故障排查</a></td><td align="center">日志位置、<code>doctor.sh</code> 自检项、常见问题对照表</td></tr>
+<tr><th rowspan="2" align="center">排障</th><td align="center"><a href="docs/troubleshooting.md">故障排查</a></td><td align="center">日志位置、<code>doctor.sh</code> 自检项、常见问题对照表</td></tr>
+<tr><td align="center"><a href="docs/testing.md">测试与门禁</a></td><td align="center">单元/API/脚本/前端/E2E 分层、CI 门禁、人工上线清单</td></tr>
 </tbody>
 </table>
 
@@ -105,9 +108,10 @@ docker compose logs -f
 ```
 
 ```bash
-docker compose ps                 # 状态应为 Up (healthy)
+docker compose ps                 # scanner 与 panel 均应为 Up (healthy)
 docker compose logs --tail=30     # 应能看到「本轮完成」
 ls output                         # 应看到 detail.csv 与 GLOBAL*.txt
+curl -fsS http://127.0.0.1:8080/healthz   # 面板健康检查
 ```
 
 一轮完整的日志形如：
@@ -121,7 +125,34 @@ TCP 握手测量：合格 2673，淘汰 1488（每候选 3 次，至少成功 2 
 本轮完成：5 个订阅列表 + 1 个明细表 -> /output  总耗时 123.2s
 ```
 
-### 4. 产物
+### 4. 打开运维面板
+
+浏览器访问 `http://<宿主IP>:8080`，首次打开会要求设置管理员密码（至少 8 位）。
+面板是日常运维的主入口，九个标签覆盖全部常规操作：
+
+<table align="center">
+<thead>
+<tr><th align="center">标签</th><th align="center">能做什么</th></tr>
+</thead>
+<tbody>
+<tr><td align="center">总览</td><td align="center">扫描器状态、上次结果、下次执行时间、生效配置摘要</td></tr>
+<tr><td align="center">参数</td><td align="center">分组表单、类型化控件、保存前校验、差异预览、版本历史与回滚</td></tr>
+<tr><td align="center">调度</td><td align="center">cron 编辑、未来 5 次执行预览、热重载</td></tr>
+<tr><td align="center">运行</td><td align="center">立即执行一轮、实时输出、历史轮次与扫描/发布退出码</td></tr>
+<tr><td align="center">日志</td><td align="center">实时日志（SSE）、关键字过滤、暂停、下载</td></tr>
+<tr><td align="center">产物</td><td align="center">TXT/CSV 预览、下载、复制订阅内容</td></tr>
+<tr><td align="center">IP 库</td><td align="center">在线编辑、逐行校验、自动备份与恢复</td></tr>
+<tr><td align="center">发布</td><td align="center">Git 参数、令牌掩码显示、最近推送结果</td></tr>
+<tr><td align="center">系统</td><td align="center">改密码、审计日志、扫描容器启停、版本信息</td></tr>
+</tbody>
+</table>
+
+> [!NOTE]
+> 面板保存直接改写 `.env`，与手工编辑完全同源：扫描器每轮重新读取。
+> 只有 `PUID` / `PGID` / `TZ` / `RUN_ON_START` 需要重启扫描容器
+> （面板会提示并提供「重启扫描容器」）。详见 [运维面板](docs/panel.md)。
+
+### 5. 产物
 
 每轮在 `./output/` 下生成：
 

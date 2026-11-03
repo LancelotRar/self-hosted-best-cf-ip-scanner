@@ -1,16 +1,27 @@
 # 日常运维
 
-[← 返回首页](../README.md) · [定时设置](scheduling.md)
+[← 返回首页](../README.md) · [定时设置](scheduling.md) · [运维面板](panel.md)
+
+## 面板优先
+
+日常操作都在面板完成：`http://<宿主IP>:8080`
+
+- 改参数 → 「参数」页保存（校验 → 写入 → 回读 → 核对 → 调度热重载 → 审计）；
+- 立即跑一轮 → 「运行」页，实时看输出；
+- 看日志 → 「日志」页（SSE、过滤、暂停、下载）；
+- 看产物 / 编辑 IP 库 / 改发布参数 → 对应标签页；
+- 重启或启停扫描容器 → 「系统 → 容器」。
+
+下面的命令是备用/应急路径。
 
 ## 常用命令
 
 ```bash
-docker compose up -d                      # 启动
-docker compose up -d --force-recreate     # 应用 .env 改动
+docker compose up -d                      # 启动（scanner + panel）
 docker compose run --rm scan-once         # 手动执行一轮（带锁，跑完即退出）
 docker compose logs -f --tail=200         # 跟踪日志
 docker compose pull && docker compose up -d   # 更新镜像
-docker compose restart                    # 重启调度器
+docker compose restart scanner            # 仅重启扫描容器（PUID/TZ/RUN_ON_START 等）
 docker compose stop                       # 暂停（等当前一轮收尾，最多 150s；数据保留）
 docker compose stop -t 5                  # 立即暂停（中断当前一轮，产物保留上一轮）
 docker compose down                       # 停止并移除容器（数据保留）

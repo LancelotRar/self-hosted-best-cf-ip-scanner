@@ -95,5 +95,8 @@ docker compose exec scanner /usr/local/bin/doctor.sh | sed -n '/网络与连通�
 - `.env` 的 `NO_PROXY` / `no_proxy`；
 - 该域名在 Cloudflare 上的代理（小黄云）状态。
 
-改完执行 `docker compose up -d --force-recreate`，并看启动摘要里的
+改完在面板「参数」页保存即可；面板会自动把新域名追加到 `NO_PROXY` / `no_proxy`。
+手工编辑 `.env` 同样在下一轮生效（`PROBE_HOST` 需要自己同步豁免清单）。
+保存后看面板的「核对状态」或执行
+`docker compose exec -T scanner /usr/local/bin/startup-report.py`，确认
 「代理 → NO_PROXY 豁免探测域名: 是」。

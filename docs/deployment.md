@@ -71,7 +71,9 @@ PROBE_HOST=probe.example.com
 - 机器需要经代理出网：见 [代理与直连](network.md)（注意 `NO_PROXY` 必须豁免
   `PROBE_HOST`，否则启动会被拒绝）
 
-改完执行 `docker compose up -d --force-recreate` 即生效，不需要重建镜像。
+改完保存即可：面板保存会直接改写 `.env`；手工编辑同样在下一轮生效。
+只有 `PUID` / `PGID` / `TZ` / `RUN_ON_START` 需要 `docker compose restart scanner`。
+详见 [运维面板](panel.md)。
 
 ## 3. 启动
 
@@ -80,21 +82,25 @@ docker compose up -d
 docker compose logs -f
 ```
 
-首次启动会做三件事：
+首次启动会做四件事：
 
 - 创建并授权宿主目录 `./data`、`./output`、`./cache`（属主对齐到 `PUID:PGID`）；
 - 把镜像内置的候选地址库与机房映射播种到 `./data`（已存在的文件不覆盖）；
-- `RUN_ON_START=true` 时先跑一轮，再交给 cron 调度。
+- `RUN_ON_START=true` 时先跑一轮，再交给 cron 调度；
+- 启动运维面板（同镜像、`panel` 服务），浏览器访问 `http://<宿主IP>:8080`。
 
 ## 4. 验证部署
 
-确认三件事：容器已启动、第一轮扫描已完成、产物已生成。
+确认四件事：容器已启动、第一轮扫描已完成、产物已生成、面板可访问。
 
 ```bash
-docker compose ps                 # 状态应为 Up (healthy)
+docker compose ps                 # scanner 与 panel 都应为 Up (healthy)
 docker compose logs --tail=30     # 应能看到「本轮完成」
 ls output                         # 应看到 detail.csv 与 GLOBAL*.txt
+curl -fsS http://127.0.0.1:8080/healthz   # {"status":"ok",...}
 ```
+
+浏览器打开 `http://<宿主IP>:8080`，首次会要求设置管理员密码。
 
 一轮完整流程的日志形如：
 
@@ -121,7 +127,8 @@ TCP 握手测量：合格 2673，淘汰 1488（每候选 3 次，至少成功 2 
 ├── .env.example           # 参数模板，同上
 ├── data/                  # 候选地址库 + 机房映射（持久化，需备份）
 ├── output/                # 产物（可随时删除，下一轮重建）
-└── cache/                 # 发布缓存（可随时删除）
+├── cache/                 # 发布缓存（可随时删除）
+└── panel-data/            # 面板数据库、密钥与配置/地址库备份（需备份，可能含令牌）
 ```
 
 升级用 `docker compose pull && docker compose up -d`；**不要**在部署目录 `git pull`。
@@ -170,11 +177,11 @@ name: best-cf-ip-scanner
 x-scanner-common: &scanner-common
   # 官方镜像（多架构 amd64/arm64）。锁定版本可把 IMAGE_TAG 改成 sha-xxxxxxx 或 1.2.3
   image: ${IMAGE_NAME:-ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner}:${IMAGE_TAG:-latest}
-  # 全部运行参数来自 .env（改完 up -d --force-recreate 生效）
-  env_file:
-    - .env
+  # 不再用 env_file 注入：`.env` 是唯一配置源，扫描器每轮自己重新读取
+  # /project/.env（面板与手工编辑同源）。显式 environment 仍优先于 .env。
   # 容器内路径固定；对应宿主目录见下方 volumes
   environment:
+    DOTENV_PATH: /project/.env
     OUTPUT_DIR: /output
     DATA_DIR: /data
     GIT_REPO_DIR: /cache/repo
@@ -202,6 +209,8 @@ x-scanner-common: &scanner-common
     - ./output:/output
     # 发布缓存：目标仓库的浅克隆，删掉即可让下一轮重新克隆
     - ./cache:/cache
+    # 项目目录只读挂载：扫描器从这里每轮读取 .env
+    - ./:/project:ro
 
 services:
   # 常驻服务：容器内按 CRON_SCHEDULE 调度
@@ -239,7 +248,46 @@ services:
     profiles: ["manual"]
     restart: "no"
     entrypoint: ["/usr/local/bin/scan-and-publish.sh"]
+
+  # 运维面板：与扫描器同一镜像、同一 compose 项目，通过 docker.sock 只操作本项目扫描容器。
+  # 浏览器访问 http://<宿主IP>:${PANEL_PORT}
+  panel:
+    image: ${IMAGE_NAME:-ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner}:${IMAGE_TAG:-latest}
+    container_name: ${PANEL_CONTAINER_NAME:-best-cf-ip-scanner-panel}
+    entrypoint: ["/usr/local/bin/panel-entrypoint.sh"]
+    ports:
+      - "${PANEL_BIND:-0.0.0.0}:${PANEL_PORT:-8080}:8080"
+    environment:
+      PROJECT_DIR: /project
+      DOTENV_PATH: /project/.env
+      PANEL_DATA_DIR: /panel-data
+      PANEL_PORT: 8080
+      SCANNER_CONTAINER: ${CONTAINER_NAME:-best-cf-ip-scanner}
+      DATA_DIR: /data
+      OUTPUT_DIR: /output
+      CACHE_DIR: /cache
+      PANEL_TRUST_PROXY: ${PANEL_TRUST_PROXY:-false}
+      PANEL_SESSION_DAYS: ${PANEL_SESSION_DAYS:-7}
+      HOME: /tmp
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/project
+      - ./data:/data
+      - ./output:/output
+      - ./cache:/cache
+      - ./panel-data:/panel-data
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    restart: unless-stopped
+    depends_on:
+      - scanner
 ```
+
+> [!NOTE]
+> 以上是启动所需的关键片段；完整、可复制的版本以仓库根目录的
+> [`compose.example.yaml`](../compose.example.yaml) 为准（含健康检查、日志上限等）。
+> 面板说明见 [运维面板](panel.md)。
 
 ## 7. 本地构建镜像（可选）
 
