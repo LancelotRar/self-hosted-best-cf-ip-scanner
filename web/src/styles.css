@@ -221,7 +221,7 @@ a {
 
 .el-button {
   --el-button-bg-color: var(--surface-2);
-  --el-button-border-color: var(--border);
+  --el-button-border-color: var(--border-strong);
   --el-button-text-color: var(--text);
   --el-button-hover-bg-color: var(--surface-3);
   --el-button-hover-border-color: var(--border-strong);
