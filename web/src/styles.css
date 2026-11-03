@@ -10,6 +10,11 @@ body,
   min-height: 100%;
 }
 
+/* 常驻滚动条槽：无滚动条的页面不再比有滚动条的页面右移 5px，保证所有页面左边缘一致 */
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   margin: 0;
   background: var(--bg);
