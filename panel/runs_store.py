@@ -1,0 +1,153 @@
+"""轮次记录：解析 `/data/runtime/runs.tsv` 并同步到 SQLite 索引。
+
+`runs.tsv` 是权威来源（扫描器写、面板只读）；`panel.db.runs` 只是 UI 索引，
+随时可以从 TSV 重建。START 无 END 视为「中断」，不猜结束时间。
+"""
+
+from __future__ import annotations
+
+import sqlite3
+from dataclasses import asdict, dataclass
+from pathlib import Path
+
+from .settings import Settings
+
+
+@dataclass(frozen=True)
+class RunRecord:
+    run_id: str
+    trigger: str | None
+    started_at: str | None
+    finished_at: str | None
+    scan_exit: int | None
+    publish_exit: int | None
+    duration_s: float | None
+    summary: str | None
+    interrupted: bool
+
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
+
+
+def runs_path(settings: Settings) -> Path:
+    return settings.data_dir / "runtime" / "runs.tsv"
+
+
+def _as_int(raw: str) -> int | None:
+    raw = raw.strip()
+    if not raw:
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        return None
+
+
+def _as_float(raw: str) -> float | None:
+    raw = raw.strip()
+    if not raw:
+        return None
+    try:
+        return float(raw)
+    except ValueError:
+        return None
+
+
+def parse(path: Path) -> list[RunRecord]:
+    """解析轮次记录；格式错误行直接跳过（按出现顺序返回）。"""
+    file_path = Path(path)
+    if not file_path.is_file():
+        return []
+    records: dict[str, RunRecord] = {}
+    order: list[str] = []
+    try:
+        lines = file_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return []
+
+    for line in lines:
+        fields = line.split("\t")
+        if len(fields) < 4 or fields[0] not in {"START", "END"}:
+            continue
+        kind, run_id, trigger, moment = fields[0], fields[1], fields[2], fields[3]
+        if not run_id:
+            continue
+        if kind == "START":
+            if run_id not in records:
+                order.append(run_id)
+            records[run_id] = RunRecord(
+                run_id=run_id,
+                trigger=trigger or None,
+                started_at=moment or None,
+                finished_at=None,
+                scan_exit=None,
+                publish_exit=None,
+                duration_s=None,
+                summary=None,
+                interrupted=True,
+            )
+            continue
+        records[run_id] = RunRecord(
+            run_id=run_id,
+            trigger=trigger or None,
+            started_at=(records[run_id].started_at if run_id in records else None),
+            finished_at=moment or None,
+            scan_exit=_as_int(fields[4]) if len(fields) > 4 else None,
+            publish_exit=_as_int(fields[5]) if len(fields) > 5 else None,
+            duration_s=_as_float(fields[6]) if len(fields) > 6 else None,
+            summary=(fields[7] if len(fields) > 7 and fields[7] else None),
+            interrupted=False,
+        )
+        if run_id not in order:
+            order.append(run_id)
+    return [records[run_id] for run_id in order]
+
+
+def sync(conn: sqlite3.Connection, path: Path, limit: int = 200) -> int:
+    """把 TSV 写入 `runs` 索引表（幂等）；返回同步条数。"""
+    records = parse(path)
+    with conn:
+        for record in records[-limit:]:
+            conn.execute(
+                "INSERT OR REPLACE INTO runs (run_id, trigger, started_at, finished_at,"
+                " scan_exit, publish_exit, duration_s, summary, interrupted)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    record.run_id,
+                    record.trigger,
+                    record.started_at,
+                    record.finished_at,
+                    record.scan_exit,
+                    record.publish_exit,
+                    record.duration_s,
+                    record.summary,
+                    int(record.interrupted),
+                ),
+            )
+    return len(records)
+
+
+def scan_lock_held(settings: Settings) -> bool:
+    """`/cache/scan.lock` 是否被占用；文件不存在视为空闲。
+
+    只用只读 fd 试探：面板以 root 运行，不能在宿主目录里新建或改动属主。
+    """
+    try:
+        import fcntl
+    except ImportError:  # Windows 开发环境没有 fcntl；容器内一定存在
+        return False
+
+    path = settings.cache_dir / "scan.lock"
+    if not path.exists():
+        return False
+    with path.open("rb") as handle:
+        try:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            return True
+        else:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+            return False
+
+
+__all__ = ["RunRecord", "parse", "runs_path", "scan_lock_held", "sync"]

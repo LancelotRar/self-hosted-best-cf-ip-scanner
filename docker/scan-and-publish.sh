@@ -39,23 +39,50 @@ PUBLISH_SCRIPT="${PUBLISH_SCRIPT:-/usr/local/bin/publish.sh}"
 
 log() { echo "[job] $(date '+%Y-%m-%d %H:%M:%S %Z') $*"; }
 
+# 轮次记录（权威来源）：/data/runtime/runs.tsv，面板只读。
+# START/END 成对写入；只有 START 说明这一轮被中断（容器停止/被杀），不猜结束时间。
+RUNS_FILE="${RUNS_FILE:-${DATA_DIR:-/data}/runtime/runs.tsv}"
+RUN_ID="${RUN_ID:-$(date +%Y%m%dT%H%M%S-$$)}"
+RUN_TRIGGER="${RUN_TRIGGER:-cron}"
+SUMMARY_COMMAND="${SUMMARY_COMMAND:-/usr/local/bin/startup-report.py}"
+mkdir -p "$(dirname "$RUNS_FILE")" 2>/dev/null || true
+
+utc_now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+record_start() {
+  printf 'START\t%s\t%s\t%s\t\t\t\t\n' "$RUN_ID" "$RUN_TRIGGER" "$(utc_now)" \
+    >> "$RUNS_FILE" 2>/dev/null || true
+}
+record_end() {
+  printf 'END\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$RUN_ID" "$RUN_TRIGGER" "$(utc_now)" "$1" "$2" "$3" "$4" \
+    >> "$RUNS_FILE" 2>/dev/null || true
+}
+
+# 每轮打印一行生效参数摘要，便于确认 .env 已生效（不含敏感值）。
+summary="$(python "$SUMMARY_COMMAND" --short 2>/dev/null | head -n 1 | tr '\t\n' '  ')" || summary=""
+
 start=$(date +%s)
 log "==================== 新一轮开始 ===================="
+record_start
+log "生效参数: ${summary:-<不可用>}"
 log "开始扫描"
 
 if python "$APP_DIR/best_cf_ip_scanner.py"; then
   log "扫描成功，耗时 $(( $(date +%s) - start ))s"
 else
   rc=$?
+  record_end "$rc" "" "$(( $(date +%s) - start ))" "扫描失败"
   log "扫描失败（退出码 $rc）：本轮不发布，保留上一次有效产物"
   exit "$rc"
 fi
 
 if "$PUBLISH_SCRIPT"; then
+  record_end 0 0 "$(( $(date +%s) - start ))" "完成"
   log "本轮完成，总耗时 $(( $(date +%s) - start ))s"
   exit 0
 else
   rc=$?
+  record_end 0 "$rc" "$(( $(date +%s) - start ))" "发布失败"
   log "发布失败（退出码 $rc）：产物已在本地 /output，目标仓库保持原样"
   exit "$rc"
 fi

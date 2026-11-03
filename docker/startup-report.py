@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import argparse
 import os
 import sys
 from datetime import datetime, timedelta, timezone
@@ -40,6 +41,23 @@ def _yes_no(value: bool) -> str:
     return "是" if value else "否"
 
 
+def short_report() -> str:
+    """一行生效参数摘要，写进轮次记录（不含敏感值）。"""
+    ports = ",".join(str(port) for port in config.PROBE_PORTS)
+    tops = ",".join(str(top) for top in config.OVERALL_TOPS) or "-"
+    push = (os.environ.get("GIT_PUSH_ENABLED") or "false").strip().lower() in {
+        "true",
+        "1",
+        "yes",
+        "on",
+    }
+    return (
+        f"PROBE_HOST={config.PROBE_HOST or '-'} ports={ports} "
+        f"concurrency={config.PROBE_CONCURRENCY} max={config.MAX_CANDIDATES} "
+        f"tops={tops} push={'on' if push else 'off'}"
+    )
+
+
 def _count_segments(path: Path) -> str:
     try:
         networks, fixed, skipped = read_library(path)
@@ -59,6 +77,15 @@ def _no_proxy_exempts(host: str) -> bool:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description="打印本轮生效配置")
+    parser.add_argument(
+        "--short", action="store_true", help="只输出一行摘要（写轮次记录用）"
+    )
+    args = parser.parse_args()
+    if args.short:
+        print(short_report())
+        return 0
+
     now = datetime.now(timezone.utc) + timedelta(hours=8)
     data_dir = Path(config.DATA_DIR)
     input_path = data_dir / config.LIBRARY_FILE

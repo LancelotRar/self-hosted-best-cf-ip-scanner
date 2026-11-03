@@ -188,6 +188,8 @@ class FakeController:
             return FakeExecHandle(json.dumps(payload).encode("utf-8"))
         if script.endswith("apply-config.sh"):
             return FakeExecHandle(b"", self.apply_exit)
+        if script.endswith("scan-and-publish.sh"):
+            return FakeExecHandle(b"run-output\n", 0)
         return FakeExecHandle(b"", 0)
 
 
@@ -219,3 +221,16 @@ def client(anon_client):
     anon_client.post("/api/auth/login", json={"password": TEST_PASSWORD})
     anon_client.headers["X-CSRF-Token"] = anon_client.cookies["panel_csrf"]
     yield anon_client
+
+
+@pytest.fixture
+def runs_tsv(settings):
+    """预置一份轮次记录：扫描成功、发布失败。"""
+    path = settings.data_dir / "runtime" / "runs.tsv"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "START\tr1\tpanel\t2026-11-03T00:00:00Z\t\t\t\t\n"
+        "END\tr1\tpanel\t2026-11-03T00:02:00Z\t0\t1\t120\t完成\n",
+        encoding="utf-8",
+    )
+    return path

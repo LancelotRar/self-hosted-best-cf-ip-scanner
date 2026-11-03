@@ -1,0 +1,45 @@
+def test_history_lists_parsed_runs(client, runs_tsv):
+    body = client.get("/api/runs").json()
+    assert body["runs"][0]["run_id"] == "r1"
+    assert body["runs"][0]["publish_exit"] == 1
+
+
+def test_trigger_returns_run_id(client, fake_controller):
+    response = client.post("/api/runs")
+    assert response.status_code == 202
+    run_id = response.json()["run_id"]
+    assert run_id
+    script, env = fake_controller.exec_calls[-1]
+    assert script.endswith("scan-and-publish.sh")
+    assert env["RUN_TRIGGER"] == "panel"
+
+
+def test_trigger_rejects_when_lock_is_held(client, settings, fake_controller):
+    lock_path = settings.cache_dir / "scan.lock"
+    lock_path.write_text("", encoding="utf-8")
+    from panel import runs_store
+
+    original = runs_store.scan_lock_held
+    runs_store.scan_lock_held = lambda _settings: True
+    try:
+        response = client.post("/api/runs")
+    finally:
+        runs_store.scan_lock_held = original
+    assert response.status_code == 409
+
+
+def test_trigger_unavailable_returns_503(client, fake_controller):
+    fake_controller.raise_unavailable = True
+    assert client.post("/api/runs").status_code == 503
+
+
+def test_stream_unknown_run_is_404(client):
+    assert client.get("/api/runs/nope/stream").status_code == 404
+
+
+def test_stream_emits_log_and_done(client, fake_controller):
+    run_id = client.post("/api/runs").json()["run_id"]
+    response = client.get(f"/api/runs/{run_id}/stream?tail=10")
+    assert response.status_code == 200
+    assert "run-output" in response.text
+    assert "done" in response.text
