@@ -9,25 +9,45 @@ test("日志页显示连接状态与最后接收时间", async ({ page }) => {
   await expect(page.getByText(/最后接收/)).toBeVisible();
 });
 
-test("空产物显示尚无产物", async ({ page }) => {
+test("总览展示六个只读区块", async ({ page }) => {
   await ensureSession(page);
-  await page.goto("/outputs");
-  await expect(page.getByText("尚无产物（下一轮扫描成功后生成）")).toBeVisible();
-  await expect(page.getByText(/本次读取/)).toBeVisible();
+
+  for (const title of [
+    "容器状态",
+    "IP 库信息",
+    "计划详情",
+    "近期扫描情况",
+    "产物情况",
+    "推送情况",
+  ]) {
+    await expect(page.getByText(title, { exact: true }).first()).toBeVisible();
+  }
 });
 
-test("IP 库非法行显示行号", async ({ page }) => {
+test("页头只有标题与备注，没有按钮或图标", async ({ page }) => {
   await ensureSession(page);
-  await page.goto("/library");
-  await page.locator("textarea").fill("not-an-ip\n");
-  await page.getByRole("button", { name: "保存", exact: true }).click();
-  await expect(page.getByText("存在无法解析的行，未保存")).toBeVisible();
-  await expect(page.getByText(/第 1 行/)).toBeVisible();
+
+  await expect(page.getByRole("heading", { name: "总览" })).toBeVisible();
+  await expect(page.getByText("扫描器、IP 库、计划、运行、产物与推送情况的综合视图")).toBeVisible();
+  await expect(page.locator(".page-head button")).toHaveCount(0);
+  await expect(page.locator(".page-head .page-head__icon")).toHaveCount(0);
 });
 
-test("发布无记录显示尚无发布记录", async ({ page }) => {
+test("旧链接重定向：产物 / IP 库 / 发布 回到总览", async ({ page }) => {
   await ensureSession(page);
-  await page.goto("/publish");
-  await page.getByRole("tab", { name: "最近结果" }).click();
-  await expect(page.getByText("尚无发布记录（完成一轮扫描后生成）")).toBeVisible();
+
+  for (const path of ["/outputs", "/library", "/publish"]) {
+    await page.goto(path);
+    await expect(page.getByRole("heading", { name: "总览" })).toBeVisible();
+    await expect(page).toHaveURL(/\/$/);
+  }
+});
+
+test("主导航固定五项且只高亮当前页", async ({ page }) => {
+  await ensureSession(page);
+
+  const items = page.locator(".nav__item");
+  await expect(items).toHaveCount(5);
+  await expect(page.locator(".nav__item--active")).toHaveCount(1);
+  await expect(page.locator(".nav__item--active")).toHaveText("总览");
 });

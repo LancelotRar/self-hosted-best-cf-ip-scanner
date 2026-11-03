@@ -419,6 +419,10 @@ onBeforeUnmount(() => {
   .footer-user__name {
     display: none;
   }
+
+  .footer-logout {
+    white-space: nowrap;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
