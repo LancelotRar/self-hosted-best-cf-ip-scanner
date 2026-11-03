@@ -18,13 +18,13 @@ def settings(tmp_path: Path) -> Settings:
 
 
 @pytest.fixture
-def anon_client(settings: Settings):
-    """未登录的 TestClient。"""
+def anon_client(settings: Settings, fake_controller):
+    """未登录的 TestClient（控制器注入为内存实现）。"""
     from fastapi.testclient import TestClient
 
     from panel.app import create_app
 
-    with TestClient(create_app(settings)) as client:
+    with TestClient(create_app(settings, controller=fake_controller)) as client:
         yield client
 
 
@@ -129,6 +129,87 @@ def fake_client(fake_container: FakeContainer) -> FakeDockerClient:
 @pytest.fixture
 def empty_docker_client() -> FakeDockerClient:
     return FakeDockerClient([])
+
+
+class FakeExecHandle:
+    def __init__(self, payload: bytes = b"", code: int = 0, run_id: str = "run-1") -> None:
+        self.payload = payload
+        self.code = code
+        self.run_id = run_id
+
+    def stream(self):
+        return iter([self.payload] if self.payload else [])
+
+    def wait(self) -> int:
+        return self.code
+
+
+def _effective_from_env(settings) -> dict[str, object]:
+    """模拟扫描器按 `.env` 读到的生效值。"""
+    from panel.config_store import read_env
+    from scanner.schema import PARAMS, coerce
+
+    document = read_env(settings)
+    values: dict[str, object] = {}
+    for spec in PARAMS:
+        raw = document.values.get(spec.name)
+        values[spec.name] = (
+            None
+            if spec.secret
+            else (coerce(spec, raw) if raw and raw.strip() else spec.default)
+        )
+    return values
+
+
+class FakeController:
+    """内存版 ScannerController：可配置生效值与失败行为。"""
+
+    def __init__(self, settings) -> None:
+        self.settings = settings
+        self.effective: dict[str, object] = {}
+        self.raise_unavailable = False
+        self.apply_exit = 0
+        self.exec_calls: list[tuple[str, dict[str, str]]] = []
+
+    def exec_script(self, script, env=None):
+        from panel.docker_api import ScannerUnavailable
+
+        if self.raise_unavailable:
+            raise ScannerUnavailable("扫描容器不在线")
+        self.exec_calls.append((script, dict(env or {})))
+        if script.endswith("print-config.py"):
+            import json
+
+            values = self.effective or _effective_from_env(self.settings)
+            payload = {
+                name: {"value": value, "source": "dotenv"}
+                for name, value in values.items()
+            }
+            return FakeExecHandle(json.dumps(payload).encode("utf-8"))
+        if script.endswith("apply-config.sh"):
+            return FakeExecHandle(b"", self.apply_exit)
+        return FakeExecHandle(b"", 0)
+
+
+@pytest.fixture
+def fake_controller(settings) -> FakeController:
+    return FakeController(settings)
+
+
+@pytest.fixture
+def fake_validator(monkeypatch):
+    """替换候选配置校验器：只检查 TCP_MIN_SUCCESS 与 TCP_ATTEMPTS 的跨字段关系。"""
+    calls: list[dict[str, str]] = []
+
+    def validate(values, env=None):
+        calls.append(dict(values))
+        attempts = int(values.get("TCP_ATTEMPTS", 3))
+        min_success = int(values.get("TCP_MIN_SUCCESS", 2))
+        if min_success > attempts:
+            raise ValueError([{"name": "TCP_MIN_SUCCESS", "message": "不得大于 TCP_ATTEMPTS"}])
+
+    monkeypatch.setattr("panel.config_store.validate_candidate", validate)
+    return calls
 
 
 @pytest.fixture

@@ -7,11 +7,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import db
 from .routers import auth as auth_routes
+from .routers import config as config_routes
 from .security import configure
 from .settings import Settings
 
@@ -30,7 +33,7 @@ def _docker_available() -> bool:
         return False
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None, controller=None) -> FastAPI:
     app = FastAPI(
         title="best-cf-ip-scanner 运维面板",
         docs_url=None,
@@ -38,16 +41,29 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         openapi_url=None,
     )
     app.state.settings = settings or Settings.from_env()
+    app.state.controller = controller
     conn = db.connect(app.state.settings.db_path)
     db.migrate(conn)
     app.state.conn = conn
     app.state.security = configure(app.state.settings)
+
+    @app.exception_handler(StarletteHTTPException)
+    async def http_error(_: Request, exc: StarletteHTTPException) -> JSONResponse:
+        detail = exc.detail
+        if isinstance(detail, dict):
+            body = dict(detail)
+            body.setdefault("code", "error")
+            body.setdefault("message", str(detail))
+        else:
+            body = {"code": "error", "message": str(detail)}
+        return JSONResponse(status_code=exc.status_code, content=body)
 
     @app.get("/healthz")
     def healthz() -> dict[str, object]:
         return {"status": "ok", "docker": _docker_available()}
 
     app.include_router(auth_routes.router)
+    app.include_router(config_routes.router)
 
     # 前端构建产物由后端托管；Task 16 之后是 Vite 生成的 SPA。
     static_dir = Path(__file__).resolve().parent / "static"
