@@ -2,13 +2,16 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from "vue-router"
 
 import AppShell from "./layouts/AppShell.vue";
 import ConfigView from "./views/ConfigView.vue";
+import LibraryView from "./views/LibraryView.vue";
 import LogsView from "./views/LogsView.vue";
+import OutputsView from "./views/OutputsView.vue";
+import PublishView from "./views/PublishView.vue";
 import RunsView from "./views/RunsView.vue";
 import ScheduleView from "./views/ScheduleView.vue";
+import SystemView from "./views/SystemView.vue";
 import { useAuthStore } from "./stores/auth";
 import LoginView from "./views/LoginView.vue";
 import OverviewView from "./views/OverviewView.vue";
-import PlaceholderView from "./views/PlaceholderView.vue";
 import SetupView from "./views/SetupView.vue";
 
 const routes: RouteRecordRaw[] = [
@@ -23,10 +26,10 @@ const routes: RouteRecordRaw[] = [
       { path: "schedule", name: "schedule", component: ScheduleView, meta: { title: "调度" } },
       { path: "runs", name: "runs", component: RunsView, meta: { title: "运行" } },
       { path: "logs", name: "logs", component: LogsView, meta: { title: "日志" } },
-      { path: "outputs", name: "outputs", component: PlaceholderView, meta: { title: "产物" } },
-      { path: "library", name: "library", component: PlaceholderView, meta: { title: "IP 库" } },
-      { path: "publish", name: "publish", component: PlaceholderView, meta: { title: "发布" } },
-      { path: "system", name: "system", component: PlaceholderView, meta: { title: "系统" } },
+      { path: "outputs", name: "outputs", component: OutputsView, meta: { title: "产物" } },
+      { path: "library", name: "library", component: LibraryView, meta: { title: "IP 库" } },
+      { path: "publish", name: "publish", component: PublishView, meta: { title: "发布" } },
+      { path: "system", name: "system", component: SystemView, meta: { title: "系统" } },
     ],
   },
   { path: "/:pathMatch(.*)*", redirect: "/" },
