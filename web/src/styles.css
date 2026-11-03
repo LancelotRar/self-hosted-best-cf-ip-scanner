@@ -165,6 +165,16 @@ a {
 
 .panel__body {
   padding: var(--space-4);
+  overflow-x: auto;
+}
+
+.panel,
+.page {
+  min-width: 0;
+}
+
+.el-table {
+  max-width: 100%;
 }
 
 .divider {

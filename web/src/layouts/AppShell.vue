@@ -333,11 +333,17 @@ onBeforeUnmount(() => {
     width: auto;
     height: auto;
     flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2);
-    padding: var(--space-2) var(--space-3);
+    padding: var(--space-2) var(--space-3) 0;
     border-right: 0;
     border-bottom: 1px solid var(--border);
+  }
+
+  .nav {
+    order: 3;
+    flex: 0 0 100%;
   }
 
   .brand__text {
@@ -346,7 +352,6 @@ onBeforeUnmount(() => {
 
   .nav {
     flex-direction: row;
-    flex: 1;
     margin: 0;
     padding: 0;
     overflow-x: auto;
@@ -373,6 +378,8 @@ onBeforeUnmount(() => {
   }
 
   .sidebar__foot {
+    order: 2;
+    margin-left: auto;
     flex-direction: row;
     align-items: center;
     gap: var(--space-2);
@@ -388,6 +395,10 @@ onBeforeUnmount(() => {
   .sidebar__actions {
     margin-top: 0;
     gap: var(--space-1);
+  }
+
+  .nav__item {
+    height: 38px;
   }
 }
 
