@@ -62,9 +62,11 @@ async function logout() {
 }
 
 function onTabKey(event: KeyboardEvent, index: number) {
-  if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+  const forward = event.key === "ArrowDown" || event.key === "ArrowRight";
+  const back = event.key === "ArrowUp" || event.key === "ArrowLeft";
+  if (!forward && !back) return;
   event.preventDefault();
-  const delta = event.key === "ArrowRight" ? 1 : -1;
+  const delta = forward ? 1 : -1;
   const next = (index + delta + tabs.length) % tabs.length;
   const links = (event.currentTarget as HTMLElement)
     .closest("nav")
@@ -89,7 +91,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="shell">
-    <header class="topbar">
+    <aside class="sidebar">
       <RouterLink :to="{ name: 'overview' }" class="brand" aria-label="回到总览">
         <span class="brand__mark" aria-hidden="true">CF</span>
         <span class="brand__text">
@@ -98,88 +100,93 @@ onBeforeUnmount(() => {
         </span>
       </RouterLink>
 
-      <div class="status-strip" role="status" aria-live="polite">
-        <StatusPill :tone="scannerMeta.tone" :label="scannerMeta.label" />
-        <StatusPill
-          :tone="running ? 'info' : 'neutral'"
-          :label="running ? '轮次运行中' : '轮次空闲'"
-          :pulse="running"
-        />
-        <span class="status-strip__time muted">
-          更新 <span class="mono">{{ formatClock(updatedAt) }}</span>
-        </span>
-        <span v-if="stale" class="status-strip__stale">数据可能过期</span>
-        <span v-if="scannerReason" class="status-strip__reason muted" :title="scannerReason">
-          {{ scannerReason }}
-        </span>
-      </div>
-
-      <div class="topbar__actions">
-        <el-button
-          text
-          :aria-label="theme === 'dark' ? '切换到浅色主题' : '切换到深色主题'"
-          @click="toggle"
+      <nav class="nav" aria-label="主导航">
+        <RouterLink
+          v-for="(tab, index) in tabs"
+          :key="tab.name"
+          :to="{ name: tab.name }"
+          class="nav__item"
+          active-class="nav__item--active"
+          data-tab
+          @keydown="onTabKey($event, index)"
         >
-          <el-icon :size="16">
-            <Sunny v-if="theme === 'dark'" />
-            <Moon v-else />
-          </el-icon>
-        </el-button>
-        <el-dropdown trigger="click">
-          <el-button text>
-            {{ auth.username ?? "账号" }}
-            <span aria-hidden="true">▾</span>
+          {{ tab.label }}
+        </RouterLink>
+      </nav>
+
+      <div class="sidebar__foot">
+        <div class="status-line" role="status" aria-live="polite">
+          <StatusPill :tone="scannerMeta.tone" :label="scannerMeta.label" />
+          <StatusPill
+            :tone="running ? 'info' : 'neutral'"
+            :label="running ? '运行中' : '空闲'"
+            :pulse="running"
+          />
+        </div>
+        <p class="status-meta muted">
+          更新 <span class="mono">{{ formatClock(updatedAt) }}</span>
+          <span v-if="stale" class="status-stale">· 数据可能过期</span>
+        </p>
+        <p v-if="scannerReason" class="status-reason muted" :title="scannerReason">
+          {{ scannerReason }}
+        </p>
+
+        <div class="sidebar__actions">
+          <el-button
+            text
+            :aria-label="theme === 'dark' ? '切换到浅色主题' : '切换到深色主题'"
+            @click="toggle"
+          >
+            <el-icon :size="16">
+              <Sunny v-if="theme === 'dark'" />
+              <Moon v-else />
+            </el-icon>
           </el-button>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item @click="router.push({ name: 'system' })">
-                账号与系统
-              </el-dropdown-item>
-              <el-dropdown-item divided @click="logout">退出登录</el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
+          <el-dropdown trigger="click">
+            <el-button text class="account">
+              {{ auth.username ?? "账号" }}
+              <span aria-hidden="true">▾</span>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item @click="router.push({ name: 'system' })">
+                  账号与系统
+                </el-dropdown-item>
+                <el-dropdown-item divided @click="logout">退出登录</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </div>
       </div>
-    </header>
+    </aside>
 
-    <nav class="tabs" aria-label="主导航">
-      <RouterLink
-        v-for="(tab, index) in tabs"
-        :key="tab.name"
-        :to="{ name: tab.name }"
-        class="tabs__item"
-        active-class="tabs__item--active"
-        data-tab
-        @keydown="onTabKey($event, index)"
-      >
-        {{ tab.label }}
-      </RouterLink>
-    </nav>
-
-    <main class="main">
-      <RouterView />
-    </main>
+    <div class="content">
+      <main class="main">
+        <RouterView />
+      </main>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .shell {
-  min-height: 100vh;
   display: flex;
-  flex-direction: column;
+  min-height: 100vh;
   background: var(--bg);
 }
 
-.topbar {
-  height: var(--header-h);
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  padding: 0 var(--space-5);
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+.sidebar {
   position: sticky;
   top: 0;
+  flex: 0 0 216px;
+  width: 216px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-3);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
   z-index: 30;
 }
 
@@ -187,30 +194,32 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  flex: 0 0 auto;
+  padding: 0 var(--space-1);
 }
 
 .brand__mark {
   display: inline-grid;
   place-items: center;
+  flex: 0 0 auto;
   width: 32px;
   height: 32px;
   border-radius: var(--radius-sm);
   background: var(--primary);
   color: var(--on-primary);
-  font-weight: 700;
   font-size: 12px;
+  font-weight: 700;
   letter-spacing: 0.04em;
 }
 
 .brand__text {
   display: flex;
   flex-direction: column;
-  line-height: 1.2;
+  line-height: 1.25;
+  min-width: 0;
 }
 
 .brand__text strong {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -219,107 +228,172 @@ onBeforeUnmount(() => {
   font-size: 11px;
 }
 
-.status-strip {
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  flex: 1;
+  margin: 0 calc(var(--space-1) * -1);
+  padding: 0 var(--space-1);
+}
+
+.nav__item {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  margin-left: auto;
-  min-width: 0;
-  font-size: 12px;
+  height: 38px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  border-left: 2px solid transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  transition: background-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
 }
 
-.status-strip__time,
-.status-strip__stale {
-  white-space: nowrap;
+.nav__item:hover {
+  background: var(--surface-2);
+  color: var(--text);
 }
 
-.status-strip__stale {
+.nav__item--active {
+  background: color-mix(in srgb, var(--primary) 14%, var(--surface));
+  border-left-color: var(--primary);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.sidebar__foot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.status-line {
+  display: flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+.status-meta {
+  margin: 0;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.status-stale {
   color: var(--warning);
 }
 
-.status-strip__reason {
-  max-width: 280px;
+.status-reason {
+  margin: 0;
+  font-size: 11px;
+  line-height: 16px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.topbar__actions {
+.sidebar__actions {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
-  flex: 0 0 auto;
+  justify-content: space-between;
+  margin-top: var(--space-1);
 }
 
-.tabs {
-  height: var(--tabs-h);
+.account {
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
   display: flex;
-  gap: 2px;
-  padding: 0 var(--space-3);
-  overflow-x: auto;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: var(--header-h);
-  z-index: 25;
-}
-
-.tabs::-webkit-scrollbar {
-  height: 0;
-}
-
-.tabs__item {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  padding: 0 var(--space-4);
-  color: var(--text-muted);
-  font-size: 13px;
-  border-bottom: 2px solid transparent;
-  transition: color var(--dur-fast) var(--ease),
-    border-color var(--dur-fast) var(--ease);
-}
-
-.tabs__item:hover {
-  color: var(--text);
-}
-
-.tabs__item--active {
-  color: var(--text);
-  border-bottom-color: var(--primary);
-  font-weight: 600;
+  flex-direction: column;
 }
 
 .main {
   flex: 1;
 }
 
-@media (max-width: 1023px) {
-  .status-strip__reason {
-    display: none;
+/* 窄屏：侧栏改为横向顶部条，标签仍可横向滚动 */
+@media (max-width: 959px) {
+  .shell {
+    display: block;
   }
-}
 
-@media (max-width: 767px) {
-  .topbar {
-    padding: 0 var(--space-3);
+  .sidebar {
+    position: sticky;
+    top: 0;
+    width: auto;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
     gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
   }
 
   .brand__text {
     display: none;
   }
 
-  .status-strip__time {
+  .nav {
+    flex-direction: row;
+    flex: 1;
+    margin: 0;
+    padding: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 2px;
+  }
+
+  .nav::-webkit-scrollbar {
+    height: 0;
+  }
+
+  .nav__item {
+    height: 36px;
+    padding: 0 var(--space-3);
+    border-left: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    white-space: nowrap;
+  }
+
+  .nav__item--active {
+    background: none;
+    border-bottom-color: var(--primary);
+  }
+
+  .sidebar__foot {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-2);
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .status-meta,
+  .status-reason {
     display: none;
   }
 
-  .tabs {
-    padding: 0;
+  .sidebar__actions {
+    margin-top: 0;
+    gap: var(--space-1);
   }
+}
 
-  .tabs__item {
-    padding: 0 var(--space-3);
+@media (max-width: 639px) {
+  .status-line .pill:last-child {
+    display: none;
   }
 }
 </style>
