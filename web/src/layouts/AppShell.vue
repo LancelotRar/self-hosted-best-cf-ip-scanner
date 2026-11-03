@@ -80,8 +80,8 @@ onBeforeUnmount(() => {
       <RouterLink :to="{ name: 'overview' }" class="brand" aria-label="回到总览">
         <span class="brand__mark" aria-hidden="true">CF</span>
         <span class="brand__text">
-          <strong>self-hosted-best-cf-ip-scanner</strong>
-          <small>项目运维面板</small>
+          <strong>优选IP扫描器</strong>
+          <small>基于容器化方案的优选ip扫描器，提供多种配置</small>
         </span>
       </RouterLink>
 
@@ -185,14 +185,13 @@ onBeforeUnmount(() => {
   font-size: 16px;
   font-weight: 650;
   letter-spacing: -0.01em;
-  /* 仓库名较长：仅在连字符处折行，不撑破侧栏 */
   overflow-wrap: break-word;
 }
 
 .brand__text small {
   color: var(--text-faint);
-  font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11.5px;
+  line-height: 1.45;
   margin-top: 3px;
 }
 
