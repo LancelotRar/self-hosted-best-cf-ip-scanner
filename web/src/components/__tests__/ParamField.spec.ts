@@ -40,26 +40,47 @@ const boolParam: Param = {
   value: false,
 };
 
+const tzParam: Param = {
+  ...intParam,
+  name: "TZ",
+  kind: "str",
+  label: "时区",
+  default: "Asia/Shanghai",
+  value: "Asia/Shanghai",
+};
+
+const cronParam: Param = {
+  ...intParam,
+  name: "CRON_SCHEDULE",
+  kind: "cron",
+  label: "调度表达式",
+  default: "30 */6 * * *",
+  value: "30 */6 * * *",
+};
+
 describe("ParamField", () => {
-  it("emits numeric value for int param", async () => {
+  it("int 参数使用数字步进器", async () => {
     const wrapper = mount(ParamField, {
       props: { param: intParam, modelValue: 1 },
       global: { plugins: [ElementPlus] },
     });
-    await wrapper.find("input").setValue("200");
+    expect(wrapper.find(".el-input-number").exists()).toBe(true);
+    const input = wrapper.find(".el-input-number input");
+    await input.setValue("200");
+    await input.trigger("change");
     expect(wrapper.emitted("update:modelValue")?.[0]).toEqual([200]);
   });
 
-  it("splits ports input into numbers", async () => {
+  it("端口参数使用多选，已选端口以标签展示", () => {
     const wrapper = mount(ParamField, {
       props: { param: portParam, modelValue: [443] },
       global: { plugins: [ElementPlus] },
     });
-    await wrapper.find("input").setValue("443, 2053");
-    expect(wrapper.emitted("update:modelValue")?.[0]).toEqual([[443, 2053]]);
+    expect(wrapper.find(".el-select").exists()).toBe(true);
+    expect(wrapper.text()).toContain("443");
   });
 
-  it("emits boolean for switch", async () => {
+  it("布尔参数使用开关", async () => {
     const wrapper = mount(ParamField, {
       props: { param: boolParam, modelValue: false },
       global: { plugins: [ElementPlus] },
@@ -67,5 +88,23 @@ describe("ParamField", () => {
     const switchInput = wrapper.find("[role='switch'], input[type='checkbox']");
     await switchInput.trigger("click");
     expect(wrapper.emitted("update:modelValue")?.[0]).toEqual([true]);
+  });
+
+  it("时区参数使用可搜索下拉", () => {
+    const wrapper = mount(ParamField, {
+      props: { param: tzParam, modelValue: "Asia/Shanghai" },
+      global: { plugins: [ElementPlus] },
+    });
+    expect(wrapper.find(".el-select").exists()).toBe(true);
+    expect(wrapper.text()).toContain("Asia/Shanghai");
+  });
+
+  it("cron 参数提供常用模板菜单", () => {
+    const wrapper = mount(ParamField, {
+      props: { param: cronParam, modelValue: "30 */6 * * *" },
+      global: { plugins: [ElementPlus] },
+    });
+    expect(wrapper.text()).toContain("常用模板");
+    expect(wrapper.find(".el-input").exists()).toBe(true);
   });
 });
