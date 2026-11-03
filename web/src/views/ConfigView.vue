@@ -180,8 +180,9 @@ onBeforeRouteLeave(async () => {
     <el-skeleton v-if="store.loading && !store.params.length" :rows="8" animated />
 
     <template v-else-if="store.params.length">
-      <el-tabs v-model="activeTab">
+      <el-tabs v-model="activeTab" class="config-tabs">
         <el-tab-pane label="扫描参数" name="scanner" lazy>
+          <div class="config-card">
           <el-collapse :model-value="groupedFor('scanner').map((group) => group.name)">
             <el-collapse-item
               v-for="group in groupedFor('scanner')"
@@ -198,9 +199,11 @@ onBeforeRouteLeave(async () => {
               />
             </el-collapse-item>
           </el-collapse>
+          </div>
         </el-tab-pane>
 
         <el-tab-pane label="发布与代理" name="publish" lazy>
+          <div class="config-card">
           <el-collapse :model-value="groupedFor('publish').map((group) => group.name)">
             <el-collapse-item
               v-for="group in groupedFor('publish')"
@@ -217,9 +220,11 @@ onBeforeRouteLeave(async () => {
               />
             </el-collapse-item>
           </el-collapse>
+          </div>
         </el-tab-pane>
 
         <el-tab-pane label="只读设置" name="readonly" lazy>
+          <div class="config-card">
           <p class="muted readonly-hint">
             只读参数需要手工修改 .env 并重建容器（docker compose up -d）。
           </p>
@@ -239,6 +244,7 @@ onBeforeRouteLeave(async () => {
               />
             </el-collapse-item>
           </el-collapse>
+          </div>
         </el-tab-pane>
       </el-tabs>
 
@@ -304,6 +310,18 @@ onBeforeRouteLeave(async () => {
 .field-errors ul {
   margin: 6px 0 0;
   padding-left: 18px;
+}
+
+.config-tabs :deep(.el-tabs__content) {
+  padding-top: var(--space-3);
+}
+
+.config-card {
+  max-width: 1040px;
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
 }
 
 .readonly-hint {

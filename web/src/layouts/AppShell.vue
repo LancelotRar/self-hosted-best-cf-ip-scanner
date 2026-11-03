@@ -106,7 +106,7 @@ onBeforeUnmount(() => {
           :key="tab.name"
           :to="{ name: tab.name }"
           class="nav__item"
-          active-class="nav__item--active"
+          exact-active-class="nav__item--active"
           data-tab
           @keydown="onTabKey($event, index)"
         >
