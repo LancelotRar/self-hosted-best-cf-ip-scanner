@@ -227,12 +227,12 @@ onBeforeUnmount(() => {
 
 .nav__item--active {
   background: var(--primary-soft);
-  color: var(--primary);
+  color: var(--primary-text);
   font-weight: 550;
 }
 
 .nav__item--active .nav__icon {
-  color: var(--primary);
+  color: var(--primary-text);
   opacity: 1;
 }
 

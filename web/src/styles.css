@@ -386,7 +386,7 @@ a {
   --el-pagination-bg-color: transparent;
   --el-pagination-text-color: var(--text-muted);
   --el-pagination-button-bg-color: var(--surface-2);
-  --el-pagination-hover-color: var(--primary);
+  --el-pagination-hover-color: var(--primary-text);
   margin-top: var(--space-3);
 }
 
