@@ -3,16 +3,22 @@ import { onMounted, ref } from "vue";
 import { ElMessage } from "element-plus";
 
 import { get, post } from "../api";
+import EmptyState from "../components/EmptyState.vue";
+import ErrorState from "../components/ErrorState.vue";
 import LogConsole from "../components/LogConsole.vue";
+import PageHeader from "../components/PageHeader.vue";
+import StatusPill from "../components/StatusPill.vue";
 import { useEventStream } from "../composables/useEventStream";
 import type { RunRecord } from "../types";
+import { exitLabel, formatDuration, formatTime } from "../utils/format";
 
 const activeTab = ref("run");
 const runId = ref("");
 const lines = ref<string[]>([]);
 const error = ref("");
 const history = ref<RunRecord[]>([]);
-const loadingHistory = ref(false);
+const loading = ref(false);
+const triggering = ref(false);
 
 const { status, lastReceived, connect } = useEventStream(
   () => (runId.value ? `/api/runs/${encodeURIComponent(runId.value)}/stream` : "/api/runs/pending/stream"),
@@ -28,46 +34,55 @@ const { status, lastReceived, connect } = useEventStream(
   },
 );
 
+const running = ref(false);
+
+function runTone(record: RunRecord): "success" | "warning" | "info" | "neutral" {
+  if (record.status === "running") return "info";
+  if (record.status === "interrupted") return "warning";
+  if (record.status === "done") return "success";
+  return "neutral";
+}
+
+function runLabel(record: RunRecord): string {
+  if (record.status === "running") return "运行中";
+  if (record.status === "interrupted") return "中断";
+  if (record.status === "done") return "完成";
+  return "—";
+}
+
 async function loadHistory() {
-  loadingHistory.value = true;
+  loading.value = true;
   try {
     const data = await get<{ runs: RunRecord[] }>("/api/runs");
     history.value = data.runs;
+    running.value = data.runs.some((record) => record.status === "running");
   } catch (exception) {
     error.value = (exception as Error).message;
   } finally {
-    loadingHistory.value = false;
+    loading.value = false;
   }
 }
 
 async function trigger() {
   error.value = "";
+  triggering.value = true;
   try {
     const data = await post<{ run_id: string }>("/api/runs");
     runId.value = data.run_id;
     lines.value = [];
+    running.value = true;
     connect();
     activeTab.value = "run";
   } catch (exception) {
     error.value = (exception as Error).message;
     ElMessage.error((exception as Error).message);
+  } finally {
+    triggering.value = false;
   }
-}
-
-function exitTag(code: number | null): { type: "success" | "danger" | "info"; text: string } {
-  if (code === null) return { type: "info", text: "—" };
-  return code === 0 ? { type: "success", text: "成功" } : { type: "danger", text: `失败（${code}）` };
-}
-
-function formatTime(value: string | null): string {
-  if (!value) return "—";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("zh-CN", { hour12: false });
 }
 
 onMounted(async () => {
   await loadHistory();
-  // 切回运行页时自动接上"面板触发且仍在跑"的那一轮（定时轮次无法回放 stdout）。
   const live = history.value.find(
     (record) => record.status === "running" && record.trigger === "panel",
   );
@@ -80,58 +95,83 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="panel-page">
-    <div class="panel-page__title">
-      <h1>运行</h1>
-      <el-button type="primary" @click="trigger">立即执行一轮</el-button>
-    </div>
+  <section class="page">
+    <PageHeader title="运行" subtitle="手动执行与定时任务共用同一份 .env，仅触发方式不同">
+      <el-button type="primary" :loading="triggering" :disabled="running" @click="trigger">
+        立即执行一轮
+      </el-button>
+    </PageHeader>
 
-    <el-alert v-if="error" :title="error" type="error" show-icon :closable="false" />
+    <ErrorState v-if="error" :message="error" @retry="loadHistory" />
 
     <el-tabs v-model="activeTab">
       <el-tab-pane label="立即运行" name="run">
+        <div class="run-head">
+          <StatusPill
+            :tone="running ? 'info' : 'neutral'"
+            :label="running ? '有轮次在运行' : '当前空闲'"
+            :pulse="running"
+          />
+          <span class="muted">
+            同一时间只允许一轮；定时任务正在跑时手动触发会被拒绝（409）。
+          </span>
+        </div>
         <LogConsole :lines="lines" :status="status" :last-received="lastReceived" />
-        <p class="panel-muted">
-          同一时间只允许一轮：若定时任务正在跑，触发会被拒绝（提示"已有一轮在运行"）。
-        </p>
       </el-tab-pane>
 
       <el-tab-pane label="历史轮次" name="history">
-        <el-button :loading="loadingHistory" @click="loadHistory">刷新</el-button>
-        <el-table :data="history" size="small" class="table">
-          <el-table-column prop="run_id" label="轮次" width="200" />
-          <el-table-column prop="trigger" label="触发" width="90" />
-          <el-table-column label="开始" width="180">
-            <template #default="{ row }">{{ formatTime(row.started_at) }}</template>
+        <div class="toolbar">
+          <el-button :loading="loading" @click="loadHistory">刷新</el-button>
+        </div>
+        <el-table v-if="history.length" :data="history" size="small">
+          <el-table-column label="轮次" min-width="180">
+            <template #default="{ row }"><span class="mono">{{ row.run_id }}</span></template>
           </el-table-column>
-          <el-table-column label="扫描" width="120">
-            <template #default="{ row }">
-              <el-tag :type="exitTag(row.scan_exit).type" size="small">{{ exitTag(row.scan_exit).text }}</el-tag>
-            </template>
+          <el-table-column label="触发" width="80">
+            <template #default="{ row }">{{ row.trigger ?? "—" }}</template>
           </el-table-column>
-          <el-table-column label="发布" width="120">
-            <template #default="{ row }">
-              <el-tag :type="exitTag(row.publish_exit).type" size="small">{{ exitTag(row.publish_exit).text }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="duration_s" label="耗时(s)" width="100" />
           <el-table-column label="状态" width="100">
             <template #default="{ row }">
-              <el-tag v-if="row.status === 'running'" type="primary" size="small">运行中</el-tag>
-              <el-tag v-else-if="row.status === 'interrupted'" type="warning" size="small">中断</el-tag>
-              <span v-else class="panel-muted">完成</span>
+              <StatusPill :tone="runTone(row)" :label="runLabel(row)" />
             </template>
           </el-table-column>
-          <el-table-column prop="summary" label="摘要" />
+          <el-table-column label="扫描" width="110">
+            <template #default="{ row }">{{ exitLabel(row.scan_exit) }}</template>
+          </el-table-column>
+          <el-table-column label="发布" width="110">
+            <template #default="{ row }">{{ exitLabel(row.publish_exit) }}</template>
+          </el-table-column>
+          <el-table-column label="耗时" width="90">
+            <template #default="{ row }">{{ formatDuration(row.duration_s) }}</template>
+          </el-table-column>
+          <el-table-column label="开始" min-width="170">
+            <template #default="{ row }">{{ formatTime(row.started_at) }}</template>
+          </el-table-column>
+          <el-table-column label="摘要" min-width="160">
+            <template #default="{ row }">
+              <span class="muted">{{ row.summary ?? "—" }}</span>
+            </template>
+          </el-table-column>
         </el-table>
-        <el-empty v-if="!history.length && !loadingHistory" description="尚无轮次记录" />
+        <EmptyState
+          v-else
+          title="尚无轮次记录"
+          description="定时任务或手动执行完成后出现在这里"
+          action-label="刷新"
+          @action="loadHistory"
+        />
       </el-tab-pane>
     </el-tabs>
   </section>
 </template>
 
 <style scoped>
-.table {
-  margin-top: 12px;
+.run-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+  font-size: 12px;
 }
 </style>

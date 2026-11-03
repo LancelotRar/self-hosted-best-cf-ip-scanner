@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, nextTick, onMounted, ref } from "vue";
 import { onBeforeRouteLeave } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 
 import { get, post, put } from "../api";
 import EmptyState from "../components/EmptyState.vue";
+import ErrorState from "../components/ErrorState.vue";
+import PageHeader from "../components/PageHeader.vue";
 import type { LibraryDocument } from "../types";
+import { formatSize, formatTime } from "../utils/format";
 
 interface BackupFile {
   name: string;
@@ -13,32 +16,47 @@ interface BackupFile {
   mtime: string;
 }
 
+interface LineError {
+  line: number;
+  message: string;
+}
+
 const activeTab = ref("edit");
 const document = ref<LibraryDocument | null>(null);
 const content = ref("");
 const serverContent = ref("");
-const error = ref("");
-const lineErrors = ref<Array<{ line: number; message: string }>>([]);
+const loadError = ref("");
+const lineErrors = ref<LineError[]>([]);
 const backups = ref<BackupFile[]>([]);
 const loading = ref(false);
 const saving = ref(false);
 
+const editor = ref<HTMLTextAreaElement | null>(null);
+const gutter = ref<HTMLElement | null>(null);
+
 const dirty = computed(() => content.value !== serverContent.value);
+const lineCount = computed(() => content.value.split("\n").length);
+const lineNumbers = computed(() =>
+  Array.from({ length: lineCount.value }, (_, index) => index + 1).join("\n"),
+);
 
 function applyDocument(data: LibraryDocument) {
   document.value = data;
   content.value = data.content;
   serverContent.value = data.content;
   lineErrors.value = [];
+  void nextTick(() => {
+    if (gutter.value && editor.value) gutter.value.scrollTop = editor.value.scrollTop;
+  });
 }
 
 async function load() {
   loading.value = true;
-  error.value = "";
+  loadError.value = "";
   try {
     applyDocument(await get<LibraryDocument>("/api/library"));
   } catch (exception) {
-    error.value = (exception as Error).message;
+    loadError.value = (exception as Error).message;
   } finally {
     loading.value = false;
   }
@@ -51,6 +69,22 @@ async function loadBackups() {
   } catch (exception) {
     ElMessage.error((exception as Error).message);
   }
+}
+
+function syncScroll() {
+  if (gutter.value && editor.value) gutter.value.scrollTop = editor.value.scrollTop;
+}
+
+function focusLine(line: number) {
+  const element = editor.value;
+  if (!element) return;
+  const lines = content.value.split("\n");
+  let offset = 0;
+  for (let index = 0; index < Math.min(line - 1, lines.length); index += 1) {
+    offset += lines[index].length + 1;
+  }
+  element.focus();
+  element.setSelectionRange(offset, offset + (lines[line - 1]?.length ?? 0));
 }
 
 async function save() {
@@ -95,18 +129,14 @@ async function restore(name: string) {
     return;
   }
   try {
-    applyDocument(await post<LibraryDocument>(`/api/library/backups/${encodeURIComponent(name)}/restore`));
+    applyDocument(
+      await post<LibraryDocument>(`/api/library/backups/${encodeURIComponent(name)}/restore`),
+    );
     ElMessage.success("已恢复备份");
     await loadBackups();
   } catch (exception) {
     ElMessage.error((exception as Error).message);
   }
-}
-
-function formatTime(value: string | null): string {
-  if (!value) return "—";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("zh-CN", { hour12: false });
 }
 
 onMounted(async () => {
@@ -130,102 +160,164 @@ onBeforeRouteLeave(async () => {
 </script>
 
 <template>
-  <section class="panel-page">
-    <div class="panel-page__title">
-      <h1>IP 库</h1>
+  <section class="page page--flush">
+    <PageHeader title="IP 库" subtitle="在线编辑候选地址库；保存前逐行校验并自动备份">
       <el-button :loading="loading" @click="load">重新加载</el-button>
-    </div>
+    </PageHeader>
 
-    <el-alert v-if="error" :title="error" type="error" show-icon :closable="false">
-      <el-button size="small" @click="load">重试</el-button>
-    </el-alert>
+    <ErrorState v-if="loadError" :message="loadError" @retry="load" />
 
     <el-tabs v-model="activeTab">
       <el-tab-pane label="编辑" name="edit">
-        <p class="panel-muted" v-if="document">
+        <p v-if="document" class="muted stats">
           {{ document.line_count }} 行 · 网段 {{ document.stats.networks }} · 固定条目
           {{ document.stats.fixed }} · 跳过 {{ document.stats.skipped }} · 修改时间
-          {{ formatTime(document.mtime) }} · 哈希
-          <span class="panel-mono">{{ document.hash.slice(0, 12) }}…</span>
+          {{ formatTime(document.mtime) }} · hash
+          <span class="mono">{{ document.hash.slice(0, 12) }}…</span>
         </p>
 
-        <el-input
-          v-model="content"
-          type="textarea"
-          :autosize="{ minRows: 18, maxRows: 30 }"
-          class="editor panel-mono"
-          spellcheck="false"
-        />
+        <div class="editor">
+          <pre ref="gutter" class="editor__gutter mono" aria-hidden="true">{{ lineNumbers }}</pre>
+          <textarea
+            ref="editor"
+            v-model="content"
+            class="editor__code mono"
+            spellcheck="false"
+            aria-label="候选地址库内容"
+            @scroll="syncScroll"
+          />
+        </div>
 
-        <el-alert
-          v-if="lineErrors.length"
-          type="error"
-          show-icon
-          :closable="false"
-          title="存在无法解析的行，未保存"
-          class="panel-page__alert"
-        >
+        <div v-if="lineErrors.length" class="line-errors" role="alert">
+          <strong>存在无法解析的行，未保存</strong>
           <ul>
             <li v-for="item in lineErrors" :key="`${item.line}-${item.message}`">
-              第 {{ item.line }} 行：{{ item.message }}
+              <button type="button" class="line-link" @click="focusLine(item.line)">
+                第 {{ item.line }} 行
+              </button>
+              ：{{ item.message }}
             </li>
           </ul>
-        </el-alert>
+        </div>
 
         <div class="actionbar">
-          <span class="panel-muted">{{ dirty ? "有未保存的修改" : "与服务端一致" }}</span>
-          <div>
+          <span class="muted">{{ dirty ? "有未保存的修改" : "与服务端一致" }}</span>
+          <div class="actionbar__buttons">
             <el-button :disabled="!dirty" @click="cancel">取消</el-button>
-            <el-button type="primary" :disabled="!dirty" :loading="saving" @click="save">保存</el-button>
+            <el-button type="primary" :disabled="!dirty" :loading="saving" @click="save">
+              保存
+            </el-button>
           </div>
         </div>
       </el-tab-pane>
 
       <el-tab-pane label="备份" name="backups">
         <el-table v-if="backups.length" :data="backups" size="small">
-          <el-table-column prop="name" label="备份文件" />
-          <el-table-column label="时间" width="220">
+          <el-table-column prop="name" label="备份文件" min-width="220">
+            <template #default="{ row }"><span class="mono">{{ row.name }}</span></template>
+          </el-table-column>
+          <el-table-column label="时间" width="180">
             <template #default="{ row }">{{ formatTime(row.mtime) }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="120">
+          <el-table-column label="大小" width="100">
+            <template #default="{ row }">{{ formatSize(row.size) }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="100">
             <template #default="{ row }">
               <el-button size="small" @click="restore(row.name)">恢复</el-button>
             </template>
           </el-table-column>
         </el-table>
-        <EmptyState v-else title="尚无备份" description="保存地址库时会自动备份，最多保留 30 份" retry-label="" />
+        <EmptyState
+          v-else
+          title="尚无备份"
+          description="保存地址库时会自动备份，最多保留 30 份"
+          action-label="刷新"
+          @action="loadBackups"
+        />
       </el-tab-pane>
     </el-tabs>
   </section>
 </template>
 
 <style scoped>
-.editor :deep(textarea) {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+.stats {
+  margin: 0 0 var(--space-3);
   font-size: 12px;
-  line-height: 1.6;
 }
 
-.panel-page__alert {
-  margin-top: 12px;
+.editor {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  height: 460px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--surface);
 }
 
-.actionbar {
-  position: sticky;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 16px;
-  margin-top: 16px;
-  background: var(--panel-surface);
-  border: 1px solid var(--panel-border);
-  border-radius: 8px;
+.editor__gutter {
+  margin: 0;
+  padding: var(--space-3) 8px;
+  overflow: hidden;
+  text-align: right;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border-right: 1px solid var(--border);
+  font-size: 12px;
+  line-height: 20px;
+  user-select: none;
 }
 
-ul {
+.editor__code {
+  width: 100%;
+  height: 100%;
+  padding: var(--space-3);
+  border: 0;
+  resize: none;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 20px;
+  white-space: pre;
+  overflow: auto;
+  outline: none;
+}
+
+.editor__code:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.line-errors {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, var(--border));
+  background: color-mix(in srgb, var(--danger) 8%, var(--surface));
+  border-radius: var(--radius-md);
+  font-size: 13px;
+}
+
+.line-errors ul {
   margin: 6px 0 0;
   padding-left: 18px;
+}
+
+.line-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--info);
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
+}
+
+@media (max-width: 767px) {
+  .editor {
+    height: 360px;
+    grid-template-columns: 44px 1fr;
+  }
 }
 </style>

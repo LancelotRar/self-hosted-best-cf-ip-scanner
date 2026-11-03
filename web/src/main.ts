@@ -8,8 +8,11 @@ import "./styles.css";
 
 import App from "./App.vue";
 import { setUnauthorizedHandler } from "./api";
+import { initTheme } from "./composables/useTheme";
 import router from "./router";
 import { useAuthStore } from "./stores/auth";
+
+initTheme();
 
 const app = createApp(App);
 const pinia = createPinia();

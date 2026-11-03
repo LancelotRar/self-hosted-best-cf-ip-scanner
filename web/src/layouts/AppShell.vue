@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { Moon, Sunny } from "@element-plus/icons-vue";
 import { useRouter } from "vue-router";
 
 import { get } from "../api";
+import StatusPill from "../components/StatusPill.vue";
+import { useTheme } from "../composables/useTheme";
 import { useAuthStore } from "../stores/auth";
 import type { Overview } from "../types";
+import { formatClock } from "../utils/format";
 
 const tabs = [
   { name: "overview", label: "总览" },
@@ -20,28 +24,32 @@ const tabs = [
 
 const auth = useAuthStore();
 const router = useRouter();
+const { theme, toggle } = useTheme();
 
-const scannerState = ref("unknown");
+const scanner = ref("unknown");
 const scannerReason = ref("");
-const lastUpdated = ref("");
+const running = ref(false);
+const updatedAt = ref<Date | null>(null);
+const stale = ref(false);
 let timer: number | undefined;
 
-const online = computed(() => scannerState.value === "running");
-const statusLabel = computed(() => {
-  if (scannerState.value === "unknown") return "状态未知";
-  return online.value ? "扫描器在线" : "扫描器离线";
+const scannerMeta = computed(() => {
+  if (scanner.value === "running") return { tone: "success" as const, label: "扫描器在线" };
+  if (scanner.value === "unknown") return { tone: "neutral" as const, label: "状态未知" };
+  return { tone: "danger" as const, label: "扫描器离线" };
 });
 
 async function refresh() {
   try {
     const data = await get<Overview>("/api/overview");
-    scannerState.value = data.scanner.state;
+    scanner.value = data.scanner.state;
     scannerReason.value = data.scanner.reason ?? "";
-    lastUpdated.value = new Date().toLocaleTimeString("zh-CN", { hour12: false });
+    running.value = Boolean(data.running);
+    updatedAt.value = new Date();
+    stale.value = false;
   } catch (error) {
-    scannerState.value = "unavailable";
+    scanner.value = "unavailable";
     scannerReason.value = (error as Error).message;
-    lastUpdated.value = new Date().toLocaleTimeString("zh-CN", { hour12: false });
   }
 }
 
@@ -53,9 +61,25 @@ async function logout() {
   }
 }
 
+function onTabKey(event: KeyboardEvent, index: number) {
+  if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+  event.preventDefault();
+  const delta = event.key === "ArrowRight" ? 1 : -1;
+  const next = (index + delta + tabs.length) % tabs.length;
+  const links = (event.currentTarget as HTMLElement)
+    .closest("nav")
+    ?.querySelectorAll<HTMLAnchorElement>("a[data-tab]");
+  links?.[next]?.focus();
+}
+
 onMounted(() => {
   void refresh();
-  timer = window.setInterval(() => void refresh(), 30000);
+  timer = window.setInterval(() => {
+    void refresh();
+    if (updatedAt.value && Date.now() - updatedAt.value.getTime() > 90_000) {
+      stale.value = true;
+    }
+  }, 30_000);
 });
 
 onBeforeUnmount(() => {
@@ -65,48 +89,74 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="shell">
-    <header class="shell__bar">
-      <div class="shell__brand">
-        <span class="shell__logo">CF</span>
-        <div>
+    <header class="topbar">
+      <RouterLink :to="{ name: 'overview' }" class="brand" aria-label="回到总览">
+        <span class="brand__mark" aria-hidden="true">CF</span>
+        <span class="brand__text">
           <strong>Cloudflare 优选 IP 扫描器</strong>
-          <div class="panel-muted shell__subtitle">项目专属运维面板</div>
-        </div>
+          <small>项目专属运维面板</small>
+        </span>
+      </RouterLink>
+
+      <div class="status-strip" role="status" aria-live="polite">
+        <StatusPill :tone="scannerMeta.tone" :label="scannerMeta.label" />
+        <StatusPill
+          :tone="running ? 'info' : 'neutral'"
+          :label="running ? '轮次运行中' : '轮次空闲'"
+          :pulse="running"
+        />
+        <span class="status-strip__time muted">
+          更新 <span class="mono">{{ formatClock(updatedAt) }}</span>
+        </span>
+        <span v-if="stale" class="status-strip__stale">数据可能过期</span>
+        <span v-if="scannerReason" class="status-strip__reason muted" :title="scannerReason">
+          {{ scannerReason }}
+        </span>
       </div>
 
-      <div class="shell__status" role="status" aria-live="polite">
-        <el-tag :type="online ? 'success' : 'danger'" effect="dark">{{ statusLabel }}</el-tag>
-        <span class="panel-muted" v-if="scannerReason">原因：{{ scannerReason }}</span>
-        <span class="panel-muted" v-if="lastUpdated">最后更新 {{ lastUpdated }}</span>
-      </div>
-
-      <el-dropdown trigger="click">
-        <el-button text>
-          {{ auth.username ?? "账号" }}
-          <span aria-hidden="true">▾</span>
+      <div class="topbar__actions">
+        <el-button
+          text
+          :aria-label="theme === 'dark' ? '切换到浅色主题' : '切换到深色主题'"
+          @click="toggle"
+        >
+          <el-icon :size="16">
+            <Sunny v-if="theme === 'dark'" />
+            <Moon v-else />
+          </el-icon>
         </el-button>
-        <template #dropdown>
-          <el-dropdown-menu>
-            <el-dropdown-item @click="router.push({ name: 'system' })">账号与系统</el-dropdown-item>
-            <el-dropdown-item divided @click="logout">退出登录</el-dropdown-item>
-          </el-dropdown-menu>
-        </template>
-      </el-dropdown>
+        <el-dropdown trigger="click">
+          <el-button text>
+            {{ auth.username ?? "账号" }}
+            <span aria-hidden="true">▾</span>
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item @click="router.push({ name: 'system' })">
+                账号与系统
+              </el-dropdown-item>
+              <el-dropdown-item divided @click="logout">退出登录</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </div>
     </header>
 
-    <nav class="shell__tabs" aria-label="主导航">
+    <nav class="tabs" aria-label="主导航">
       <RouterLink
-        v-for="tab in tabs"
+        v-for="(tab, index) in tabs"
         :key="tab.name"
         :to="{ name: tab.name }"
-        class="shell__tab"
-        active-class="shell__tab--active"
+        class="tabs__item"
+        active-class="tabs__item--active"
+        data-tab
+        @keydown="onTabKey($event, index)"
       >
         {{ tab.label }}
       </RouterLink>
     </nav>
 
-    <main class="shell__main">
+    <main class="main">
       <RouterView />
     </main>
   </div>
@@ -117,74 +167,159 @@ onBeforeUnmount(() => {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  background: var(--bg);
 }
 
-.shell__bar {
+.topbar {
+  height: var(--header-h);
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 12px 20px;
-  background: var(--panel-surface);
-  border-bottom: 1px solid var(--panel-border);
+  gap: var(--space-4);
+  padding: 0 var(--space-5);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 30;
 }
 
-.shell__brand {
+.brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2);
+  flex: 0 0 auto;
 }
 
-.shell__logo {
+.brand__mark {
   display: inline-grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  background: var(--panel-brand);
-  color: #fff;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: var(--primary);
+  color: var(--on-primary);
   font-weight: 700;
-}
-
-.shell__subtitle {
   font-size: 12px;
+  letter-spacing: 0.04em;
 }
 
-.shell__status {
+.brand__text {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-left: auto;
-  font-size: 12px;
+  flex-direction: column;
+  line-height: 1.2;
 }
 
-.shell__tabs {
-  display: flex;
-  gap: 4px;
-  padding: 0 12px;
-  overflow-x: auto;
-  background: var(--panel-surface);
-  border-bottom: 1px solid var(--panel-border);
-}
-
-.shell__tab {
-  flex: 0 0 auto;
-  padding: 12px 16px;
-  border-bottom: 2px solid transparent;
-  color: var(--panel-muted);
-  white-space: nowrap;
-}
-
-.shell__tab:hover {
-  color: var(--panel-text);
-}
-
-.shell__tab--active {
-  color: var(--panel-brand);
-  border-bottom-color: var(--panel-brand);
+.brand__text strong {
+  font-size: 13px;
   font-weight: 600;
 }
 
-.shell__main {
+.brand__text small {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.status-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.status-strip__time,
+.status-strip__stale {
+  white-space: nowrap;
+}
+
+.status-strip__stale {
+  color: var(--warning);
+}
+
+.status-strip__reason {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: 0 0 auto;
+}
+
+.tabs {
+  height: var(--tabs-h);
+  display: flex;
+  gap: 2px;
+  padding: 0 var(--space-3);
+  overflow-x: auto;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: var(--header-h);
+  z-index: 25;
+}
+
+.tabs::-webkit-scrollbar {
+  height: 0;
+}
+
+.tabs__item {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-4);
+  color: var(--text-muted);
+  font-size: 13px;
+  border-bottom: 2px solid transparent;
+  transition: color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease);
+}
+
+.tabs__item:hover {
+  color: var(--text);
+}
+
+.tabs__item--active {
+  color: var(--text);
+  border-bottom-color: var(--primary);
+  font-weight: 600;
+}
+
+.main {
   flex: 1;
+}
+
+@media (max-width: 1023px) {
+  .status-strip__reason {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .topbar {
+    padding: 0 var(--space-3);
+    gap: var(--space-2);
+  }
+
+  .brand__text {
+    display: none;
+  }
+
+  .status-strip__time {
+    display: none;
+  }
+
+  .tabs {
+    padding: 0;
+  }
+
+  .tabs__item {
+    padding: 0 var(--space-3);
+  }
 }
 </style>

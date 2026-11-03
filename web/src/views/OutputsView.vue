@@ -4,7 +4,10 @@ import { ElMessage } from "element-plus";
 
 import { get } from "../api";
 import EmptyState from "../components/EmptyState.vue";
+import ErrorState from "../components/ErrorState.vue";
+import PageHeader from "../components/PageHeader.vue";
 import type { OutputFile } from "../types";
+import { formatSize, formatTime } from "../utils/format";
 
 interface Preview {
   name: string;
@@ -15,7 +18,6 @@ interface Preview {
   content?: string;
   headers?: string[];
   rows?: string[][];
-  line_count?: number;
   truncated?: boolean;
 }
 
@@ -25,8 +27,10 @@ const loading = ref(false);
 const error = ref("");
 const activeTab = ref("all");
 const previewVisible = ref(false);
-const current = ref<Preview | null>(null);
 const previewLoading = ref(false);
+const current = ref<Preview | null>(null);
+const copyVisible = ref(false);
+const copyText = ref("");
 
 const filtered = computed(() => {
   if (activeTab.value === "subscription") {
@@ -54,8 +58,8 @@ async function load() {
 }
 
 async function openPreview(file: OutputFile) {
-  previewLoading.value = true;
   previewVisible.value = true;
+  previewLoading.value = true;
   current.value = null;
   try {
     current.value = await get<Preview>(`/api/outputs/${encodeURIComponent(file.name)}`);
@@ -70,38 +74,30 @@ async function openPreview(file: OutputFile) {
 async function copySubscription(file: OutputFile) {
   try {
     const data = await get<Preview>(`/api/outputs/${encodeURIComponent(file.name)}`);
-    await navigator.clipboard.writeText(data.content ?? "");
-    ElMessage.success("已复制订阅内容");
+    const text = data.content ?? "";
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      ElMessage.success("已复制订阅内容");
+      return;
+    }
+    copyText.value = text;
+    copyVisible.value = true;
   } catch (exception) {
     ElMessage.error((exception as Error).message);
   }
-}
-
-function formatTime(value: string): string {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("zh-CN", { hour12: false });
-}
-
-function formatSize(size: number): string {
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  return `${(size / 1024 / 1024).toFixed(1)} MB`;
 }
 
 onMounted(load);
 </script>
 
 <template>
-  <section class="panel-page">
-    <div class="panel-page__title">
-      <h1>产物</h1>
+  <section class="page">
+    <PageHeader title="产物" subtitle="TXT / CSV 预览、下载与订阅复制">
+      <span v-if="readAt" class="muted">本次读取 {{ formatTime(readAt) }}</span>
       <el-button :loading="loading" @click="load">刷新</el-button>
-    </div>
+    </PageHeader>
 
-    <p class="panel-muted" v-if="readAt">本次读取：{{ formatTime(readAt) }}</p>
-    <el-alert v-if="error" :title="error" type="error" show-icon :closable="false">
-      <el-button size="small" @click="load">重试</el-button>
-    </el-alert>
+    <ErrorState v-if="error" :message="error" @retry="load" />
 
     <el-tabs v-model="activeTab">
       <el-tab-pane label="全部" name="all" />
@@ -110,17 +106,19 @@ onMounted(load);
     </el-tabs>
 
     <el-table v-if="filtered.length" :data="filtered" size="small">
-      <el-table-column prop="name" label="文件" />
+      <el-table-column prop="name" label="文件" min-width="200">
+        <template #default="{ row }"><span class="mono">{{ row.name }}</span></template>
+      </el-table-column>
       <el-table-column label="大小" width="110">
         <template #default="{ row }">{{ formatSize(row.size) }}</template>
       </el-table-column>
-      <el-table-column label="修改时间" width="200">
+      <el-table-column label="修改时间" width="180">
         <template #default="{ row }">{{ formatTime(row.mtime) }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="240">
+      <el-table-column label="操作" width="230">
         <template #default="{ row }">
           <el-button size="small" @click="openPreview(row)">预览</el-button>
-          <el-button size="small" @click="copySubscription(row)" v-if="row.name.endsWith('.txt')">
+          <el-button v-if="row.name.endsWith('.txt')" size="small" @click="copySubscription(row)">
             复制
           </el-button>
           <a :href="`/api/outputs/${encodeURIComponent(row.name)}?download=true`">
@@ -133,41 +131,55 @@ onMounted(load);
       v-else
       title="尚无产物"
       description="尚无产物（下一轮扫描成功后生成）"
-      :retry-label="error ? '重试' : ''"
-      @retry="load"
+      :action-label="error ? '重试' : ''"
+      @action="load"
     />
 
     <el-drawer v-model="previewVisible" :title="current?.name ?? '预览'" size="60%">
       <el-skeleton v-if="previewLoading" :rows="8" animated />
       <template v-else-if="current">
-        <p class="panel-muted">
+        <p class="muted preview-meta">
           {{ formatSize(current.size) }} · {{ formatTime(current.mtime) }} · sha256
-          <span class="panel-mono">{{ current.sha256.slice(0, 12) }}…</span>
+          <span class="mono">{{ current.sha256.slice(0, 12) }}…</span>
         </p>
         <el-table v-if="current.kind === 'csv'" :data="current.rows ?? []" size="small" height="420">
           <el-table-column
             v-for="(header, index) in current.headers"
             :key="index"
             :label="header"
-            :prop="String(index)"
+            min-width="120"
           >
             <template #default="{ row }">{{ row[index] }}</template>
           </el-table-column>
         </el-table>
-        <pre v-else-if="current.kind === 'text'" class="panel-mono preview">{{ current.content }}</pre>
-        <el-empty v-else description="该类型不支持预览，请下载查看" />
-        <p class="panel-muted" v-if="current.truncated">仅显示前 200 行。</p>
+        <pre v-else-if="current.kind === 'text'" class="preview-text mono">{{ current.content }}</pre>
+        <EmptyState v-else title="该类型不支持预览" description="请下载后查看" />
+        <p v-if="current.truncated" class="muted">仅显示前 200 行。</p>
       </template>
     </el-drawer>
+
+    <el-dialog v-model="copyVisible" title="复制订阅内容" width="min(720px, 92vw)">
+      <p class="muted">当前环境不允许直接写剪贴板，请手动复制：</p>
+      <el-input v-model="copyText" type="textarea" :rows="12" readonly class="mono" />
+    </el-dialog>
   </section>
 </template>
 
 <style scoped>
-.preview {
-  max-height: 420px;
+.preview-meta {
+  margin: 0 0 var(--space-3);
+  font-size: 12px;
+}
+
+.preview-text {
+  max-height: 460px;
   overflow: auto;
-  padding: 12px;
-  background: var(--panel-bg);
-  border-radius: 8px;
+  margin: 0;
+  padding: var(--space-3);
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 </style>

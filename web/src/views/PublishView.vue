@@ -4,10 +4,14 @@ import { onBeforeRouteLeave } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 
 import { get, put } from "../api";
+import EmptyState from "../components/EmptyState.vue";
+import ErrorState from "../components/ErrorState.vue";
+import PageHeader from "../components/PageHeader.vue";
 import ParamField from "../components/ParamField.vue";
 import SaveResultPanel from "../components/SaveResultPanel.vue";
-import EmptyState from "../components/EmptyState.vue";
+import StatusPill from "../components/StatusPill.vue";
 import type { Param, RunRecord, SaveResult } from "../types";
+import { exitLabel, formatTime } from "../utils/format";
 
 const activeTab = ref("params");
 const params = ref<Param[]>([]);
@@ -18,6 +22,10 @@ const last = ref<RunRecord | null>(null);
 const error = ref("");
 const saving = ref(false);
 const result = ref<SaveResult | null>(null);
+
+const pushEnabled = computed(
+  () => params.value.find((param) => param.name === "GIT_PUSH_ENABLED")?.value === true,
+);
 
 const dirtyParams = computed(() =>
   params.value.filter(
@@ -30,18 +38,14 @@ const dirty = computed(() => dirtyParams.value.length > 0);
 async function load() {
   error.value = "";
   try {
-    const data = await get<{
-      hash: string;
-      params: Param[];
-      last: RunRecord | null;
-    }>("/api/publish");
+    const data = await get<{ hash: string; params: Param[]; last: RunRecord | null }>(
+      "/api/publish",
+    );
     params.value = data.params;
     hash.value = data.hash;
     last.value = data.last;
     const snapshot: Record<string, unknown> = {};
-    for (const param of data.params) {
-      snapshot[param.name] = param.value;
-    }
+    for (const param of data.params) snapshot[param.name] = param.value;
     serverValues.value = { ...snapshot };
     values.value = { ...snapshot };
   } catch (exception) {
@@ -70,6 +74,7 @@ async function save() {
     ElMessage.success("已保存发布参数");
     await load();
   } catch (exception) {
+    result.value = null;
     ElMessage.error((exception as Error).message);
   } finally {
     saving.value = false;
@@ -78,17 +83,6 @@ async function save() {
 
 function cancel() {
   values.value = { ...serverValues.value };
-}
-
-function exitLabel(code: number | null): string {
-  if (code === null) return "—";
-  return code === 0 ? "成功" : `失败（${code}）`;
-}
-
-function formatTime(value: string | null): string {
-  if (!value) return "—";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("zh-CN", { hour12: false });
 }
 
 onMounted(load);
@@ -109,67 +103,94 @@ onBeforeRouteLeave(async () => {
 </script>
 
 <template>
-  <section class="panel-page">
-    <div class="panel-page__title">
-      <h1>发布</h1>
+  <section class="page page--flush">
+    <PageHeader title="发布" subtitle="Git 推送参数与最近一次推送结果">
+      <StatusPill
+        :tone="pushEnabled ? 'success' : 'neutral'"
+        :label="pushEnabled ? '推送已开启' : '推送已关闭'"
+      />
       <el-button @click="load">重新加载</el-button>
-    </div>
+    </PageHeader>
 
-    <el-alert v-if="error" :title="error" type="error" show-icon :closable="false">
-      <el-button size="small" @click="load">重试</el-button>
-    </el-alert>
+    <ErrorState v-if="error" :message="error" @retry="load" />
 
     <el-tabs v-model="activeTab">
       <el-tab-pane label="参数" name="params">
-        <ParamField
-          v-for="param in params"
-          :key="param.name"
-          :param="param"
-          :model-value="values[param.name]"
-          @update:model-value="update(param, $event)"
-        />
+        <div class="params">
+          <ParamField
+            v-for="param in params"
+            :key="param.name"
+            :param="param"
+            :model-value="values[param.name]"
+            @update:model-value="update(param, $event)"
+          />
+        </div>
+
+        <SaveResultPanel :result="result" @close="result = null" />
+
         <div class="actionbar">
-          <span class="panel-muted">{{ dirty ? "有未保存的修改" : "与服务端一致" }}</span>
-          <div>
+          <span class="muted">{{ dirty ? "有未保存的修改" : "与服务端一致" }}</span>
+          <div class="actionbar__buttons">
             <el-button :disabled="!dirty" @click="cancel">取消</el-button>
-            <el-button type="primary" :disabled="!dirty" :loading="saving" @click="save">保存</el-button>
+            <el-button type="primary" :disabled="!dirty" :loading="saving" @click="save">
+              保存
+            </el-button>
           </div>
         </div>
-        <SaveResultPanel :result="result" @close="result = null" />
       </el-tab-pane>
 
       <el-tab-pane label="最近结果" name="last">
-        <template v-if="last">
-          <el-descriptions :column="2" border>
-            <el-descriptions-item label="轮次">{{ last.run_id }}</el-descriptions-item>
-            <el-descriptions-item label="结束时间">{{ formatTime(last.finished_at) }}</el-descriptions-item>
-            <el-descriptions-item label="扫描">{{ exitLabel(last.scan_exit) }}</el-descriptions-item>
-            <el-descriptions-item label="发布">{{ exitLabel(last.publish_exit) }}</el-descriptions-item>
-            <el-descriptions-item label="摘要" :span="2">{{ last.summary ?? "—" }}</el-descriptions-item>
-          </el-descriptions>
-        </template>
-        <EmptyState v-else title="尚无发布记录" description="尚无发布记录（完成一轮扫描后生成）" retry-label="" />
+        <section v-if="last" class="panel">
+          <header class="panel__head">最近一轮</header>
+          <div class="panel__body">
+            <dl class="kv">
+              <dt>轮次</dt>
+              <dd class="mono">{{ last.run_id }}</dd>
+              <dt>结束时间</dt>
+              <dd>{{ formatTime(last.finished_at) }}</dd>
+              <dt>扫描</dt>
+              <dd>{{ exitLabel(last.scan_exit) }}</dd>
+              <dt>发布</dt>
+              <dd>{{ exitLabel(last.publish_exit) }}</dd>
+              <dt>摘要</dt>
+              <dd>{{ last.summary ?? "—" }}</dd>
+            </dl>
+          </div>
+        </section>
+        <EmptyState
+          v-else
+          title="尚无发布记录"
+          description="尚无发布记录（完成一轮扫描后生成）"
+          action-label="刷新"
+          @action="load"
+        />
       </el-tab-pane>
     </el-tabs>
   </section>
 </template>
 
 <style scoped>
-.actionbar {
-  position: sticky;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 16px;
-  margin-top: 16px;
-  background: var(--panel-surface);
-  border: 1px solid var(--panel-border);
-  border-radius: 8px;
+.params {
+  padding: var(--space-2) var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
 }
 
-.panel-page__alert {
-  margin-top: 12px;
+.kv {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 8px 16px;
+  margin: 0;
+}
+
+.kv dt {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.kv dd {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 </style>

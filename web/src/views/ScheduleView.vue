@@ -4,14 +4,19 @@ import { onBeforeRouteLeave } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 
 import { get, post } from "../api";
+import ErrorState from "../components/ErrorState.vue";
+import PageHeader from "../components/PageHeader.vue";
+import SaveResultPanel from "../components/SaveResultPanel.vue";
+import StatusPill from "../components/StatusPill.vue";
 import { useConfigStore } from "../stores/config";
 import type { SchedulePreview } from "../types";
+import { formatTime } from "../utils/format";
 
 const store = useConfigStore();
 const cron = ref("");
 const serverCron = ref("");
-const tz = ref("");
-const runs = ref<string[]>([]);
+const timezone = ref("");
+const preview = ref<string[]>([]);
 const previewError = ref("");
 const loadError = ref("");
 const applyResult = ref("");
@@ -26,17 +31,17 @@ const templates = [
 
 const dirty = computed(() => cron.value !== serverCron.value);
 
-async function preview() {
+async function loadPreview() {
   previewError.value = "";
   try {
     const data = await get<SchedulePreview>(
       `/api/schedule/preview?cron=${encodeURIComponent(cron.value)}`,
     );
-    tz.value = data.tz;
-    runs.value = data.runs;
+    timezone.value = data.tz;
+    preview.value = data.runs;
   } catch (error) {
     previewError.value = (error as Error).message;
-    runs.value = [];
+    preview.value = [];
   }
 }
 
@@ -47,7 +52,7 @@ async function load() {
     const param = store.params.find((item) => item.name === "CRON_SCHEDULE");
     serverCron.value = param ? String(param.value) : "";
     cron.value = serverCron.value;
-    await preview();
+    await loadPreview();
   } catch (error) {
     loadError.value = (error as Error).message;
   }
@@ -62,7 +67,7 @@ async function save() {
       ? "已热重载调度"
       : "已保存；调度未变化或扫描容器离线（watcher 会补应用）";
     ElMessage.success("已保存");
-    await preview();
+    await loadPreview();
   } catch (error) {
     ElMessage.error((error as Error).message);
   }
@@ -73,10 +78,7 @@ async function applyNow() {
   applyResult.value = "";
   try {
     const data = await post<{ applied: boolean; output: string }>("/api/schedule/apply");
-    applyResult.value = data.output
-      ? `已重新应用调度
-${data.output}`
-      : "已重新应用调度";
+    applyResult.value = data.output ? `已应用\n${data.output}` : "已应用";
     ElMessage.success("已应用");
   } catch (error) {
     applyResult.value = `应用失败：${(error as Error).message}`;
@@ -88,15 +90,37 @@ ${data.output}`
 
 function cancel() {
   cron.value = serverCron.value;
-  void preview();
+  void loadPreview();
 }
 
-function formatTime(value: string): string {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("zh-CN", { hour12: false });
+async function verifyNow() {
+  try {
+    await store.verify();
+    ElMessage.success("已重新核对");
+  } catch (error) {
+    ElMessage.error((error as Error).message);
+  }
 }
 
-watch(cron, () => void preview());
+async function runNow() {
+  try {
+    await post("/api/runs");
+    ElMessage.success("已触发一轮，可在「运行」页查看输出");
+  } catch (error) {
+    ElMessage.error((error as Error).message);
+  }
+}
+
+async function restartScanner() {
+  try {
+    await post("/api/system/restart", undefined, { "X-Confirm": "restart" });
+    ElMessage.success("已请求重启扫描容器");
+  } catch (error) {
+    ElMessage.error((error as Error).message);
+  }
+}
+
+watch(cron, () => void loadPreview());
 onMounted(load);
 
 onBeforeRouteLeave(async () => {
@@ -115,83 +139,120 @@ onBeforeRouteLeave(async () => {
 </script>
 
 <template>
-  <section class="panel-page">
-    <div class="panel-page__title">
-      <h1>调度</h1>
+  <section class="page page--flush">
+    <PageHeader title="调度" subtitle="cron 表达式保存后热重载，无需重启容器">
       <el-button :loading="applying" @click="applyNow">重新应用调度</el-button>
-    </div>
+    </PageHeader>
 
-    <el-alert v-if="loadError" :title="loadError" type="error" show-icon :closable="false">
-      <el-button size="small" @click="load">重试</el-button>
-    </el-alert>
+    <ErrorState v-if="loadError" :message="loadError" @retry="load" />
 
-    <el-alert v-if="applyResult" :title="applyResult" type="info" :closable="false" show-icon />
+    <template v-else>
+      <div class="grid schedule-grid">
+        <section class="panel">
+          <header class="panel__head">
+            <span>CRON_SCHEDULE</span>
+            <StatusPill tone="neutral" :label="timezone || '时区读取中'" />
+          </header>
+          <div class="panel__body stack">
+            <el-input v-model="cron" class="mono" placeholder="例如 30 */6 * * *" />
+            <div class="row">
+              <el-button
+                v-for="template in templates"
+                :key="template.value"
+                size="small"
+                @click="cron = template.value"
+              >
+                {{ template.label }}
+              </el-button>
+            </div>
+            <p class="muted hint">
+              支持 5 段（分 时 日 月 周）、6 段（第 6 位是年）、7 段（含秒）；不支持 @daily 宏。
+            </p>
+          </div>
+        </section>
 
-    <el-card shadow="never" class="block">
-      <template #header>CRON_SCHEDULE（{{ tz || "时区读取中" }}）</template>
-      <el-input v-model="cron" placeholder="例如 30 */6 * * *" />
-      <div class="templates">
-        <el-button
-          v-for="template in templates"
-          :key="template.value"
-          size="small"
-          @click="cron = template.value"
-        >
-          {{ template.label }}
-        </el-button>
+        <section class="panel">
+          <header class="panel__head">未来 5 次执行</header>
+          <div class="panel__body">
+            <p v-if="previewError" class="preview-error" role="alert">{{ previewError }}</p>
+            <ol v-else-if="preview.length" class="preview-list">
+              <li v-for="run in preview" :key="run" class="mono">{{ formatTime(run) }}</li>
+            </ol>
+            <p v-else class="muted">尚无预览；检查表达式是否合法。</p>
+          </div>
+        </section>
       </div>
-      <p class="panel-muted">支持 5 段、6 段（第 6 位是年）与 7 段（含秒），不支持 @daily。</p>
-    </el-card>
 
-    <el-card shadow="never" class="block">
-      <template #header>未来 5 次执行</template>
-      <el-alert v-if="previewError" :title="previewError" type="error" :closable="false" show-icon />
-      <ol v-else-if="runs.length">
-        <li v-for="run in runs" :key="run">{{ formatTime(run) }}</li>
-      </ol>
-      <el-empty v-else description="尚无预览；检查表达式是否合法" />
-    </el-card>
+      <pre v-if="applyResult" class="apply-output mono">{{ applyResult }}</pre>
 
-    <div class="actionbar">
-      <span class="panel-muted">{{ dirty ? "有未保存的调度修改" : "与已保存值一致" }}</span>
-      <div>
-        <el-button :disabled="!dirty" @click="cancel">取消</el-button>
-        <el-button type="primary" :disabled="!dirty || Boolean(previewError)" :loading="store.saving" @click="save">
-          保存
-        </el-button>
+      <SaveResultPanel
+        :result="store.lastResult"
+        @close="store.lastResult = null"
+        @restart="restartScanner"
+        @verify="verifyNow"
+        @run="runNow"
+      />
+
+      <div class="actionbar">
+        <span class="muted">{{ dirty ? "有未保存的调度修改" : "与已保存值一致" }}</span>
+        <div class="actionbar__buttons">
+          <el-button :disabled="!dirty" @click="cancel">取消</el-button>
+          <el-button
+            type="primary"
+            :disabled="!dirty || Boolean(previewError)"
+            :loading="store.saving"
+            @click="save"
+          >
+            保存
+          </el-button>
+        </div>
       </div>
-    </div>
+    </template>
   </section>
 </template>
 
 <style scoped>
-.block {
-  margin-top: 16px;
+.schedule-grid {
+  grid-template-columns: minmax(320px, 1.2fr) minmax(280px, 1fr);
 }
 
-.templates {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-  flex-wrap: wrap;
-}
-
-.actionbar {
-  position: sticky;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 16px;
-  margin-top: 16px;
-  background: var(--panel-surface);
-  border: 1px solid var(--panel-border);
-  border-radius: 8px;
-}
-
-ol {
+.hint {
   margin: 0;
-  padding-left: 20px;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.preview-list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.preview-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.apply-output {
+  margin: var(--space-3) 0 0;
+  padding: var(--space-3);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 200px;
+  overflow: auto;
+}
+
+@media (max-width: 1023px) {
+  .schedule-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

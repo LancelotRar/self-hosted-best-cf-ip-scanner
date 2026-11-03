@@ -90,6 +90,7 @@ export interface RunRecord {
 
 export interface Overview {
   scanner: ScannerStatus;
+  running: boolean;
   last_run: RunRecord | null;
   next_runs: string[];
   config_summary: Record<string, unknown>;

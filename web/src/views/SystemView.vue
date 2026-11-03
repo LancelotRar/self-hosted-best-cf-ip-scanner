@@ -1,21 +1,23 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { onMounted, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 
 import { get, post } from "../api";
 import EmptyState from "../components/EmptyState.vue";
+import ErrorState from "../components/ErrorState.vue";
+import PageHeader from "../components/PageHeader.vue";
 
 interface AuditItem {
   id: number;
   at: string;
   actor: string;
   action: string;
-  target: string;
   detail: string;
   ip: string;
 }
 
 const activeTab = ref("account");
+
 const currentPassword = ref("");
 const newPassword = ref("");
 const confirmPassword = ref("");
@@ -24,15 +26,16 @@ const passwordOk = ref("");
 const savingPassword = ref(false);
 
 const audits = ref<AuditItem[]>([]);
+const auditError = ref("");
 const page = ref(1);
 const total = ref(0);
 const pageSize = 50;
+
 const info = ref<Record<string, unknown> | null>(null);
+const infoError = ref("");
 const busy = ref("");
 
 const labels: Record<string, string> = { restart: "重启", stop: "停止", start: "启动" };
-
-const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)));
 
 async function changePassword() {
   passwordError.value = "";
@@ -63,29 +66,36 @@ async function changePassword() {
 }
 
 async function loadAudit(target = page.value) {
-  const data = await get<{ items: AuditItem[]; page: number; total: number }>(
-    `/api/audit?page=${target}`,
-  );
-  audits.value = data.items;
-  page.value = data.page;
-  total.value = data.total;
+  auditError.value = "";
+  try {
+    const data = await get<{ items: AuditItem[]; page: number; total: number }>(
+      `/api/audit?page=${target}`,
+    );
+    audits.value = data.items;
+    page.value = data.page;
+    total.value = data.total;
+  } catch (exception) {
+    auditError.value = (exception as Error).message;
+    audits.value = [];
+  }
 }
 
 async function loadInfo() {
+  infoError.value = "";
   try {
     info.value = await get<Record<string, unknown>>("/api/system/info");
   } catch (exception) {
-    ElMessage.error((exception as Error).message);
+    infoError.value = (exception as Error).message;
   }
 }
 
 async function operate(action: "restart" | "stop" | "start") {
   try {
-    await ElMessageBox.confirm(`确认${labels[action]}扫描容器？`, "危险操作", {
-      confirmButtonText: labels[action],
-      cancelButtonText: "取消",
-      type: "warning",
-    });
+    await ElMessageBox.confirm(
+      `确认${labels[action]}扫描容器？重启/停止会中断当前这一轮扫描（最多 150s 收尾）。`,
+      `${labels[action]}扫描容器`,
+      { confirmButtonText: labels[action], cancelButtonText: "取消", type: "warning" },
+    );
   } catch {
     return;
   }
@@ -107,105 +117,185 @@ function formatTime(value: string): string {
 }
 
 onMounted(async () => {
-  await loadAudit().catch((exception: Error) => ElMessage.error(exception.message));
+  await loadAudit();
   await loadInfo();
 });
 </script>
 
 <template>
-  <section class="panel-page">
-    <div class="panel-page__title">
-      <h1>系统</h1>
-    </div>
+  <section class="page">
+    <PageHeader title="系统" subtitle="账号、审计、容器操作与版本信息" />
 
     <el-tabs v-model="activeTab">
       <el-tab-pane label="账号" name="account">
-        <el-form label-width="120px" class="form" @submit.prevent="changePassword">
-          <el-form-item label="当前密码">
-            <el-input v-model="currentPassword" type="password" show-password autocomplete="current-password" />
-          </el-form-item>
-          <el-form-item label="新密码">
-            <el-input v-model="newPassword" type="password" show-password autocomplete="new-password" />
-          </el-form-item>
-          <el-form-item label="确认新密码">
-            <el-input v-model="confirmPassword" type="password" show-password autocomplete="new-password" />
-          </el-form-item>
-          <el-alert v-if="passwordError" :title="passwordError" type="error" :closable="false" show-icon />
-          <el-alert v-if="passwordOk" :title="passwordOk" type="success" :closable="false" show-icon />
-          <el-button type="primary" :loading="savingPassword" class="form__submit" @click="changePassword">
-            修改密码
-          </el-button>
-        </el-form>
+        <section class="panel form-panel">
+          <header class="panel__head">修改密码</header>
+          <div class="panel__body stack">
+            <label class="field-label" for="current-password">当前密码</label>
+            <el-input
+              id="current-password"
+              v-model="currentPassword"
+              type="password"
+              show-password
+              autocomplete="current-password"
+            />
+
+            <label class="field-label" for="new-password">新密码</label>
+            <el-input
+              id="new-password"
+              v-model="newPassword"
+              type="password"
+              show-password
+              autocomplete="new-password"
+            />
+
+            <label class="field-label" for="confirm-password">确认新密码</label>
+            <el-input
+              id="confirm-password"
+              v-model="confirmPassword"
+              type="password"
+              show-password
+              autocomplete="new-password"
+            />
+
+            <p v-if="passwordError" class="form-error" role="alert">{{ passwordError }}</p>
+            <p v-if="passwordOk" class="form-ok" role="status">{{ passwordOk }}</p>
+
+            <div>
+              <el-button type="primary" :loading="savingPassword" @click="changePassword">
+                修改密码
+              </el-button>
+            </div>
+          </div>
+        </section>
       </el-tab-pane>
 
       <el-tab-pane label="审计" name="audit">
-        <el-table v-if="audits.length" :data="audits" size="small">
-          <el-table-column label="时间" width="180">
-            <template #default="{ row }">{{ formatTime(row.at) }}</template>
-          </el-table-column>
-          <el-table-column prop="actor" label="操作者" width="100" />
-          <el-table-column prop="action" label="动作" width="180" />
-          <el-table-column prop="detail" label="详情" />
-          <el-table-column prop="ip" label="来源" width="120" />
-        </el-table>
-        <EmptyState v-else title="尚无操作记录" description="尚无操作记录" retry-label="" />
-        <el-pagination
-          v-if="total > pageSize"
-          layout="prev, pager, next"
-          :current-page="page"
-          :page-size="pageSize"
-          :total="total"
-          @current-change="loadAudit"
-        />
+        <ErrorState v-if="auditError" :message="auditError" @retry="loadAudit()" />
+        <template v-else>
+          <el-table v-if="audits.length" :data="audits" size="small">
+            <el-table-column label="时间" width="180">
+              <template #default="{ row }">{{ formatTime(row.at) }}</template>
+            </el-table-column>
+            <el-table-column prop="actor" label="操作者" width="90" />
+            <el-table-column prop="action" label="动作" width="170">
+              <template #default="{ row }"><span class="mono">{{ row.action }}</span></template>
+            </el-table-column>
+            <el-table-column prop="detail" label="详情" min-width="220" />
+            <el-table-column prop="ip" label="来源" width="110">
+              <template #default="{ row }"><span class="mono">{{ row.ip }}</span></template>
+            </el-table-column>
+          </el-table>
+          <EmptyState
+            v-else
+            title="尚无操作记录"
+            description="登录、配置保存、容器操作都会记录在这里"
+            action-label="刷新"
+            @action="loadAudit()"
+          />
+          <el-pagination
+            v-if="total > pageSize"
+            layout="prev, pager, next"
+            :current-page="page"
+            :page-size="pageSize"
+            :total="total"
+            @current-change="loadAudit"
+          />
+        </template>
       </el-tab-pane>
 
       <el-tab-pane label="容器" name="container">
-        <p class="panel-muted">只操作本项目的扫描容器；重启会中断当前这一轮扫描。</p>
-        <div class="buttons">
-          <el-button :loading="busy === 'restart'" @click="operate('restart')">重启扫描容器</el-button>
-          <el-button :loading="busy === 'stop'" @click="operate('stop')">停止</el-button>
-          <el-button :loading="busy === 'start'" @click="operate('start')">启动</el-button>
-        </div>
+        <section class="panel">
+          <header class="panel__head">扫描容器</header>
+          <div class="panel__body stack">
+            <p class="muted">
+              只操作本项目的扫描容器；重启/停止会中断当前这一轮，产物保留上一轮。
+            </p>
+            <div class="row">
+              <el-button :loading="busy === 'restart'" @click="operate('restart')">
+                重启扫描容器
+              </el-button>
+              <el-button :loading="busy === 'stop'" @click="operate('stop')">停止</el-button>
+              <el-button :loading="busy === 'start'" @click="operate('start')">启动</el-button>
+            </div>
+          </div>
+        </section>
       </el-tab-pane>
 
       <el-tab-pane label="关于" name="about">
-        <el-descriptions v-if="info" :column="2" border>
-          <el-descriptions-item label="面板版本">{{ info.panel_version }}</el-descriptions-item>
-          <el-descriptions-item label="镜像">{{ info.image }}</el-descriptions-item>
-          <el-descriptions-item label="Python">{{ info.python }}</el-descriptions-item>
-          <el-descriptions-item label="Docker SDK">{{ info.docker }}</el-descriptions-item>
-        </el-descriptions>
-        <el-alert
-          type="info"
-          :closable="false"
-          show-icon
-          title="忘记密码时可在宿主机执行：docker compose exec panel python -m panel.cli reset-password"
-          class="panel-page__alert"
-        />
-        <p class="panel-muted">
-          配置版本与审计记录都会保留；不要把删除 panel.db 当作恢复手段。
-        </p>
+        <ErrorState v-if="infoError" :message="infoError" @retry="loadInfo" />
+        <section v-else class="panel">
+          <header class="panel__head">版本信息</header>
+          <div class="panel__body">
+            <dl v-if="info" class="kv">
+              <dt>面板版本</dt>
+              <dd class="mono">{{ info.panel_version }}</dd>
+              <dt>镜像</dt>
+              <dd class="mono">{{ info.image }}</dd>
+              <dt>Python</dt>
+              <dd class="mono">{{ info.python }}</dd>
+              <dt>Docker SDK</dt>
+              <dd class="mono">{{ info.docker }}</dd>
+            </dl>
+            <p class="muted about-hint">
+              忘记密码时在宿主机执行：
+              <code class="mono">docker compose exec panel python -m panel.cli reset-password</code>
+            </p>
+            <p class="muted">配置版本与审计记录都会保留；不要把删除 panel.db 当作恢复手段。</p>
+          </div>
+        </section>
       </el-tab-pane>
     </el-tabs>
   </section>
 </template>
 
 <style scoped>
-.form {
+.form-panel {
   max-width: 560px;
 }
 
-.form__submit {
-  margin-top: 12px;
+.field-label {
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
-.buttons {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+.form-error,
+.form-ok {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
 }
 
-.panel-page__alert {
-  margin-top: 12px;
+.form-error {
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, var(--border));
+  background: color-mix(in srgb, var(--danger) 8%, var(--surface));
+}
+
+.form-ok {
+  border: 1px solid color-mix(in srgb, var(--success) 45%, var(--border));
+  background: color-mix(in srgb, var(--success) 8%, var(--surface));
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 8px 16px;
+  margin: 0;
+}
+
+.kv dt {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.kv dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.about-hint {
+  margin-top: var(--space-4);
+  line-height: 1.8;
 }
 </style>

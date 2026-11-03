@@ -20,14 +20,21 @@ const textValue = computed(() => {
   return String(value);
 });
 
-const effectLabel = computed(() => {
+const defaultText = computed(() => {
+  const value = props.param.default;
+  if (Array.isArray(value)) return value.join(",");
+  if (typeof value === "boolean") return value ? "true" : "false";
+  return String(value);
+});
+
+const effectTag = computed(() => {
   switch (props.param.effect) {
     case "restart_required":
-      return "需重启";
+      return { label: "需重启", tone: "warning" };
     case "schedule_reload":
-      return "热重载";
+      return { label: "热重载", tone: "info" };
     default:
-      return "下一轮";
+      return { label: "下一轮", tone: "success" };
   }
 });
 
@@ -60,20 +67,16 @@ function onBool(value: string | number | boolean) {
 </script>
 
 <template>
-  <div class="param-field">
-    <div class="param-field__head">
-      <label class="param-field__label" :for="`param-${param.name}`">{{ param.label }}</label>
-      <div class="param-field__tags">
-        <el-tag
-          size="small"
-          :type="param.effect === 'restart_required' ? 'warning' : param.effect === 'schedule_reload' ? 'primary' : 'success'"
-        >
-          {{ effectLabel }}
-        </el-tag>
-        <el-tag size="small" :type="param.source === 'dotenv' ? 'warning' : 'info'">
-          {{ param.source === "dotenv" ? "来自 .env" : "默认值" }}
-        </el-tag>
-        <el-tag v-if="param.read_only" size="small" type="info">只读</el-tag>
+  <div class="field" :class="{ 'field--readonly': disabled }">
+    <div class="field__head">
+      <label class="field__label" :for="`param-${param.name}`">{{ param.label }}</label>
+      <div class="field__tags">
+        <span class="tag" :class="`tag--${effectTag.tone}`">{{ effectTag.label }}</span>
+        <span class="tag">{{ param.source === "dotenv" ? "来自 .env" : "默认值" }}</span>
+        <span v-if="param.read_only" class="tag">只读</span>
+        <span v-else-if="param.secret" class="tag">
+          {{ param.configured ? "已配置" : "未配置" }}
+        </span>
       </div>
     </div>
 
@@ -89,14 +92,17 @@ function onBool(value: string | number | boolean) {
       type="number"
       :model-value="textValue"
       :disabled="disabled"
+      :aria-describedby="`param-${param.name}-help`"
       @input="onNumber"
     />
     <el-input
       v-else-if="param.kind === 'ports' || param.kind === 'csv_int'"
       :id="`param-${param.name}`"
+      class="mono"
       :model-value="textValue"
       :disabled="disabled"
       placeholder="逗号分隔，例如 443,2053"
+      :aria-describedby="`param-${param.name}-help`"
       @input="onList"
     />
     <el-input
@@ -107,57 +113,96 @@ function onBool(value: string | number | boolean) {
       :model-value="textValue"
       :disabled="disabled"
       :placeholder="param.configured ? '已配置；留空表示不修改' : '未配置'"
+      :aria-describedby="`param-${param.name}-help`"
       @input="onText"
     />
     <el-input
       v-else
       :id="`param-${param.name}`"
+      :class="{ mono: param.kind === 'cron' || param.kind === 'path' }"
       :model-value="textValue"
       :disabled="disabled"
+      :aria-describedby="`param-${param.name}-help`"
       @input="onText"
     />
 
-    <p class="panel-muted param-field__help">{{ param.help }}</p>
-    <p class="panel-muted param-field__default">
-      默认：{{ Array.isArray(param.default) ? param.default.join(",") : String(param.default) }}
-    </p>
+    <p :id="`param-${param.name}-help`" class="field__help">{{ param.help }}</p>
+    <p class="field__default">默认：{{ defaultText }}</p>
   </div>
 </template>
 
 <style scoped>
-.param-field {
-  padding: 10px 0;
-  border-bottom: 1px dashed var(--panel-border);
+.field {
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
 }
 
-.param-field:last-child {
+.field:last-child {
   border-bottom: none;
 }
 
-.param-field__head {
+.field--readonly {
+  opacity: 0.82;
+}
+
+.field__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 6px;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+  flex-wrap: wrap;
 }
 
-.param-field__label {
+.field__label {
   font-weight: 600;
+  font-size: 13px;
 }
 
-.param-field__tags {
+.field__tags {
   display: flex;
-  gap: 4px;
+  gap: var(--space-1);
+  flex-wrap: wrap;
 }
 
-.param-field__help {
+.tag {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.tag--success {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 38%, var(--border));
+}
+
+.tag--warning {
+  color: var(--warning);
+  border-color: color-mix(in srgb, var(--warning) 38%, var(--border));
+}
+
+.tag--info {
+  color: var(--info);
+  border-color: color-mix(in srgb, var(--info) 38%, var(--border));
+}
+
+.field__help,
+.field__default {
   margin: 6px 0 0;
+  color: var(--text-muted);
   font-size: 12px;
+  line-height: 18px;
 }
 
-.param-field__default {
-  margin: 2px 0 0;
-  font-size: 12px;
+.field__default {
+  margin-top: 2px;
 }
 </style>

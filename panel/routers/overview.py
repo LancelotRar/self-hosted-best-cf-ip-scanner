@@ -62,6 +62,7 @@ def overview(request: Request) -> dict[str, object]:
     ]
     return {
         "scanner": _scanner_status(request),
+        "running": runs_store.scan_lock_held(settings),
         "last_run": finished[-1].to_dict() if finished else None,
         "next_runs": _next_runs(document),
         "config_summary": {
