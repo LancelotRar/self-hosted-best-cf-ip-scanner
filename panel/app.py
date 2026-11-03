@@ -10,6 +10,9 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from . import db
+from .routers import auth as auth_routes
+from .security import configure
 from .settings import Settings
 
 
@@ -35,10 +38,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         openapi_url=None,
     )
     app.state.settings = settings or Settings.from_env()
+    conn = db.connect(app.state.settings.db_path)
+    db.migrate(conn)
+    app.state.conn = conn
+    app.state.security = configure(app.state.settings)
 
     @app.get("/healthz")
     def healthz() -> dict[str, object]:
         return {"status": "ok", "docker": _docker_available()}
+
+    app.include_router(auth_routes.router)
 
     # 前端构建产物由后端托管；Task 16 之后是 Vite 生成的 SPA。
     static_dir = Path(__file__).resolve().parent / "static"
@@ -48,4 +57,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     return app
 
 
-app = create_app()
+# uvicorn 用 `--factory panel.app:create_app` 启动：不在导入期创建数据库，
+# 测试导入模块时不会产生任何目录或文件。
+

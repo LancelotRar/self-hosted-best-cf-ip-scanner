@@ -26,3 +26,15 @@ def anon_client(settings: Settings):
 
     with TestClient(create_app(settings)) as client:
         yield client
+
+
+TEST_PASSWORD = "correct horse battery"
+
+
+@pytest.fixture
+def client(anon_client):
+    """已登录并默认携带 CSRF 头的 TestClient。"""
+    anon_client.post("/api/auth/setup", json={"password": TEST_PASSWORD})
+    anon_client.post("/api/auth/login", json={"password": TEST_PASSWORD})
+    anon_client.headers["X-CSRF-Token"] = anon_client.cookies["panel_csrf"]
+    yield anon_client
