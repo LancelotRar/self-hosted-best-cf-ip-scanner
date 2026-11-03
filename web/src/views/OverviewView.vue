@@ -70,7 +70,7 @@ onMounted(load);
     <el-skeleton v-else-if="loading && !data" :rows="6" animated />
 
     <template v-else-if="data">
-      <div class="grid">
+      <div class="metrics">
         <MetricCard label="扫描容器">
           <div class="row">
             <StatusPill
@@ -182,6 +182,12 @@ onMounted(load);
 </template>
 
 <style scoped>
+.metrics {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .metric-note {
   margin: 0;
   font-size: 12px;
@@ -224,8 +230,20 @@ onMounted(load);
   margin-top: var(--space-3);
 }
 
+@media (max-width: 1199px) {
+  .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 1023px) {
   .overview-lower {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 639px) {
+  .metrics {
     grid-template-columns: 1fr;
   }
 }

@@ -324,6 +324,12 @@ onBeforeRouteLeave(async () => {
   border-radius: var(--radius-md);
 }
 
+@media (max-width: 767px) {
+  .config-card {
+    padding: var(--space-3);
+  }
+}
+
 .readonly-hint {
   margin: 0 0 var(--space-3);
   font-size: 12px;
