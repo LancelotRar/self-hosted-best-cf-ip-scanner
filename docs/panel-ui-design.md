@@ -1,6 +1,6 @@
 # 运维面板 UI 设计规范（v1）
 
-- 状态：设计定稿，待实施
+- 状态：已实施（2026-11-03，`web/` 全量重写；深色默认 + 浅色切换）
 - 适用：`web/`（Vue 3.5 + TypeScript + Element Plus 2.14）
 - 依据：`ui-ux-pro-max` 检索结果（Data-Dense Dashboard、Minimalism & Swiss、Dashboard Data 字体配对、UX 指南）+ 本项目 Spec §8 的硬性交互契约
 - 目标读者：实现该面板的前端/全栈工程师
