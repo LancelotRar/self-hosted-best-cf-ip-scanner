@@ -12,6 +12,7 @@ import SystemView from "./views/SystemView.vue";
 import { useAuthStore } from "./stores/auth";
 import LoginView from "./views/LoginView.vue";
 import OverviewView from "./views/OverviewView.vue";
+import SettingsView from "./views/SettingsView.vue";
 import SetupView from "./views/SetupView.vue";
 
 const routes: RouteRecordRaw[] = [
@@ -30,6 +31,7 @@ const routes: RouteRecordRaw[] = [
       { path: "library", name: "library", component: LibraryView, meta: { title: "IP 库" } },
       { path: "publish", name: "publish", component: PublishView, meta: { title: "发布" } },
       { path: "system", name: "system", component: SystemView, meta: { title: "系统" } },
+      { path: "settings", name: "settings", component: SettingsView, meta: { title: "设置" } },
     ],
   },
   { path: "/:pathMatch(.*)*", redirect: "/" },

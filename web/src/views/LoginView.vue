@@ -6,6 +6,7 @@ import {
 import { ref } from "vue";
 import { useRouter } from "vue-router";
 
+import TopActions from "../components/TopActions.vue";
 import { useAuthStore } from "../stores/auth";
 
 const auth = useAuthStore();
@@ -30,6 +31,7 @@ async function submit() {
 
 <template>
   <div class="auth">
+    <TopActions class="auth-actions" />
     <div class="auth__panel">
       <div class="auth__brand">
         <span class="auth__mark" aria-hidden="true">CF</span>
@@ -72,6 +74,13 @@ async function submit() {
 </template>
 
 <style scoped>
+.auth-actions {
+  position: fixed;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 20;
+}
+
 .auth {
   min-height: 100vh;
   display: grid;

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { Component } from "vue";
 
+import TopActions from "./TopActions.vue";
+
 defineProps<{
   title: string;
   subtitle?: string;
@@ -22,6 +24,7 @@ defineProps<{
     </div>
     <div class="page-actions">
       <slot />
+      <TopActions />
     </div>
   </header>
 </template>

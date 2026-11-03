@@ -4,10 +4,9 @@ import {
   DataLine,
   Document,
   FolderOpened,
-  Moon,
   Odometer,
+  Operation,
   Setting,
-  Sunny,
   Timer,
   Tools,
   Upload,
@@ -17,7 +16,6 @@ import { useRouter } from "vue-router";
 
 import { get } from "../api";
 import StatusPill from "../components/StatusPill.vue";
-import { useTheme } from "../composables/useTheme";
 import { useAuthStore } from "../stores/auth";
 import type { Overview } from "../types";
 import { formatClock } from "../utils/format";
@@ -32,11 +30,11 @@ const tabs = [
   { name: "library", label: "IP 库", icon: DataLine },
   { name: "publish", label: "发布", icon: Upload },
   { name: "system", label: "系统", icon: Tools },
+  { name: "settings", label: "设置", icon: Operation },
 ] as const;
 
 const auth = useAuthStore();
 const router = useRouter();
-const { theme, toggle } = useTheme();
 
 const scanner = ref("unknown");
 const scannerReason = ref("");
@@ -147,16 +145,6 @@ onBeforeUnmount(() => {
         </p>
 
         <div class="sidebar__actions">
-          <el-button
-            text
-            :aria-label="theme === 'dark' ? '切换到浅色主题' : '切换到深色主题'"
-            @click="toggle"
-          >
-            <el-icon :size="16">
-              <Sunny v-if="theme === 'dark'" />
-              <Moon v-else />
-            </el-icon>
-          </el-button>
           <el-dropdown trigger="click">
             <el-button text class="account">
               {{ auth.username ?? "账号" }}

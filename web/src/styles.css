@@ -448,3 +448,89 @@ a {
     transition-duration: 0.01ms !important;
   }
 }
+
+
+/* ---------------------------------------------------------- 字号偏好 */
+
+html[data-font-size="sm"] {
+  --el-font-size-base: 12px;
+}
+
+html[data-font-size="sm"] body {
+  font-size: 12px;
+}
+
+html[data-font-size="sm"] .page-title {
+  font-size: 20px;
+  line-height: 28px;
+}
+
+html[data-font-size="sm"] .page-sub,
+html[data-font-size="sm"] .panel__head,
+html[data-font-size="sm"] .el-card__header,
+html[data-font-size="sm"] .metric__value {
+  font-size: 12px;
+}
+
+html[data-font-size="sm"] .metric__value {
+  font-size: 18px;
+}
+
+html[data-font-size="sm"] .el-table,
+html[data-font-size="sm"] .el-input__inner,
+html[data-font-size="sm"] .el-textarea__inner,
+html[data-font-size="sm"] .el-button,
+html[data-font-size="sm"] .field__label,
+html[data-font-size="sm"] .el-tabs__item,
+html[data-font-size="sm"] .nav__item {
+  font-size: 12px;
+}
+
+html[data-font-size="sm"] .field__help,
+html[data-font-size="sm"] .field__default,
+html[data-font-size="sm"] .tag,
+html[data-font-size="sm"] .metric__label,
+html[data-font-size="sm"] .metric__hint {
+  font-size: 11px;
+}
+
+html[data-font-size="lg"] {
+  --el-font-size-base: 14px;
+}
+
+html[data-font-size="lg"] body {
+  font-size: 14px;
+}
+
+html[data-font-size="lg"] .page-title {
+  font-size: 24px;
+  line-height: 32px;
+}
+
+html[data-font-size="lg"] .page-sub,
+html[data-font-size="lg"] .panel__head,
+html[data-font-size="lg"] .el-card__header {
+  font-size: 15px;
+}
+
+html[data-font-size="lg"] .metric__value {
+  font-size: 22px;
+}
+
+html[data-font-size="lg"] .el-table,
+html[data-font-size="lg"] .el-input__inner,
+html[data-font-size="lg"] .el-textarea__inner,
+html[data-font-size="lg"] .el-button,
+html[data-font-size="lg"] .field__label,
+html[data-font-size="lg"] .el-tabs__item,
+html[data-font-size="lg"] .nav__item {
+  font-size: 14px;
+}
+
+html[data-font-size="lg"] .field__help,
+html[data-font-size="lg"] .field__default,
+html[data-font-size="lg"] .tag,
+html[data-font-size="lg"] .metric__label,
+html[data-font-size="lg"] .metric__hint {
+  font-size: 13px;
+}

@@ -9,10 +9,12 @@ import "./styles.css";
 import App from "./App.vue";
 import { setUnauthorizedHandler } from "./api";
 import { initTheme } from "./composables/useTheme";
+import { initUiSettings } from "./composables/useUiSettings";
 import router from "./router";
 import { useAuthStore } from "./stores/auth";
 
 initTheme();
+initUiSettings();
 
 const app = createApp(App);
 const pinia = createPinia();
