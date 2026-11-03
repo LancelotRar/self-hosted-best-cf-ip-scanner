@@ -98,8 +98,9 @@ onMounted(load);
     <el-skeleton v-else-if="loading && !data" :rows="6" animated />
 
     <template v-else-if="data">
-      <div class="metrics">
-        <MetricCard label="扫描容器" :icon="Monitor">
+      <section class="panel stats-panel">
+        <div class="stats-grid">
+        <MetricCard label="扫描容器" :icon="Monitor" flat>
           <div class="row">
             <StatusPill
               :tone="data.scanner.state === 'running' ? 'success' : 'danger'"
@@ -116,7 +117,7 @@ onMounted(load);
           <p class="muted metric-note mono" v-else>{{ data.scanner.image ?? "—" }}</p>
         </MetricCard>
 
-        <MetricCard label="上次结果" :icon="Clock">
+        <MetricCard label="上次结果" :icon="Clock" flat>
           <div class="row">
             <StatusPill
               :tone="data.last_run?.scan_exit === 0 ? 'success' : data.last_run ? 'danger' : 'neutral'"
@@ -133,14 +134,14 @@ onMounted(load);
           <p class="muted metric-note" v-else>等待第一轮扫描</p>
         </MetricCard>
 
-        <MetricCard label="下次执行" :icon="Timer">
+        <MetricCard label="下次执行" :icon="Timer" flat>
           <span class="mono">{{ formatTime(data.next_runs[0]) }}</span>
           <p class="muted metric-note">
             {{ data.next_runs.length ? `共 ${data.next_runs.length} 次预览` : "调度表达式无效或未配置" }}
           </p>
         </MetricCard>
 
-        <MetricCard label="轮次状态" :icon="VideoPlay">
+        <MetricCard label="轮次状态" :icon="VideoPlay" flat>
           <StatusPill
             :tone="data.running ? 'info' : 'neutral'"
             :label="data.running ? '运行中' : '空闲'"
@@ -150,9 +151,10 @@ onMounted(load);
             {{ data.running ? "扫描容器正在执行一轮任务" : "等待定时或手动触发" }}
           </p>
         </MetricCard>
-      </div>
+        </div>
+      </section>
 
-      <div class="grid overview-lower">
+      <div class="overview-sections">
         <section class="panel">
           <header class="panel__head">
             <span class="panel-title"><el-icon><Timer /></el-icon>未来执行</span>
@@ -234,10 +236,28 @@ onMounted(load);
   color: var(--text-muted);
 }
 
-.metrics {
+.stats-panel {
+  overflow: hidden;
+}
+
+.stats-grid {
   display: grid;
-  gap: var(--space-3);
   grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.stats-grid > * {
+  border-right: 1px solid var(--border-soft);
+}
+
+.stats-grid > *:last-child {
+  border-right: none;
+}
+
+.overview-sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
 }
 
 .metric-note {
@@ -245,11 +265,6 @@ onMounted(load);
   font-size: 12px;
   line-height: 18px;
   overflow-wrap: anywhere;
-}
-
-.overview-lower {
-  margin-top: var(--space-3);
-  grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.4fr);
 }
 
 .next-list {

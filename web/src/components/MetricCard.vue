@@ -7,13 +7,14 @@ withDefaults(
     value?: string | number;
     hint?: string;
     icon?: Component;
+    flat?: boolean;
   }>(),
-  { value: undefined, hint: undefined, icon: undefined },
+  { value: undefined, hint: undefined, icon: undefined, flat: false },
 );
 </script>
 
 <template>
-  <section class="metric">
+  <section class="metric" :class="{ 'metric--flat': flat }">
     <div class="metric__head">
       <span v-if="icon" class="metric__icon" aria-hidden="true">
         <el-icon :size="16"><component :is="icon" /></el-icon>
@@ -38,6 +39,15 @@ withDefaults(
   border-radius: var(--radius-md);
   box-shadow: var(--shadow);
   min-height: 120px;
+}
+
+.metric--flat {
+  padding: 18px 20px;
+  min-height: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .metric__head {
