@@ -21,6 +21,16 @@ describe("formatLogLine", () => {
     expect(formatLogLine("2026-11-03T09:34:44Z 未达标原因：失败 3 个")).toContain("[信息]：");
   });
 
+  it("supercronic 的 logfmt 行用其 level，并去掉重复时间", () => {
+    const text = formatLogLine(
+      '2026-11-03T11:37:27Z time="2026-11-03T19:37:27+08:00" level=info msg="read crontab: /tmp/supercronic.crontab"',
+    );
+    expect(text.endsWith("[信息]：read crontab: /tmp/supercronic.crontab")).toBe(true);
+    expect(
+      formatLogLine('2026-11-03T11:37:27Z time="2026-11-03T19:37:27+08:00" level=error msg="boom"'),
+    ).toContain("[错误]：boom");
+  });
+
   it("没有时间戳前缀的行原样返回", () => {
     expect(formatLogLine("plain line")).toBe("plain line");
   });

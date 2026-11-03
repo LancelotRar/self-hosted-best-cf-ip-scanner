@@ -25,10 +25,20 @@ export function formatMinute(value: string | null | undefined): string {
 }
 
 /** 从消息文本推断日志等级：只有明确的标记才算警告/错误，避免把正文里的"失败"误判。 */
-function logLevel(message: string): "错误" | "警告" | "信息" {
+function logLevel(message: string, hint?: string): "错误" | "警告" | "信息" {
+  const level = (hint ?? "").toLowerCase();
+  if (level === "error" || level === "fatal" || level === "critical") return "错误";
+  if (level === "warn" || level === "warning") return "警告";
   if (/\[错误\]|\[error\]|\btraceback\b|\bcritical\b|\bfatal\b/i.test(message)) return "错误";
   if (/\[警告\]|\[warn\]|\bwarning\b/i.test(message)) return "警告";
   return "信息";
+}
+
+/** supercronic 等进程输出 `time="…" level=info msg="…"`：用它的 level，并去掉重复的时间字段。 */
+function normalizeLogfmt(message: string): { message: string; level?: string } {
+  const match = /^time="[^"]*"\s+level=(\w+)(?:\s+msg="([^"]*)")?\s*/.exec(message);
+  if (!match) return { message };
+  return { message: (match[2] ?? "") + message.slice(match[0].length), level: match[1] };
 }
 
 /** docker 日志行首的 RFC3339（UTC）时间戳 → `[YYYY-MM-DD HH:MM:SS][等级]：消息`。无时间戳前缀的行原样返回。 */
@@ -44,8 +54,8 @@ export function formatLogLine(line: string): string {
   const stamp = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(
     date.getHours(),
   )}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
-  const message = line.slice(match[0].length);
-  return `[${stamp}][${logLevel(message)}]：${message}`;
+  const { message, level } = normalizeLogfmt(line.slice(match[0].length));
+  return `[${stamp}][${logLevel(message, level)}]：${message}`;
 }
 
 export function formatClock(value: Date | null | undefined): string {
