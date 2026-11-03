@@ -73,11 +73,6 @@ function resolveLeave(ok: boolean) {
   leaving.value = null;
 }
 
-async function saveAndLeave() {
-  await save();
-  resolveLeave(!saveError.value);
-}
-
 function discardAndLeave() {
   restore();
   resolveLeave(true);
@@ -198,9 +193,7 @@ onBeforeRouteLeave(async () => {
 
     <UnsavedDialog
       v-model="unsavedVisible"
-      :saving="saving"
       description="IP 库有未保存的修改，离开后这些修改会丢失。"
-      @save="saveAndLeave"
       @discard="discardAndLeave"
     />
   </template>

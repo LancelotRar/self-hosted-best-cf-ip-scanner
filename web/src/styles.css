@@ -251,6 +251,16 @@ a {
   }
 }
 
+.el-button--danger {
+  --el-button-bg-color: var(--danger);
+  --el-button-border-color: var(--danger);
+  --el-button-text-color: #ffffff;
+  --el-button-hover-bg-color: color-mix(in srgb, var(--danger) 86%, #000);
+  --el-button-hover-border-color: color-mix(in srgb, var(--danger) 86%, #000);
+  --el-button-hover-text-color: #ffffff;
+  --el-button-active-bg-color: color-mix(in srgb, var(--danger) 78%, #000);
+}
+
 .el-button--primary {
   --el-button-bg-color: var(--primary);
   --el-button-border-color: var(--primary);

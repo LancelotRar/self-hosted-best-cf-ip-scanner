@@ -108,7 +108,7 @@ test("表格列宽拖动后写入 localStorage", async ({ page }) => {
   expect(stored).toContain("overview-outputs");
 });
 
-test("未保存离开弹窗提供继续编辑 / 放弃修改 / 保存并离开", async ({ page }) => {
+test("未保存离开弹窗只提供继续编辑 / 放弃修改", async ({ page }) => {
   await ensureSession(page);
   await page.goto("/config");
 
@@ -120,7 +120,7 @@ test("未保存离开弹窗提供继续编辑 / 放弃修改 / 保存并离开",
   const dialog = page.locator(".el-dialog").filter({ hasText: "未保存的修改" });
   await expect(dialog.getByRole("button", { name: "继续编辑" })).toBeVisible();
   await expect(dialog.getByRole("button", { name: "放弃修改" })).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "保存并离开" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "保存并离开" })).toHaveCount(0);
 
   await dialog.getByRole("button", { name: "放弃修改" }).click();
   await expect(page).toHaveURL(/\/logs/);

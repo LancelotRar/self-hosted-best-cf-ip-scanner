@@ -1,13 +1,11 @@
 <script setup lang="ts">
 defineProps<{
   modelValue: boolean;
-  saving?: boolean;
   description?: string;
 }>();
 
 const emit = defineEmits<{
   "update:modelValue": [boolean];
-  save: [];
   discard: [];
 }>();
 </script>
@@ -27,8 +25,7 @@ const emit = defineEmits<{
     <template #footer>
       <div class="unsaved__actions">
         <el-button @click="emit('update:modelValue', false)">继续编辑</el-button>
-        <el-button type="danger" plain :disabled="saving" @click="emit('discard')">放弃修改</el-button>
-        <el-button type="primary" :loading="saving" @click="emit('save')">保存并离开</el-button>
+        <el-button type="danger" @click="emit('discard')">放弃修改</el-button>
       </div>
     </template>
   </el-dialog>

@@ -51,17 +51,6 @@ function resolveLeave(ok: boolean) {
   leaving.value = null;
 }
 
-async function saveAndLeave() {
-  try {
-    await store.save();
-    ElMessage.success("已保存");
-    resolveLeave(true);
-  } catch (error) {
-    ElMessage.error((error as Error).message);
-    resolveLeave(false);
-  }
-}
-
 function discardAndLeave() {
   store.cancel();
   resolveLeave(true);
@@ -355,9 +344,7 @@ onBeforeRouteLeave(async () => {
 
     <UnsavedDialog
       v-model="unsavedVisible"
-      :saving="store.saving"
       description="有未保存的参数修改，离开后这些修改会丢失。"
-      @save="saveAndLeave"
       @discard="discardAndLeave"
     />
   </section>
