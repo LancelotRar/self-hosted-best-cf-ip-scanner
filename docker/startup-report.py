@@ -23,6 +23,7 @@ from curl_cffi import __version__ as curl_cffi_version  # noqa: E402
 
 from scanner import config  # noqa: E402
 from scanner.ippool import read_library  # noqa: E402
+from scanner.pinned import read_pinned  # noqa: E402
 from scanner.locations import load_locations  # noqa: E402
 
 PROXY_VARS = ("HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy")
@@ -53,17 +54,17 @@ def short_report() -> str:
     }
     return (
         f"PROBE_HOST={config.PROBE_HOST or '-'} ports={ports} "
-        f"concurrency={config.PROBE_CONCURRENCY} max={config.MAX_CANDIDATES} "
+        f"concurrency={config.PROBE_CONCURRENCY} "
         f"tops={tops} push={'on' if push else 'off'}"
     )
 
 
 def _count_segments(path: Path) -> str:
     try:
-        networks, fixed, skipped = read_library(path)
+        networks, skipped = read_library(path)
     except OSError as exc:
         return f"无法读取({exc})"
-    return f"{len(networks)} 个网段 + {len(fixed)} 个 ip:port 固定条目, 跳过 {skipped} 行"
+    return f"{len(networks)} 个网段, 跳过 {skipped} 行（含带端口条目）"
 
 
 def _no_proxy_exempts(host: str) -> bool:
@@ -105,10 +106,14 @@ def main() -> int:
     print(f"探测参数        : 并发 {config.PROBE_CONCURRENCY}  "
           f"握手 {config.TCP_ATTEMPTS} 次/需成功 {config.TCP_MIN_SUCCESS} 次/超时 {config.TCP_TIMEOUT}s  "
           f"端点校验 {config.TRACE_ATTEMPTS} 次/超时 {config.TRACE_TIMEOUT}s")
-    print(f"采样            : 每 {config.SAMPLE_STRIDE} 个地址 1 个  上限 {config.MAX_CANDIDATES}"
-          f"(0=不限)  基础种子 {config.SAMPLE_SEED}")
+    print(f"采样            : 每 {config.SAMPLE_STRIDE} 个地址 1 个  "
+          f"基础种子 {config.SAMPLE_SEED}")
     print(f"数据目录        : {data_dir}")
     print(f"  {input_path.name:<18}: {'存在' if input_path.is_file() else '缺失'}  {_count_segments(input_path)}")
+    pinned_path = data_dir / Path(os.environ.get("PINNED_FILE", "ip-pinned.txt"))
+    pinned_entries, _pinned_skipped = read_pinned(pinned_path)
+    print(f"  {pinned_path.name:<18}: {'存在' if pinned_path.is_file() else '缺失'}  "
+          f"{len(pinned_entries)} 条固定保留（不参与扫描）")
     print(f"  {locations_path.name:<18}: {'存在' if locations_path.is_file() else '缺失'}  "
           f"{len(load_locations(locations_path))} 条机房映射")
     print(f"输出目录        : {output_dir}  (可写: {_yes_no(os.access(writable_dir, os.W_OK))})")

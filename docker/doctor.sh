@@ -149,8 +149,8 @@ try:
     sys.path.insert(0, "/app")
     from scanner.ippool import read_library
 
-    networks, fixed, skipped = read_library(path)
-    print(f"可解析: {len(networks)} 个网段 + {len(fixed)} 个 ip:port 固定条目  跳过非法行: {skipped}")
+    networks, skipped = read_library(path)
+    print(f"可解析: {len(networks)} 个网段  跳过非法行: {skipped}（含带端口条目）")
     if networks:
         print(f"首条: {networks[0]}   末条: {networks[-1]}")
 except Exception as exc:  # noqa: BLE001 - 自检要报告任何异常

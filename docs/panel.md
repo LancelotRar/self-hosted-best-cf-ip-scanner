@@ -34,7 +34,7 @@
   ```
 - 临时覆盖仍然有效：
   ```bash
-  docker compose run --rm -e MAX_CANDIDATES=10 scan-once
+  docker compose run --rm -e SAMPLE_STRIDE=512 scan-once
   ```
 
 ## 3. 保存事务与核对结果
@@ -105,7 +105,7 @@ docker compose exec panel python -m panel.cli reset-password --password '<新密
 | `./panel-data/backups/env/` | `.env` 自动备份（可能含明文令牌） |
 | `./panel-data/backups/library/` | IP 库自动备份 |
 
-备份 `./panel-data` 即可恢复面板历史；`./data`、`./output` 的内容不在这里。
+备份 `./panel-data` 即可恢复面板历史（地址库、机房映射、产物快照都在这份数据库里）；命名卷里的投影文件可以重建。
 
 ## 9. 权限与安全边界
 

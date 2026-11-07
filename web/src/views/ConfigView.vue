@@ -1,20 +1,31 @@
 <script setup lang="ts">
 import {
+  Aim,
   Check,
   Clock,
   Close,
+  Connection,
+  FolderOpened,
+  Lock,
   Refresh,
   RefreshLeft,
   RefreshRight,
+  SetUp,
+  Setting,
+  Share,
+  Timer,
+  Upload,
+  User,
   VideoPlay,
 } from "@element-plus/icons-vue";
-import { nextTick, onMounted, ref } from "vue";
+import { nextTick, onMounted, ref, type Component } from "vue";
 import { onBeforeRouteLeave, useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 
 import { post } from "../api";
 import EmptyState from "../components/EmptyState.vue";
 import ConfigLibraryTab from "../components/ConfigLibraryTab.vue";
+import ConfigLocationsTab from "../components/ConfigLocationsTab.vue";
 import ConfigScheduleTab from "../components/ConfigScheduleTab.vue";
 import ErrorState from "../components/ErrorState.vue";
 import PageHeader from "../components/PageHeader.vue";
@@ -82,6 +93,29 @@ const groupedFor = (tab: string): Array<{ name: string; params: Param[] }> =>
       params: store.params.filter((param) => param.group === name && param.name !== "TZ"),
     }))
     .filter((group) => group.params.length > 0);
+
+/** 每个参数组一张卡片，标题在卡片外；图标按组名固定映射。 */
+const GROUP_ICONS: Record<string, Component> = {
+  探测端点: Connection,
+  探测参数: SetUp,
+  采样: Aim,
+  输入输出: FolderOpened,
+  运行身份: User,
+  发布: Upload,
+  网络代理: Share,
+  定时计划: Timer,
+  只读设置: Lock,
+};
+
+const iconFor = (name: string) => GROUP_ICONS[name] ?? Setting;
+
+/** 与页签同名的分组，标题换成更具体的说法，避免页签下面又出现一模一样的标题。 */
+const GROUP_TITLES: Record<string, string> = {
+  只读设置: "只读参数",
+  定时计划: "调度与预览",
+};
+
+const titleFor = (name: string) => GROUP_TITLES[name] ?? name;
 
 function update(param: Param, value: unknown) {
   store.applyLocal({ [param.name]: value });
@@ -188,17 +222,9 @@ onBeforeRouteLeave(async () => {
 
 <template>
   <section class="page page--flush">
-    <PageHeader
-      title="参数调整"
-      subtitle="保存即改写 .env；扫描器下一轮读取，调度变更热重载"
-    />
+    <PageHeader title="参数调整" />
 
     <div class="config-toolbar">
-      <span v-if="store.hash" class="muted file-meta">
-        {{ formatTime(store.mtime) }} ·
-        <span class="mono">sha256 {{ store.hash.slice(0, 12) }}…</span> ·
-        {{ store.fileSize }} B
-      </span>
       <span class="spacer" />
       <el-button text @click="openVersions"><el-icon><Clock /></el-icon>版本历史</el-button>
       <el-button text :loading="store.loading" @click="load">
@@ -230,14 +256,16 @@ onBeforeRouteLeave(async () => {
     <template v-else-if="store.params.length">
       <el-tabs v-model="activeTab" class="config-tabs">
         <el-tab-pane label="扫描参数" name="scanner" lazy>
-          <div class="config-card">
-          <el-collapse :model-value="groupedFor('scanner').map((group) => group.name)">
-            <el-collapse-item
-              v-for="group in groupedFor('scanner')"
-              :key="group.name"
-              :name="group.name"
-              :title="group.name"
-            >
+          <section
+            v-for="group in groupedFor('scanner')"
+            :key="group.name"
+            class="block"
+          >
+            <header class="block__head">
+              <el-icon><component :is="iconFor(group.name)" /></el-icon>
+              <span>{{ titleFor(group.name) }}</span>
+            </header>
+            <div class="panel block__card">
               <div class="field-grid">
                 <ParamField
                   v-for="param in group.params"
@@ -247,24 +275,29 @@ onBeforeRouteLeave(async () => {
                   @update:model-value="update(param, $event)"
                 />
               </div>
-            </el-collapse-item>
-          </el-collapse>
-          </div>
+            </div>
+          </section>
         </el-tab-pane>
 
         <el-tab-pane label="自定义 IP 库" name="library" lazy>
           <ConfigLibraryTab />
         </el-tab-pane>
 
+        <el-tab-pane label="机房映射" name="locations" lazy>
+          <ConfigLocationsTab />
+        </el-tab-pane>
+
         <el-tab-pane label="发布与代理" name="publish" lazy>
-          <div class="config-card">
-          <el-collapse :model-value="groupedFor('publish').map((group) => group.name)">
-            <el-collapse-item
-              v-for="group in groupedFor('publish')"
-              :key="group.name"
-              :name="group.name"
-              :title="group.name"
-            >
+          <section
+            v-for="group in groupedFor('publish')"
+            :key="group.name"
+            class="block"
+          >
+            <header class="block__head">
+              <el-icon><component :is="iconFor(group.name)" /></el-icon>
+              <span>{{ titleFor(group.name) }}</span>
+            </header>
+            <div class="panel block__card">
               <div class="field-grid">
                 <ParamField
                   v-for="param in group.params"
@@ -274,9 +307,8 @@ onBeforeRouteLeave(async () => {
                   @update:model-value="update(param, $event)"
                 />
               </div>
-            </el-collapse-item>
-          </el-collapse>
-          </div>
+            </div>
+          </section>
         </el-tab-pane>
 
         <el-tab-pane label="定时计划" name="schedule" lazy>
@@ -284,17 +316,19 @@ onBeforeRouteLeave(async () => {
         </el-tab-pane>
 
         <el-tab-pane label="只读设置" name="readonly" lazy>
-          <div class="config-card">
           <p class="muted readonly-hint">
             只读参数需要手工修改 .env 并重建容器（docker compose up -d）。
           </p>
-          <el-collapse :model-value="groupedFor('readonly').map((group) => group.name)">
-            <el-collapse-item
-              v-for="group in groupedFor('readonly')"
-              :key="group.name"
-              :name="group.name"
-              :title="group.name"
-            >
+          <section
+            v-for="group in groupedFor('readonly')"
+            :key="group.name"
+            class="block"
+          >
+            <header class="block__head">
+              <el-icon><component :is="iconFor(group.name)" /></el-icon>
+              <span>{{ titleFor(group.name) }}</span>
+            </header>
+            <div class="panel block__card">
               <div class="field-grid">
                 <ParamField
                   v-for="param in group.params"
@@ -304,9 +338,8 @@ onBeforeRouteLeave(async () => {
                   @update:model-value="update(param, $event)"
                 />
               </div>
-            </el-collapse-item>
-          </el-collapse>
-          </div>
+            </div>
+          </section>
         </el-tab-pane>
       </el-tabs>
 
@@ -318,7 +351,7 @@ onBeforeRouteLeave(async () => {
         @run="runNow"
       />
 
-      <div class="actionbar">
+      <div v-if="!['library', 'locations'].includes(activeTab)" class="actionbar">
         <span class="muted">
           {{ store.dirty ? `未保存 ${store.dirtyCount} 项` : "没有未保存的修改" }}
         </span>
@@ -371,15 +404,6 @@ onBeforeRouteLeave(async () => {
   margin: -4px 0 6px;
 }
 
-.config-toolbar .file-meta {
-  margin-right: 8px;
-}
-
-.file-meta {
-  color: var(--text-faint);
-  font-size: 12px;
-}
-
 .field-errors {
   margin-bottom: var(--space-3);
   padding: var(--space-3);
@@ -398,6 +422,11 @@ onBeforeRouteLeave(async () => {
   padding-top: var(--space-3);
 }
 
+/* 参数组各成一张卡片：标题在卡片外，卡片之间留出间距 */
+.config-tabs .block + .block {
+  margin-top: var(--space-5);
+}
+
 .field-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -411,19 +440,6 @@ onBeforeRouteLeave(async () => {
 @media (max-width: 1199px) {
   .field-grid {
     grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.config-card {
-  padding: var(--space-5) var(--space-6);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
-
-@media (max-width: 767px) {
-  .config-card {
-    padding: var(--space-3);
   }
 }
 

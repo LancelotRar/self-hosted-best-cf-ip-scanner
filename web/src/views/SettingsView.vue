@@ -1,7 +1,18 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Lock, RefreshLeft, VideoPause, VideoPlay } from "@element-plus/icons-vue";
+import {
+  Brush,
+  Document,
+  InfoFilled,
+  Link,
+  Lock,
+  Monitor,
+  RefreshLeft,
+  Timer,
+  VideoPause,
+  VideoPlay,
+} from "@element-plus/icons-vue";
 
 import { get, post } from "../api";
 import EmptyState from "../components/EmptyState.vue";
@@ -166,9 +177,9 @@ onMounted(async () => {
 
     <el-tabs v-model="activeTab">
       <el-tab-pane label="常规" name="general">
-        <section class="panel">
-          <header class="panel__head">时区</header>
-          <div class="panel__body">
+        <section class="block">
+          <header class="block__head"><el-icon><Timer /></el-icon><span>时区</span></header>
+          <div class="panel block__card">
             <p class="muted settings-hint">
               影响调度表达式、运行记录与日志时间；保存后需重启扫描容器生效。
             </p>
@@ -199,15 +210,16 @@ onMounted(async () => {
       </el-tab-pane>
 
       <el-tab-pane label="外观" name="appearance">
-        <section class="panel settings-panel">
-          <header class="panel__head">
-            <span>外观</span>
+        <section class="block">
+          <header class="block__head">
+            <el-icon><Brush /></el-icon><span>外观</span>
+            <span class="spacer" />
             <el-button size="small" @click="reset">
               <el-icon><RefreshLeft /></el-icon>
               恢复默认
             </el-button>
           </header>
-          <div class="panel__body stack">
+          <div class="panel block__card stack">
             <div class="setting-row">
               <div class="setting-label">
                 <strong>主题模式</strong>
@@ -237,14 +249,14 @@ onMounted(async () => {
               <p class="preview__text">
                 每轮扫描会重新读取 .env；保存后下一轮生效，调度变更立即热重载。
               </p>
-              <p class="preview__meta mono">2026/11/03 15:20:00 · MAX_CANDIDATES=200</p>
+              <p class="preview__meta mono">2026/11/03 15:20:00 · SAMPLE_STRIDE=256</p>
             </div>
           </div>
         </section>
 
-        <section class="panel settings-panel">
-          <header class="panel__head">项目</header>
-          <div class="panel__body stack">
+        <section class="block">
+          <header class="block__head"><el-icon><Link /></el-icon><span>项目</span></header>
+          <div class="panel block__card stack">
             <p class="muted">面板与扫描器同源；问题反馈、版本说明与部署文档都在项目主页。</p>
             <div>
               <a :href="PROJECT_URL" target="_blank" rel="noopener noreferrer">
@@ -259,9 +271,9 @@ onMounted(async () => {
       </el-tab-pane>
 
       <el-tab-pane label="账号" name="account">
-        <section class="panel form-panel">
-          <header class="panel__head">修改密码</header>
-          <div class="panel__body stack">
+        <section class="block">
+          <header class="block__head"><el-icon><Lock /></el-icon><span>修改密码</span></header>
+          <div class="panel block__card stack">
             <label class="field-label" for="current-password">当前密码</label>
             <el-input
               id="current-password"
@@ -304,8 +316,9 @@ onMounted(async () => {
       <el-tab-pane label="审计" name="audit">
         <ErrorState v-if="auditError" :message="auditError" @retry="loadAudit()" />
         <template v-else>
-          <section class="panel">
-            <div class="panel__body">
+          <section class="block">
+            <header class="block__head"><el-icon><Document /></el-icon><span>审计日志</span></header>
+            <div class="panel block__card">
               <el-table border v-if="audits.length" :data="audits" size="small" @header-dragend="onColumnDragEnd">
                 <el-table-column label="时间" :width="colWidth('时间') ?? 180">
                   <template #default="{ row }">{{ formatTime(row.at) }}</template>
@@ -340,9 +353,9 @@ onMounted(async () => {
       </el-tab-pane>
 
       <el-tab-pane label="容器" name="container">
-        <section class="panel">
-          <header class="panel__head">扫描容器</header>
-          <div class="panel__body stack">
+        <section class="block">
+          <header class="block__head"><el-icon><Monitor /></el-icon><span>扫描容器</span></header>
+          <div class="panel block__card stack">
             <p class="muted">
               只操作本项目的扫描容器；重启/停止会中断当前这一轮，产物保留上一轮。
             </p>
@@ -363,9 +376,9 @@ onMounted(async () => {
 
       <el-tab-pane label="关于" name="about">
         <ErrorState v-if="infoError" :message="infoError" @retry="loadInfo" />
-        <section v-else class="panel">
-          <header class="panel__head">版本信息</header>
-          <div class="panel__body">
+        <section v-else class="block">
+          <header class="block__head"><el-icon><InfoFilled /></el-icon><span>版本信息</span></header>
+          <div class="panel block__card">
             <dl v-if="info" class="kv">
               <dt>面板版本</dt>
               <dd class="mono">{{ info.panel_version }}</dd>

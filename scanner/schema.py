@@ -153,14 +153,6 @@ PARAMS: tuple[ParamSpec, ...] = (
         "每 N 个地址抽 1 个代表 IP；256 = 每个 /24 抽 1 个。",
     ),
     ParamSpec(
-        "MAX_CANDIDATES",
-        "采样",
-        "int",
-        0,
-        "候选总量上限",
-        "0 = 不限；快速验证环境时设小值，如 200。",
-    ),
-    ParamSpec(
         "SAMPLE_SEED",
         "采样",
         "int",
@@ -186,12 +178,28 @@ PARAMS: tuple[ParamSpec, ...] = (
         "候选地址库文件名（相对 DATA_DIR）；行首 # 为注释。",
     ),
     ParamSpec(
+        "PINNED_FILE",
+        "输入输出",
+        "str",
+        "ip-pinned.txt",
+        "固定保留文件名",
+        "不参与扫描、直接附加到全量列表的条目文件（相对 DATA_DIR）。",
+    ),
+    ParamSpec(
         "DETAIL_CSV_NAME",
         "输入输出",
         "str",
         "detail",
         "明细表文件名",
         "不含扩展名；记录全部合格候选及测量指标。",
+    ),
+    ParamSpec(
+        "PINNED_OUTPUT_NAME",
+        "输入输出",
+        "str",
+        "PINNED",
+        "固定保留文件名",
+        "不含扩展名；固定保留条目单独生成该文件，不写入 GLOBAL/国家列表。",
     ),
     ParamSpec(
         "OVERALL_TOPS",

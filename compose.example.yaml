@@ -6,10 +6,10 @@
 #
 # 手动执行一轮：docker compose run --rm scan-once
 #
-# 宿主目录（首次启动自动创建并对齐属主）：
-#   ./data    输入：候选地址库 + 机房映射（含内置默认值，可直接编辑）
-#   ./output  产物：明细表 detail.csv + 订阅列表 GLOBAL{N}.txt / {国家代码}{N}.txt
-#   ./cache   发布缓存：目标仓库的浅克隆（可随时删除）
+# 数据卷（命名卷，宿主目录里看不到文件）：
+#   ip-data        输入：候选地址库 + 机房映射（面板里编辑，数据库为唯一真源）
+#   scan-output    产物：明细表 detail.csv + 订阅列表 GLOBAL{N}.txt / {国家代码}{N}.txt
+#   publish-cache  发布缓存：目标仓库的浅克隆（可随时删除）
 #
 # 本地构建镜像见 compose.build.yaml：
 #   docker compose -f compose.yaml -f compose.build.yaml up -d --build
@@ -44,13 +44,12 @@ x-scanner-common: &scanner-common
   security_opt:
     - no-new-privileges:true
   volumes:
-    # IP 库与 IATA 映射：首次启动自动写入内置默认值，之后直接编辑这两个文件维护
-    # （改完下一轮扫描生效，无需重建镜像）
-    - ./data:/data
-    # 产物：明细表 + 订阅列表，直接出现在宿主目录里
-    - ./output:/output
-    # 发布缓存：目标仓库的浅克隆，删掉即可让下一轮重新克隆
-    - ./cache:/cache
+    # IP 库与 IATA 映射：面板写入数据库后投影到卷里，只给扫描器读（宿主不可见）
+    - ip-data:/data
+    # 产物：明细表 + 订阅列表，写入卷后由面板入库展示（宿主不可见）
+    - scan-output:/output
+    # 发布缓存：目标仓库的浅克隆，删掉卷即可让下一轮重新克隆
+    - publish-cache:/cache
     # 项目目录只读挂载：扫描器从这里每轮读取 .env
     - ./:/project:ro
 
@@ -117,9 +116,9 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       # 项目目录读写：面板原子改写 .env
       - ./:/project
-      - ./data:/data
-      - ./output:/output
-      - ./cache:/cache
+      - ip-data:/data
+      - scan-output:/output
+      - publish-cache:/cache
       - ./panel-data:/panel-data
     read_only: true
     tmpfs:
@@ -142,3 +141,9 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+# 命名卷：数据与产物都不再落宿主目录，只能在面板里查看/编辑
+volumes:
+  ip-data:
+  scan-output:
+  publish-cache:

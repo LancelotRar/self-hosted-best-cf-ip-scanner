@@ -31,7 +31,7 @@ def test_names_are_unique():
         ("TCP_TIMEOUT", "abc"),
         ("PROBE_PORTS", "70000"),
         ("SKIP_LOCATIONS", "maybe"),
-        ("MAX_CANDIDATES", "1.5"),
+        ("SAMPLE_STRIDE", "1.5"),
     ],
 )
 def test_coerce_rejects_invalid_values(name, raw):

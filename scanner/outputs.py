@@ -199,3 +199,24 @@ def generate_subscriptions(
                 select_subscription_lines(ordered_rows, size, country=kind[:2], pre_sorted=True),
             )
     return written
+
+
+def write_pinned_list(
+    output_dir: Path, name: str, lines: Sequence[str]
+) -> str | None:
+    """固定保留单独成文件，不与其他订阅列表混写。
+
+    返回生成的文件名；`lines` 为空时删除历史文件并返回 None——否则上一轮的
+    内容会一直留在产物目录里，被后续发布带上。
+    """
+    output_dir.mkdir(parents=True, exist_ok=True)
+    stem = Path(name.strip() or "PINNED").name
+    if stem.lower().endswith(".txt"):
+        stem = stem[:-4]
+    path = output_dir / f"{stem}.txt"
+    if not lines:
+        path.unlink(missing_ok=True)
+        return None
+    header = f"# {len(lines)} 条 | 固定保留（不参与扫描） | 生成时间 {beijing_timestamp()}"
+    write_txt_atomic(path, [header, *lines])
+    return path.name

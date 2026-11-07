@@ -105,7 +105,6 @@ jobs:
           cp .env.example .env
           sed -i 's|^PROBE_HOST=.*|PROBE_HOST=probe.example.com|' .env
           sed -i 's|^RUN_ON_START=.*|RUN_ON_START=false|' .env
-          sed -i 's|^MAX_CANDIDATES=.*|MAX_CANDIDATES=10|' .env
           docker compose -f compose.yaml -f compose.build.yaml up -d --build
           docker compose ps
       - name: Wait for scanner healthy
@@ -133,13 +132,13 @@ jobs:
         run: scripts/test-env-reload.sh
       - name: Verify explicit env beats .env
         run: |
-          docker compose run --rm -T -e MAX_CANDIDATES=10 \
+          docker compose run --rm -T -e SAMPLE_STRIDE=512 \
             --entrypoint python scan-once /usr/local/bin/print-config.py --json \
             > /tmp/print-config.json
           python - <<'PY'
           import json
-          value = json.load(open("/tmp/print-config.json"))["MAX_CANDIDATES"]["value"]
-          assert value == 10, value
+          value = json.load(open("/tmp/print-config.json"))["SAMPLE_STRIDE"]["value"]
+          assert value == 512, value
           print("run -e override ok:", value)
           PY
       - name: Show logs
@@ -172,7 +171,6 @@ jobs:
           cp .env.example .env
           sed -i 's|^PROBE_HOST=.*|PROBE_HOST=probe.example.com|' .env
           sed -i 's|^RUN_ON_START=.*|RUN_ON_START=false|' .env
-          sed -i 's|^MAX_CANDIDATES=.*|MAX_CANDIDATES=1|' .env
           sed -i 's|^PANEL_PORT=.*|PANEL_PORT=18080|' .env
           docker compose -f compose.yaml -f compose.build.yaml up -d --build
           for _ in $(seq 1 45); do

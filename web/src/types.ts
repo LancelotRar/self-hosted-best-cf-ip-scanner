@@ -108,13 +108,49 @@ export interface OutputFile {
   mtime: string;
 }
 
+export interface LibraryStats {
+  /** 展开网段、按采样步长抽取后真正参与探测的 IP 数。 */
+  probe: number;
+  /** 被 `#` 注释跳过的 IP 数（注释行按网段展开、合并去重后求和）。 */
+  skipped: number;
+  networks: number;
+  /** 合并去重后的地址总数（不采样）。 */
+  total: number;
+}
+
+/** 固定保留：不做探测、不做机房映射，单独生成一个产物文件。 */
+export interface PinnedList {
+  content: string;
+  hash: string;
+  count: number;
+  mtime: string | null;
+  /** 产物文件名（不含扩展名），由参数 `PINNED_OUTPUT_NAME` 决定。 */
+  output_name: string;
+}
+
 export interface LibraryDocument {
   content: string;
   line_count: number;
   hash: string;
   mtime: string | null;
   read_at: string;
-  stats: { networks: number; fixed: number; skipped: number };
+  stats: LibraryStats;
+  pinned: PinnedList;
+}
+
+export interface LocationEntry {
+  /** Cloudflare 三字机房代码，如 `HKG`。 */
+  code: string;
+  /** ISO 3166-1 两位国家代码，如 `HK`。 */
+  country: string;
+}
+
+export interface LocationsDocument {
+  hash: string;
+  mtime: string | null;
+  count: number;
+  entries: LocationEntry[];
+  read_at: string;
 }
 
 export interface VersionRecord {

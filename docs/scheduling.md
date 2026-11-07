@@ -74,14 +74,14 @@ docker compose exec -T scanner /usr/local/bin/apply-config.sh   # 手动触发�
   `job took too long to run` 警告。
 - **手动执行不影响计划**：`docker compose run --rm scan-once` 立即跑一轮，与定时任务
   共用一把锁；定时任务正在运行时本轮跳过，计划保持不变。
-- **暂停 / 恢复**：`docker compose stop` 停止（`./data`、`./output` 保留）。停止会等
+- **暂停 / 恢复**：`docker compose stop` 停止（命名卷里的数据与产物保留）。停止会等
   当前这一轮收尾（`stop_grace_period` 默认 150s），避免打断正在进行的产物推送；
   想立即中断用 `docker compose stop -t 5`。`docker compose start` 恢复后按
   `RUN_ON_START` 决定是否立刻跑一轮。
 - **首轮不阻塞启动**：`RUN_ON_START=true` 时那一轮在后台执行，调度器立即接管，
   因此启动扫描期间停止容器也能秒级退出。
-- **单轮耗时参考**：全量约 4161 个候选时约 2 分钟；用 `MAX_CANDIDATES` 限制候选量可
-  显著缩短。
+- **单轮耗时参考**：默认库（Cloudflare 官方 IPv4 段）约 5956 个候选，一轮约 2~3 分钟；把地址库里不需要的网段注释掉，
+  候选量与耗时会同步下降。
 
 ## 和产物发布的关系
 

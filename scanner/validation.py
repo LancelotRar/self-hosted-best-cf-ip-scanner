@@ -29,7 +29,6 @@ PROXY_VARS = (
 
 def numeric_problems(
     *,
-    max_candidates: int,
     concurrency: int,
     trace_timeout: int,
     sample_stride: int,
@@ -40,16 +39,13 @@ def numeric_problems(
     """校验数值型参数，返回问题描述列表（空 = 合法）。
 
     这些取值非法时不会抛异常，只会静默异常：`trace_timeout=0` 让 libcurl 无限等待、
-    `concurrency<=0` 让线程池崩溃、`max_candidates<0` 被当成 0 走全量、
-    `tcp_min_success > tcp_attempts` 则永远无法合格。
+    `concurrency<=0` 让线程池崩溃、`tcp_min_success > tcp_attempts` 则永远无法合格。
     """
     problems: list[str] = []
     if trace_timeout < 1:
         problems.append(f"TRACE_TIMEOUT 必须 >= 1 秒（当前 {trace_timeout}）")
     if concurrency < 1:
         problems.append(f"PROBE_CONCURRENCY 必须 >= 1（当前 {concurrency}）")
-    if max_candidates < 0:
-        problems.append(f"MAX_CANDIDATES 必须 >= 0（当前 {max_candidates}；0=不限）")
     if sample_stride < 1:
         problems.append(f"SAMPLE_STRIDE 必须 >= 1（当前 {sample_stride}）")
     if tcp_attempts < 1:
@@ -129,7 +125,6 @@ def startup_problems() -> list[str]:
 
     return (
         numeric_problems(
-            max_candidates=config.MAX_CANDIDATES,
             concurrency=config.PROBE_CONCURRENCY,
             trace_timeout=config.TRACE_TIMEOUT,
             sample_stride=config.SAMPLE_STRIDE,

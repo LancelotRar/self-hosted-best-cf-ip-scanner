@@ -68,13 +68,13 @@ def test_dry_run_sees_candidate_proxy_values(tmp_path, monkeypatch):
 def test_rollback_survives_readonly_keys(settings, fake_controller):
     settings.env_path.write_text(
         "IMAGE_NAME=ghcr.io/example/scanner\nIMAGE_TAG=latest\n"
-        "PANEL_PORT=8080\nMAX_CANDIDATES=0\n",
+        "PANEL_PORT=8080\nSAMPLE_STRIDE=256\n",
         encoding="utf-8",
     )
     save(
         settings,
         read_env(settings).sha256,
-        {"MAX_CANDIDATES": "5"},
+        {"SAMPLE_STRIDE": "128"},
         actor="admin",
         controller=fake_controller,
     )
@@ -85,7 +85,7 @@ def test_rollback_survives_readonly_keys(settings, fake_controller):
     save(
         settings,
         read_env(settings).sha256,
-        {"MAX_CANDIDATES": "6"},
+        {"SAMPLE_STRIDE": "512"},
         actor="admin",
         controller=fake_controller,
     )
@@ -98,20 +98,20 @@ def test_rollback_survives_readonly_keys(settings, fake_controller):
         controller=fake_controller,
     )
     assert result.written is True
-    assert read_env(settings).values["MAX_CANDIDATES"] == "5"
+    assert read_env(settings).values["SAMPLE_STRIDE"] == "128"
 
 
 def test_invalid_readonly_value_does_not_block_save(settings, fake_controller):
-    settings.env_path.write_text("PANEL_PORT=abc\nMAX_CANDIDATES=0\n", encoding="utf-8")
+    settings.env_path.write_text("PANEL_PORT=abc\nSAMPLE_STRIDE=256\n", encoding="utf-8")
     result = save(
         settings,
         read_env(settings).sha256,
-        {"MAX_CANDIDATES": "7"},
+        {"SAMPLE_STRIDE": "512"},
         actor="admin",
         controller=fake_controller,
     )
     assert result.written is True
-    assert read_env(settings).values["MAX_CANDIDATES"] == "7"
+    assert read_env(settings).values["SAMPLE_STRIDE"] == "512"
 
 
 def test_publish_change_is_verified_against_scanner(settings, fake_controller):
@@ -130,7 +130,7 @@ def test_publish_change_is_verified_against_scanner(settings, fake_controller):
 def test_manual_verify_skips_restart_class_keys(settings, fake_controller):
     from scanner.schema import PARAMS, coerce
 
-    settings.env_path.write_text("PUID=1001\nMAX_CANDIDATES=3\n", encoding="utf-8")
+    settings.env_path.write_text("PUID=1001\nSAMPLE_STRIDE=128\n", encoding="utf-8")
     document = read_env(settings)
     effective: dict[str, object] = {}
     for spec in PARAMS:
@@ -150,20 +150,20 @@ def test_manual_verify_skips_restart_class_keys(settings, fake_controller):
 
 
 def test_save_preserves_comments_and_updates_value(settings):
-    settings.env_path.write_text("# keep\nMAX_CANDIDATES=0\n", encoding="utf-8")
+    settings.env_path.write_text("# keep\nSAMPLE_STRIDE=256\n", encoding="utf-8")
     doc = read_env(settings)
-    result = save(settings, doc.sha256, {"MAX_CANDIDATES": "200"}, actor="admin")
+    result = save(settings, doc.sha256, {"SAMPLE_STRIDE": "512"}, actor="admin")
     text = settings.env_path.read_text(encoding="utf-8")
     assert "# keep" in text
-    assert "MAX_CANDIDATES=200" in text
+    assert "SAMPLE_STRIDE=512" in text
     assert result.applied is True
 
 
 def test_stale_hash_conflicts(settings):
     doc = read_env(settings)
-    settings.env_path.write_text("MAX_CANDIDATES=1\n", encoding="utf-8")
+    settings.env_path.write_text("SAMPLE_STRIDE=256\n", encoding="utf-8")
     with pytest.raises(ConfigConflict):
-        save(settings, doc.sha256, {"MAX_CANDIDATES": "2"}, actor="admin")
+        save(settings, doc.sha256, {"SAMPLE_STRIDE": "512"}, actor="admin")
 
 
 def test_invalid_candidate_does_not_write(settings, fake_validator):
@@ -186,17 +186,17 @@ def test_secret_is_masked_in_get(settings, client):
 
 
 def test_save_reads_back_and_reports_verification(settings, fake_controller):
-    fake_controller.effective = {"MAX_CANDIDATES": 999}  # 模拟扫描器读到旧值
+    fake_controller.effective = {"SAMPLE_STRIDE": 999}  # 模拟扫描器读到旧值
     result = save(
         settings,
         read_env(settings).sha256,
-        {"MAX_CANDIDATES": "200"},
+        {"SAMPLE_STRIDE": "512"},
         actor="admin",
         controller=fake_controller,
     )
     assert result.written is True
     assert result.verification["status"] == "mismatch"
-    assert result.verification["details"][0]["name"] == "MAX_CANDIDATES"
+    assert result.verification["details"][0]["name"] == "SAMPLE_STRIDE"
 
 
 def test_container_offline_reports_unavailable(settings, fake_controller):
@@ -204,7 +204,7 @@ def test_container_offline_reports_unavailable(settings, fake_controller):
     result = save(
         settings,
         read_env(settings).sha256,
-        {"MAX_CANDIDATES": "200"},
+        {"SAMPLE_STRIDE": "512"},
         actor="admin",
         controller=fake_controller,
     )

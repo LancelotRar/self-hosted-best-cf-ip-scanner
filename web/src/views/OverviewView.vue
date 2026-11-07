@@ -18,7 +18,14 @@ import ErrorState from "../components/ErrorState.vue";
 import PageHeader from "../components/PageHeader.vue";
 import StatusPill from "../components/StatusPill.vue";
 import type { LibraryDocument, OutputFile, Overview, Param, RunRecord } from "../types";
-import { exitLabel, formatDuration, formatMinute, formatSize, formatTime } from "../utils/format";
+import {
+  exitLabel,
+  formatCount,
+  formatDuration,
+  formatMinute,
+  formatSize,
+  formatTime,
+} from "../utils/format";
 
 interface PublishResponse {
   hash: string;
@@ -283,12 +290,11 @@ onMounted(load);
         <div class="panel block__card">
           <template v-if="library">
             <p class="section-note">
-              {{ library.line_count }} 行 · 网段 {{ library.stats.networks }} · 固定条目
-              {{ library.stats.fixed }} · 跳过 {{ library.stats.skipped }} · 修改时间
-              {{ formatTime(library.mtime) }}
+              参与探测 {{ formatCount(library.stats.probe) }} · 跳过
+              {{ formatCount(library.stats.skipped) }}
             </p>
             <p class="section-note muted">
-              只列出地址条目；格式说明与编辑在「参数调整 · 自定义 IP 库」。
+              只列出可参与采样的地址条目；编辑在「参数调整 · 自定义 IP 库」。
             </p>
             <div class="library-preview mono">
               <span v-for="(entry, index) in libraryEntries" :key="index">{{ entry }}</span>
@@ -480,32 +486,6 @@ onMounted(load);
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-3);
-}
-
-.block {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.block__head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-left: 2px;
-  color: var(--text);
-  font-size: 15px;
-  font-weight: 650;
-  letter-spacing: -0.01em;
-}
-
-.block__head :deep(.el-icon) {
-  color: var(--text-muted);
-  font-size: 15px;
-}
-
-.block__card {
-  padding: 20px 24px;
 }
 
 .card-grid {

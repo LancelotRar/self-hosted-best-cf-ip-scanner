@@ -15,9 +15,9 @@ test("保存结果面板显示写入/核对/生效方式/下次执行", async ({
   await ensureSession(page);
   await page.goto("/config");
 
-  const field = page.locator("#param-MAX_CANDIDATES");
+  const field = page.locator("#param-SAMPLE_STRIDE");
   const original = await field.inputValue();
-  const next = original === "200" ? "201" : "200";
+  const next = original === "512" ? "256" : "512";
   await field.fill(next);
   await expect(page.getByText("未保存 1 项")).toBeVisible();
 
@@ -38,9 +38,9 @@ test("取消恢复服务端快照", async ({ page }) => {
   await ensureSession(page);
   await page.goto("/config");
 
-  const field = page.locator("#param-MAX_CANDIDATES");
+  const field = page.locator("#param-SAMPLE_STRIDE");
   const original = await field.inputValue();
-  const next = original === "123" ? "124" : "123";
+  const next = original === "1024" ? "512" : "1024";
   await field.fill(next);
   await expect(page.getByText("未保存 1 项")).toBeVisible();
 
@@ -82,13 +82,13 @@ test("两个窗口同时保存时提示文件已被修改", async ({ browser }) 
     await pageA.goto("/config");
     await pageB.goto("/config");
 
-    const fieldA = pageA.locator("#param-MAX_CANDIDATES");
+    const fieldA = pageA.locator("#param-SAMPLE_STRIDE");
     const original = await fieldA.inputValue();
-    const first = original === "300" ? "301" : "300";
-    const second = original === "400" ? "401" : "400";
+    const first = original === "512" ? "1024" : "512";
+    const second = original === "2048" ? "4096" : "2048";
 
     await fieldA.fill(first);
-    await pageB.locator("#param-MAX_CANDIDATES").fill(second);
+    await pageB.locator("#param-SAMPLE_STRIDE").fill(second);
 
     await saveButton(pageA).click();
     await expect(pageA.getByText("保存结果")).toBeVisible();

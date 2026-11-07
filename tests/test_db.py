@@ -1,5 +1,5 @@
 from panel.audit import record
-from panel.db import connect, migrate
+from panel.db import SCHEMA_VERSION, connect, migrate
 from panel.redact import redact_secrets
 
 
@@ -7,7 +7,17 @@ def test_migrate_is_idempotent(tmp_path):
     conn = connect(tmp_path / "panel.db")
     migrate(conn)
     migrate(conn)
-    assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
+
+
+def test_migrate_creates_document_and_artifact_tables(tmp_path):
+    conn = connect(tmp_path / "panel.db")
+    migrate(conn)
+    names = {
+        row["name"]
+        for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+    }
+    assert {"library", "library_versions", "locations", "artifacts"} <= names
 
 
 def test_audit_redacts_secret_values(tmp_path):

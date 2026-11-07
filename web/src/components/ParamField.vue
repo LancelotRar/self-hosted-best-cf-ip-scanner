@@ -63,7 +63,6 @@ const NUMERIC_BOUNDS: Record<string, { min: number; max: number; step: number }>
   TRACE_TIMEOUT: { min: 1, max: 120, step: 1 },
   TRACE_ATTEMPTS: { min: 1, max: 10, step: 1 },
   SAMPLE_STRIDE: { min: 1, max: 65536, step: 64 },
-  MAX_CANDIDATES: { min: 0, max: 100000, step: 100 },
   SAMPLE_SEED: { min: 0, max: 10_000_000, step: 1 },
   SEED_HOUR_FACTOR: { min: 1, max: 10_000_000, step: 1 },
   PUID: { min: 0, max: 65535, step: 1 },
@@ -121,9 +120,11 @@ const listValue = computed<number[]>(() => {
 
 const defaultText = computed(() => {
   const value = props.param.default;
-  if (Array.isArray(value)) return value.join(",");
+  if (Array.isArray(value)) return value.length ? value.join(",") : "空";
   if (typeof value === "boolean") return value ? "true" : "false";
-  return String(value);
+  const text = String(value ?? "");
+  // 没有默认值时不要留下一行孤零零的「默认」
+  return text === "" ? "空" : text;
 });
 
 const effectTag = computed(() => {
@@ -182,6 +183,11 @@ function onBool(value: string | number | boolean) {
         </span>
       </div>
     </div>
+
+    <p :id="`param-${param.name}-help`" class="field__help">
+      <span>{{ param.help }}</span>
+      <span class="field__default">默认 {{ defaultText }}</span>
+    </p>
 
     <el-switch
       v-if="param.kind === 'bool'"
@@ -339,11 +345,6 @@ function onBool(value: string | number | boolean) {
       :aria-describedby="`param-${param.name}-help`"
       @input="onText"
     />
-
-    <p :id="`param-${param.name}-help`" class="field__help">
-      <span>{{ param.help }}</span>
-      <span class="field__default">默认 {{ defaultText }}</span>
-    </p>
   </div>
 </template>
 
@@ -433,11 +434,7 @@ function onBool(value: string | number | boolean) {
 }
 
 .field__help {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 10px;
-  margin: 8px 0 0;
+  margin: 0 0 var(--space-2);
   color: var(--text-muted);
   font-size: 12px;
   line-height: 18px;
@@ -445,9 +442,9 @@ function onBool(value: string | number | boolean) {
 }
 
 .field__default {
+  display: block;
+  margin-top: 2px;
   color: var(--text-faint);
-  font-family: var(--font-mono);
-  font-size: 11.5px;
 }
 
 .field :deep(.el-input),

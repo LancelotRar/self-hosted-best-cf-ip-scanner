@@ -29,7 +29,7 @@ docker compose down                       # 停止并移除容器（数据保留
 
 ## 运行身份
 
-镜像以 root 启动，但入口脚本只做两件事：把 bind mount 的宿主目录对齐到 `PUID:PGID`、
+镜像以 root 启动，但入口脚本只做两件事：把三个命名卷对齐到 `PUID:PGID`、
 首次播种默认数据；随后用 `su-exec` 降权，**业务进程全程非 root**：
 
 ```bash
@@ -54,7 +54,7 @@ docker compose run --rm scan-once
 - 临时改参数而不动 `.env`：
 
 ```bash
-docker compose run --rm -e MAX_CANDIDATES=200 scan-once
+docker compose run --rm -e SAMPLE_STRIDE=512 scan-once
 ```
 
 ## 更新镜像
@@ -96,22 +96,22 @@ docker compose logs --no-color > scanner.log   # 导出
 </tr>
 </thead>
 <tbody>
-<tr><td align="center"><code>./data</code></td><td align="center">候选地址库、机房映射</td><td align="center"><strong>不要删</strong>，删了会重新播种内置默认值</td></tr>
-<tr><td align="center"><code>./output</code></td><td align="center">明细表与订阅列表</td><td align="center">可随时删除，下一轮重新生成</td></tr>
-<tr><td align="center"><code>./cache/repo</code></td><td align="center">目标仓库浅克隆</td><td align="center">可删除，下一轮重新克隆</td></tr>
+<tr><td align="center"><code>ip-data</code>（卷）</td><td align="center">地址库、机房映射、轮次记录的投影</td><td align="center">由数据库重建；直接删卷不影响数据库</td></tr>
+<tr><td align="center"><code>scan-output</code>（卷）</td><td align="center">明细表与订阅列表</td><td align="center">可随时删除，下一轮重新生成</td></tr>
+<tr><td align="center"><code>publish-cache</code>（卷）</td><td align="center">目标仓库浅克隆</td><td align="center">可删除，下一轮重新克隆</td></tr>
 </tbody>
 </table>
 
 ```bash
-rm -rf ./cache/repo        # 发布状态异常时重置
-rm -rf ./output            # 清空历史产物
+# 发布状态异常时重置克隆缓存
+docker run --rm -v <compose项目名>_publish-cache:/cache alpine rm -rf /cache/repo
 ```
 
 ## 备份
 
-需要备份的只有 `./data`（地址库与机房映射，属于人工维护内容）和 `.env`（配置）。
-产物可由任意一轮扫描重新生成，不必备份。
+真正需要备份的是 `./panel-data`（面板数据库：地址库、机房映射、产物快照、配置版本、
+审计与账号）和 `.env`（配置）。三个命名卷里的内容都能由数据库重建或由下一轮扫描重新生成。
 
 ```bash
-tar czf scanner-backup.tar.gz .env data/
+tar czf scanner-backup.tar.gz .env panel-data/
 ```

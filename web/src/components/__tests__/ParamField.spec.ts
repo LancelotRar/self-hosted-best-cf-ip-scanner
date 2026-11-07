@@ -6,13 +6,13 @@ import ParamField from "../ParamField.vue";
 import type { Param } from "../../types";
 
 const intParam: Param = {
-  name: "MAX_CANDIDATES",
+  name: "SAMPLE_STRIDE",
   group: "采样",
   kind: "int",
-  label: "候选总量上限",
-  help: "0 = 不限",
-  default: 0,
-  value: 1,
+  label: "采样步长",
+  help: "每 N 个地址抽 1 个",
+  default: 256,
+  value: 256,
   source: "default",
   configured: false,
   secret: false,
@@ -61,14 +61,14 @@ const cronParam: Param = {
 describe("ParamField", () => {
   it("int 参数使用数字步进器", async () => {
     const wrapper = mount(ParamField, {
-      props: { param: intParam, modelValue: 1 },
+      props: { param: intParam, modelValue: 256 },
       global: { plugins: [ElementPlus] },
     });
     expect(wrapper.find(".el-input-number").exists()).toBe(true);
     const input = wrapper.find(".el-input-number input");
-    await input.setValue("200");
+    await input.setValue("512");
     await input.trigger("change");
-    expect(wrapper.emitted("update:modelValue")?.[0]).toEqual([200]);
+    expect(wrapper.emitted("update:modelValue")?.[0]).toEqual([512]);
   });
 
   it("端口参数使用多选，已选端口以标签展示", () => {

@@ -61,11 +61,11 @@ E2E 需要一套**干净**的真实栈（CI 由 `e2e` job 自动准备）：
 
 ```bash
 rm -rf panel-data
+docker compose down -v            # 数据与产物在命名卷里，清空才算干净栈
 cp compose.example.yaml compose.yaml
 cp .env.example .env
 sed -i 's|^PROBE_HOST=.*|PROBE_HOST=probe.example.com|' .env
 sed -i 's|^RUN_ON_START=.*|RUN_ON_START=false|' .env
-sed -i 's|^MAX_CANDIDATES=.*|MAX_CANDIDATES=1|' .env
 sed -i 's|^PANEL_PORT=.*|PANEL_PORT=18080|' .env
 docker compose up -d --build
 

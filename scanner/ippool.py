@@ -49,19 +49,15 @@ def _parse_entry(line: str) -> tuple[ipaddress.IPv4Network, int | None] | None:
     return (network, None) if isinstance(network, ipaddress.IPv4Network) else None
 
 
-def read_library(path: str | Path) -> tuple[list[ipaddress.IPv4Network], FixedPorts, int]:
-    """读取候选地址库，返回 (网段列表, 固定端口映射, 跳过行数)。
+def parse_library(content: str) -> tuple[list[ipaddress.IPv4Network], int]:
+    """解析采样用的地址库文本，返回 (网段列表, 跳过行数)。
 
-    每行支持 CIDR / 单个 IP / `IP:端口`；以 utf-8-sig 读取（自动剥离 BOM），
-    跳过空行、`#` 注释与表头（如 cidr / ip）。
+    每行支持 CIDR / 单个 IP；跳过空行、`#` 注释与表头（如 cidr / ip）。
 
-    **带端口的行不进入网段列表**，而是单独放进固定端口映射：这类条目表示
-    "精确指定某 IP 的某端口"，不应被采样窗口替换成同段内的其它地址。
-    调用方应把它们原样加入候选并保留端口。
+    带端口的条目（`IP:端口`）**不属于采样池**：端口无法在网格采样后被保留，
+    它属于「固定保留」列表（`scanner.pinned`），这里计为跳过行。
     """
-    content = Path(path).read_text(encoding="utf-8-sig", errors="ignore")
     networks: list[ipaddress.IPv4Network] = []
-    fixed: FixedPorts = {}
     skipped = 0
     for raw in content.splitlines():
         line = raw.strip()
@@ -70,29 +66,55 @@ def read_library(path: str | Path) -> tuple[list[ipaddress.IPv4Network], FixedPo
         if line.casefold() in _HEADER_WORDS:
             continue  # 表头
         parsed = _parse_entry(line)
-        if parsed is None:
+        if parsed is None or parsed[1] is not None:
             skipped += 1
             continue
-        network, port = parsed
-        if port is None:
-            networks.append(network)
-        else:
-            fixed[str(network.network_address)] = port
-    return networks, fixed, skipped
+        networks.append(parsed[0])
+    return networks, skipped
 
 
-def library_errors(text: str) -> list[tuple[int, str]]:
-    """逐行校验候选地址库，返回 `[(行号, 原文行)]`；行号从 1 开始。
+def read_library(path: str | Path) -> tuple[list[ipaddress.IPv4Network], int]:
+    """读取候选地址库文件：utf-8-sig 读取（自动剥离 BOM），解析规则见 `parse_library`。"""
+    content = Path(path).read_text(encoding="utf-8-sig", errors="ignore")
+    return parse_library(content)
+
+
+def commented_networks(content: str) -> list[ipaddress.IPv4Network]:
+    """收集被 `#` 注释掉的地址条目，返回网段列表。
+
+    只统计从注释里仍能解析成 CIDR / 单个 IP 的行——`# --- 说明文字 ---` 这类
+    纯注释本来就不对应任何地址，不计入。库内排除某个网段的约定写法是
+    「行首加 `#` 并写明依据」（见模块 docstring）。
+    """
+    networks: list[ipaddress.IPv4Network] = []
+    for raw in content.splitlines():
+        line = raw.strip().lstrip("\ufeff").strip()
+        if not line.startswith("#"):
+            continue
+        parsed = _parse_entry(line.lstrip("#").strip())
+        if parsed is not None:
+            networks.append(parsed[0])
+    return networks
+
+
+def library_errors(text: str) -> list[tuple[int, str, str]]:
+    """逐行校验采样用的地址库，返回 `[(行号, 原文行, 原因)]`；行号从 1 开始。
 
     跳过空行、`#` 注释与表头；其余行用与扫描器相同的解析器判断。
+    带端口的条目不属于采样池，单独给出去向提示。
     """
-    errors: list[tuple[int, str]] = []
+    errors: list[tuple[int, str, str]] = []
     for line_no, raw in enumerate(text.splitlines(), start=1):
         line = raw.strip().lstrip("\ufeff").strip()
         if not line or line.startswith("#") or line.casefold() in _HEADER_WORDS:
             continue
-        if _parse_entry(line) is None:
-            errors.append((line_no, line))
+        parsed = _parse_entry(line)
+        if parsed is None:
+            errors.append((line_no, line, "无法解析的地址条目"))
+        elif parsed[1] is not None:
+            errors.append(
+                (line_no, line, "带端口的条目不参与采样，请放到「固定保留」")
+            )
     return errors
 
 
@@ -110,6 +132,42 @@ def merge_to_runs(networks: list[ipaddress.IPv4Network]) -> list[tuple[int, int]
         else:
             runs.append([start, end])
     return [(start, end) for start, end in runs]
+
+
+def count_addresses(runs: list[tuple[int, int]]) -> int:
+    """区间内地址总数；`runs` 已互不重叠，可直接求和。"""
+    return sum(end - start + 1 for start, end in runs)
+
+
+def subtract_runs(
+    runs: list[tuple[int, int]], excluded: list[tuple[int, int]]
+) -> list[tuple[int, int]]:
+    """从 `runs` 里扣掉 `excluded` 覆盖的地址，返回剩余区间（升序、互不重叠）。
+
+    用于「注释掉某个网段的子集」：库里 `104.16.0.0/13` 有效、`# 104.16.0.0/14`
+    被注释时，真正参与采样的应当是 `104.20.0.0/14`，而不是整个 /13。
+    `excluded` 需先用 `merge_to_runs` 合并，避免重复扣减。
+    """
+    result: list[tuple[int, int]] = []
+    for start, end in runs:
+        segments = [(start, end)]
+        for ex_start, ex_end in excluded:
+            if ex_end < start or ex_start > end:
+                continue
+            remaining: list[tuple[int, int]] = []
+            for seg_start, seg_end in segments:
+                if ex_end < seg_start or ex_start > seg_end:
+                    remaining.append((seg_start, seg_end))
+                    continue
+                if seg_start < ex_start:
+                    remaining.append((seg_start, ex_start - 1))
+                if seg_end > ex_end:
+                    remaining.append((ex_end + 1, seg_end))
+            segments = remaining
+            if not segments:
+                break
+        result.extend(segments)
+    return result
 
 
 def sample_representatives(runs: list[tuple[int, int]], stride: int, seed: int) -> list[str]:
@@ -140,6 +198,18 @@ def sample_representatives(runs: list[tuple[int, int]], stride: int, seed: int) 
                 )
             position += stride
     return samples
+
+
+def window_count(runs: list[tuple[int, int]], stride: int) -> int:
+    """按 `sample_representatives` 的窗口规则计算代表数量（与随机种子无关）。
+
+    每个窗口恒抽 1 个代表，所以只需数窗口；窗口按地址网格对齐，区间
+    `[run_start, run_end]` 内落在网格上的窗口个数即
+    `run_end // stride - run_start // stride + 1`。
+    """
+    if stride < 1:
+        raise ValueError(f"stride 必须 >= 1，当前 {stride}")
+    return sum(end // stride - start // stride + 1 for start, end in runs)
 
 
 def assign_ports(

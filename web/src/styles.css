@@ -107,6 +107,40 @@ a {
   gap: var(--space-3);
 }
 
+/* 页面分块：标题在卡片之外（信息总览、自定义 IP 库等页共用） */
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.block__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 2px;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.block__head .el-icon {
+  color: var(--text-muted);
+  font-size: 15px;
+}
+
+.block__card {
+  padding: 20px 24px;
+  overflow-x: auto;
+}
+
+@media (max-width: 767px) {
+  .block__card {
+    padding: var(--space-3);
+  }
+}
+
 .row {
   display: flex;
   align-items: center;
@@ -143,18 +177,6 @@ a {
   background: var(--surface);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow);
-}
-
-.panel__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  min-height: 56px;
-  padding: 16px 24px 0;
-  font-size: 15px;
-  font-weight: 650;
-  letter-spacing: -0.01em;
 }
 
 .panel__body {
@@ -397,21 +419,6 @@ a {
   border-radius: 4px;
   border-color: transparent;
   font-variant-numeric: tabular-nums;
-}
-
-.el-collapse {
-  --el-collapse-border-color: var(--border);
-  --el-collapse-header-bg-color: var(--surface);
-  --el-collapse-content-bg-color: var(--surface);
-  --el-collapse-header-text-color: var(--text);
-  border-top: none;
-}
-
-.el-collapse-item__header {
-  font-weight: 600;
-  font-size: var(--fs-body);
-  height: 48px;
-  letter-spacing: 0.01em;
 }
 
 .el-descriptions {

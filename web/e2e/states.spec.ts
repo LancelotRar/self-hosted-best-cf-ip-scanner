@@ -112,9 +112,9 @@ test("未保存离开弹窗只提供继续编辑 / 放弃修改", async ({ page 
   await ensureSession(page);
   await page.goto("/config");
 
-  const field = page.locator("#param-MAX_CANDIDATES");
+  const field = page.locator("#param-SAMPLE_STRIDE");
   const original = await field.inputValue();
-  await field.fill(original === "200" ? "201" : "200");
+  await field.fill(original === "512" ? "256" : "512");
 
   await page.locator(".nav__item").filter({ hasText: "查看日志" }).click();
   const dialog = page.locator(".el-dialog").filter({ hasText: "未保存的修改" });

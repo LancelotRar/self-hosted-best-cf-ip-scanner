@@ -84,10 +84,13 @@ docker compose logs -f
 
 首次启动会做四件事：
 
-- 创建并授权宿主目录 `./data`、`./output`、`./cache`（属主对齐到 `PUID:PGID`）；
-- 把镜像内置的候选地址库与机房映射播种到 `./data`（已存在的文件不覆盖）；
+- 创建三个命名卷 `ip-data`、`scan-output`、`publish-cache`（属主对齐到 `PUID:PGID`）；
+- 把镜像内置的候选地址库与机房映射播种进 `ip-data` 卷，随后由面板导入数据库；
 - `RUN_ON_START=true` 时先跑一轮，再交给 cron 调度；
 - 启动运维面板（同镜像、`panel` 服务），浏览器访问 `http://<宿主IP>:8080`。
+
+从旧版本（数据在 `./data`、`./output`）升级时，面板第一次启动会把宿主目录里的
+地址库、机房映射、轮次记录与产物搬进命名卷并入库，之后宿主目录里的这些文件就不再被读取。
 
 ## 4. 验证部署
 
@@ -96,9 +99,11 @@ docker compose logs -f
 ```bash
 docker compose ps                 # scanner 与 panel 都应为 Up (healthy)
 docker compose logs --tail=30     # 应能看到「本轮完成」
-ls output                         # 应看到 detail.csv 与 GLOBAL*.txt
 curl -fsS http://127.0.0.1:8080/healthz   # {"status":"ok",...}
 ```
+
+产物在面板「信息总览 · 产物情况」里查看：应列出 `detail.csv` 与 `GLOBAL*.txt`。
+宿主目录里不会有这些文件。
 
 浏览器打开 `http://<宿主IP>:8080`，首次会要求设置管理员密码。
 
@@ -107,9 +112,9 @@ curl -fsS http://127.0.0.1:8080/healthz   # {"status":"ok",...}
 ```
 best-cf-ip-scanner 生效配置
 探测端点        : PROBE_HOST=...  PROBE_PATH=/cdn-cgi/trace
-候选地址库：/data/ip-library.txt（4161 个网段 -> 15 个连续地址区间，...）共 4161 个候选 IP
+候选地址库：/data/ip-library.txt（15 个网段 -> 14 个连续地址区间，...）共 5956 个候选 IP
 TCP 握手测量：合格 2673，淘汰 1488（每候选 3 次，至少成功 2 次，超时 3.0s，耗时 78.3s）
-边缘端点校验：合格 2328，淘汰 345（TCP 握手达标 2673/4161；耗时 35.9s）
+边缘端点校验：合格 2328，淘汰 345（TCP 握手达标 2673/5956；耗时 35.9s）
 本轮完成：5 个订阅列表 + 1 个明细表 -> /output  总耗时 123.2s
 ```
 
@@ -143,14 +148,15 @@ TCP 握手测量：合格 2673，淘汰 1488（每候选 3 次，至少成功 2 
 </tr>
 </thead>
 <tbody>
-<tr><td align="center"><code>./data</code></td><td align="center"><code>/data</code></td><td align="center"><code>ip-library.txt</code> + <code>locations.json</code></td><td align="center">首次启动写入内置默认值，之后可直接编辑</td></tr>
-<tr><td align="center"><code>./output</code></td><td align="center"><code>/output</code></td><td align="center"><code>detail.csv</code> + 订阅列表</td><td align="center">每轮全量重写（镜像语义）</td></tr>
-<tr><td align="center"><code>./cache/repo</code></td><td align="center"><code>/cache/repo</code></td><td align="center">目标仓库浅克隆</td><td align="center">删掉即可让下一轮重新克隆</td></tr>
+<tr><td align="center"><code>ip-data</code></td><td align="center"><code>/data</code></td><td align="center"><code>ip-library.txt</code> + <code>locations.json</code> + <code>runtime/runs.tsv</code></td><td align="center">数据库的投影；面板启动与保存时重写</td></tr>
+<tr><td align="center"><code>scan-output</code></td><td align="center"><code>/output</code></td><td align="center"><code>detail.csv</code> + 订阅列表</td><td align="center">每轮全量重写，供发布使用；面板同步入库</td></tr>
+<tr><td align="center"><code>publish-cache</code></td><td align="center"><code>/cache</code></td><td align="center">目标仓库浅克隆</td><td align="center">删掉卷即可让下一轮重新克隆</td></tr>
 </tbody>
 </table>
 
-三个目录都以 bind mount 挂载，产物与地址库直接在宿主机可见、可编辑。文件属主是
-`PUID:PGID`（默认 `1000:1000`）；宿主机用户不是 1000 时，把 `.env` 的
+三个位置都是**命名卷**：宿主机目录里看不到任何文件，地址库与产物只在面板里查看和编辑。
+需要备份时用 `docker run --rm -v <项目>_ip-data:/src -v $PWD:/dst alpine tar czf /dst/ip-data.tgz -C /src .`。
+卷内文件属主是 `PUID:PGID`（默认 `1000:1000`）；宿主机用户不是 1000 时，把 `.env` 的
 `PUID` / `PGID` 改成 `id -u` / `id -g`。
 
 ## 6. compose.example.yaml 默认配置
@@ -164,10 +170,10 @@ TCP 握手测量：合格 2673，淘汰 1488（每候选 3 次，至少成功 2 
 #
 # 手动执行一轮：docker compose run --rm scan-once
 #
-# 宿主目录（首次启动自动创建并对齐属主）：
-#   ./data    输入：候选地址库 + 机房映射（含内置默认值，可直接编辑）
-#   ./output  产物：明细表 detail.csv + 订阅列表 GLOBAL{N}.txt / {国家代码}{N}.txt
-#   ./cache   发布缓存：目标仓库的浅克隆（可随时删除）
+# 数据卷（命名卷，宿主目录里看不到文件）：
+#   ip-data        输入：候选地址库 + 机房映射（面板里编辑，数据库为唯一真源）
+#   scan-output    产物：明细表 detail.csv + 订阅列表 GLOBAL{N}.txt / {国家代码}{N}.txt
+#   publish-cache  发布缓存：目标仓库的浅克隆（可随时删除）
 #
 # 本地构建镜像见 compose.build.yaml：
 #   docker compose -f compose.yaml -f compose.build.yaml up -d --build
@@ -179,7 +185,7 @@ x-scanner-common: &scanner-common
   image: ${IMAGE_NAME:-ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner}:${IMAGE_TAG:-latest}
   # 不再用 env_file 注入：`.env` 是唯一配置源，扫描器每轮自己重新读取
   # /project/.env（面板与手工编辑同源）。显式 environment 仍优先于 .env。
-  # 容器内路径固定；对应宿主目录见下方 volumes
+  # 容器内路径固定；对应数据卷见下方 volumes
   environment:
     DOTENV_PATH: /project/.env
     OUTPUT_DIR: /output
@@ -202,13 +208,12 @@ x-scanner-common: &scanner-common
   security_opt:
     - no-new-privileges:true
   volumes:
-    # IP 库与 IATA 映射：首次启动自动写入内置默认值，之后直接编辑这两个文件维护
-    # （改完下一轮扫描生效，无需重建镜像）
-    - ./data:/data
-    # 产物：明细表 + 订阅列表，直接出现在宿主目录里
-    - ./output:/output
-    # 发布缓存：目标仓库的浅克隆，删掉即可让下一轮重新克隆
-    - ./cache:/cache
+    # IP 库与 IATA 映射：面板写入数据库后投影到卷里，只给扫描器读（宿主不可见）
+    - ip-data:/data
+    # 产物：明细表 + 订阅列表，写入卷后由面板入库展示（宿主不可见）
+    - scan-output:/output
+    # 发布缓存：目标仓库的浅克隆，删掉卷即可让下一轮重新克隆
+    - publish-cache:/cache
     # 项目目录只读挂载：扫描器从这里每轮读取 .env
     - ./:/project:ro
 
@@ -272,9 +277,9 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./:/project
-      - ./data:/data
-      - ./output:/output
-      - ./cache:/cache
+      - ip-data:/data
+      - scan-output:/output
+      - publish-cache:/cache
       - ./panel-data:/panel-data
     read_only: true
     tmpfs:

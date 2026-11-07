@@ -30,7 +30,7 @@ def settings(tmp_path: Path) -> Settings:
     """临时目录下的完整设置，附带一份最小 `.env`。"""
     resolved = Settings.for_tests(tmp_path)
     resolved.env_path.write_text(
-        "PROBE_HOST=probe.example.com\nMAX_CANDIDATES=1\n", encoding="utf-8"
+        "PROBE_HOST=probe.example.com\nSAMPLE_STRIDE=128\n", encoding="utf-8"
     )
     return resolved
 

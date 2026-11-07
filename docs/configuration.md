@@ -64,9 +64,9 @@ RUN_ON_START=true
 TZ=Asia/Shanghai
 
 # ------------------------------------------------- 运行身份【建议】 ----
-# 容器内业务进程的 uid/gid。入口脚本会把 ./data ./output ./cache 的属主自动对齐到
-# 这两个值，宿主机不需要手工 chown；产物文件属主也是它们。
-# 宿主机当前用户不是 1000 时改成 id -u / id -g，方便直接编辑产物与地址库。
+# 容器内业务进程的 uid/gid。入口脚本会把 ip-data / scan-output / publish-cache
+# 三个命名卷的属主自动对齐到这两个值，宿主机不需要手工 chown。
+# 宿主机当前用户不是 1000 时改成 id -u / id -g。
 PUID=1000
 PGID=1000
 
@@ -109,16 +109,16 @@ TRACE_ATTEMPTS=2
 #   128  更密、更慢（候选量翻倍）
 #   512  更稀、更快
 SAMPLE_STRIDE=256
-# 候选总量上限：0 = 不限（默认，全量约 2~5 分钟）；快速验证环境时设小值，如 200。
-MAX_CANDIDATES=0
 # 采样基础种子：同一小时内结果可复现，跨小时自动轮换覆盖不同 IP 与端口组合。
 SAMPLE_SEED=42
 
 # ------------------------------------------------- 输入【可选】 ----
-# 候选地址库文件名（相对 DATA_DIR，即宿主 ./data）。
-# 每行支持：CIDR / 单个 IP / IP:端口；行首 # 为注释。
+# 候选地址库文件名（相对 DATA_DIR 卷）。内容由面板维护并存在数据库里，
+# 这个文件只是写给扫描器的投影；每行支持：CIDR / 单个 IP，行首 # 为注释。
 LIBRARY_FILE=ip-library.txt
-# 机房映射文件名（相对 DATA_DIR）。一般不用改；换成自己的映射文件时填新文件名。
+# 固定保留文件名（相对 DATA_DIR 卷）：不参与扫描，原样附加到全量列表末尾。
+PINNED_FILE=ip-pinned.txt
+# 机房映射文件名（相对 DATA_DIR 卷）。同样以数据库为准，一般不用改。
 LOCATIONS_FILE=locations.json
 # 调试用：跳过机房映射（国家/国旗列留空）。正常保持 false。
 SKIP_LOCATIONS=false
@@ -126,6 +126,8 @@ SKIP_LOCATIONS=false
 # ------------------------------------------------- 输出【可选】 ----
 # 明细表文件名（不含扩展名）：记录全部合格候选及其测量指标。
 DETAIL_CSV_NAME=detail
+# 固定保留列表的文件名（不含扩展名）：单独成文件，不混入 GLOBAL/国家列表。
+PINNED_OUTPUT_NAME=PINNED
 
 # 全量列表 -> GLOBAL{N}.txt：对全部合格候选排名（不按国家筛选）。
 # 填几个数字就生成几个文件（任意正整数，逗号分隔）。
@@ -260,7 +262,6 @@ IMAGE_TAG=latest
 <tr><td align="center"><code>COUNTRY_FILTERS</code></td><td align="center"><code>false</code>（默认）</td><td align="center"><strong>不生成国家列表</strong>，所有 <code>TOP_&lt;国家代码&gt;</code> 数值被忽略</td></tr>
 <tr><td align="center"><code>COUNTRY_FILTERS</code></td><td align="center"><code>true</code></td><td align="center">按 <code>TOP_&lt;国家代码&gt;</code> 的数值生成国家列表</td></tr>
 <tr><td align="center"><code>TOP_US</code> / <code>TOP_JP</code> / …</td><td align="center"><code>0</code> 或留空</td><td align="center">该国不生成（需开关为 <code>true</code>）</td></tr>
-<tr><td align="center"><code>MAX_CANDIDATES</code></td><td align="center"><code>0</code></td><td align="center">不限制候选量（全量扫描）</td></tr>
 <tr><td align="center"><code>TRACE_ATTEMPTS</code></td><td align="center"><code>1</code></td><td align="center">不重试；<code>2</code> = 重试一次（默认）</td></tr>
 <tr><td align="center"><code>TCP_MIN_SUCCESS</code></td><td align="center">等于 <code>TCP_ATTEMPTS</code></td><td align="center">要求零丢包才合格</td></tr>
 <tr><td align="center"><code>GIT_PUSH_ENABLED</code></td><td align="center">留空</td><td align="center">默认为 <code>false</code>，只在本地产出</td></tr>
@@ -270,8 +271,8 @@ IMAGE_TAG=latest
 </tbody>
 </table>
 
-注意：`0` 并不是"关闭"的通用写法——只有 `MAX_CANDIDATES` 用 `0` 表示不限，其余数值型
-参数取 `0` 会被校验拒绝（例如 `TCP_TIMEOUT=0`、`PROBE_CONCURRENCY=0`）。
+注意：数值型参数的 `0` 不是"关闭"的通用写法——`0` 会被校验拒绝（例如
+`TCP_TIMEOUT=0`、`PROBE_CONCURRENCY=0`）。想缩小扫描范围，就在地址库里把那几行注释掉。
 
 ### 由 compose 注入 / 内部参数
 
@@ -341,7 +342,7 @@ IMAGE_TAG=latest
 <tr><th rowspan="3" align="center">调度</th><td align="center"><code>CRON_SCHEDULE</code></td><td align="center"><code>30 */6 * * *</code></td><td align="center">建议</td><td align="center">标准 cron（分 时 日 月 周），时区由 <code>TZ</code> 决定</td></tr>
 <tr><td align="center"><code>RUN_ON_START</code></td><td align="center"><code>true</code></td><td align="center">可选</td><td align="center">容器启动后是否立即执行一轮</td></tr>
 <tr><td align="center"><code>TZ</code></td><td align="center"><code>Asia/Shanghai</code></td><td align="center">可选</td><td align="center">调度与提交信息时区；产物中的扫描时间固定为北京时间</td></tr>
-<tr><th rowspan="2" align="center">运行身份</th><td align="center"><code>PUID</code></td><td align="center"><code>1000</code></td><td align="center">建议</td><td align="center">业务进程 uid；入口会把 <code>./data ./output ./cache</code> 属主对齐到它</td></tr>
+<tr><th rowspan="2" align="center">运行身份</th><td align="center"><code>PUID</code></td><td align="center"><code>1000</code></td><td align="center">建议</td><td align="center">业务进程 uid；入口把三个数据卷的属主对齐到它</td></tr>
 <tr><td align="center"><code>PGID</code></td><td align="center"><code>1000</code></td><td align="center">建议</td><td align="center">业务进程 gid；同上</td></tr>
 <tr><th rowspan="3" align="center">探测端点</th><td align="center"><code>PROBE_HOST</code></td><td align="center">无</td><td align="center"><strong>必填</strong></td><td align="center">见上表</td></tr>
 <tr><td align="center"><code>PROBE_PATH</code></td><td align="center"><code>/cdn-cgi/trace</code></td><td align="center">可选</td><td align="center">端点校验路径，由 CF 边缘直接应答，一般不改</td></tr>
@@ -353,13 +354,14 @@ IMAGE_TAG=latest
 <tr><td align="center"><code>TCP_TIMEOUT</code></td><td align="center"><code>3.0</code></td><td align="center">可选</td><td align="center">单次握手超时（秒）</td></tr>
 <tr><td align="center"><code>TRACE_TIMEOUT</code></td><td align="center"><code>5</code></td><td align="center">可选</td><td align="center">单次端点校验超时（秒）</td></tr>
 <tr><td align="center"><code>TRACE_ATTEMPTS</code></td><td align="center"><code>2</code></td><td align="center">可选</td><td align="center">端点校验最大尝试次数（含首次）</td></tr>
-<tr><th rowspan="3" align="center">采样</th><td align="center"><code>SAMPLE_STRIDE</code></td><td align="center"><code>256</code></td><td align="center">可选</td><td align="center">每 N 个地址抽 1 个；256 = 每个 /24 一个</td></tr>
-<tr><td align="center"><code>MAX_CANDIDATES</code></td><td align="center"><code>0</code></td><td align="center">建议</td><td align="center">候选总量上限，0 = 不限</td></tr>
+<tr><th rowspan="2" align="center">采样</th><td align="center"><code>SAMPLE_STRIDE</code></td><td align="center"><code>256</code></td><td align="center">可选</td><td align="center">每 N 个地址抽 1 个；256 = 每个 /24 一个</td></tr>
 <tr><td align="center"><code>SAMPLE_SEED</code></td><td align="center"><code>42</code></td><td align="center">可选</td><td align="center">采样基础种子，按北京小时自动轮换</td></tr>
-<tr><th rowspan="3" align="center">输入</th><td align="center"><code>LIBRARY_FILE</code></td><td align="center"><code>ip-library.txt</code></td><td align="center">可选</td><td align="center">候选地址库文件名（相对 <code>./data</code>）</td></tr>
-<tr><td align="center"><code>LOCATIONS_FILE</code></td><td align="center"><code>locations.json</code></td><td align="center">可选</td><td align="center">机房映射文件名（相对 <code>./data</code>）</td></tr>
+<tr><th rowspan="4" align="center">输入</th><td align="center"><code>LIBRARY_FILE</code></td><td align="center"><code>ip-library.txt</code></td><td align="center">可选</td><td align="center">候选地址库投影文件名（相对 <code>DATA_DIR</code> 卷；内容以数据库为准）</td></tr>
+<tr><td align="center"><code>PINNED_FILE</code></td><td align="center"><code>ip-pinned.txt</code></td><td align="center">可选</td><td align="center">固定保留投影文件名（不参与扫描，原样附加到全量列表）</td></tr>
+<tr><td align="center"><code>LOCATIONS_FILE</code></td><td align="center"><code>locations.json</code></td><td align="center">可选</td><td align="center">机房映射投影文件名（相对 <code>DATA_DIR</code> 卷；内容以数据库为准）</td></tr>
 <tr><td align="center"><code>SKIP_LOCATIONS</code></td><td align="center"><code>false</code></td><td align="center">可选</td><td align="center">调试用：跳过机房映射</td></tr>
-<tr><th rowspan="4" align="center">输出</th><td align="center"><code>DETAIL_CSV_NAME</code></td><td align="center"><code>detail</code></td><td align="center">可选</td><td align="center">明细表文件名（不含扩展名）</td></tr>
+<tr><th rowspan="5" align="center">输出</th><td align="center"><code>DETAIL_CSV_NAME</code></td><td align="center"><code>detail</code></td><td align="center">可选</td><td align="center">明细表文件名（不含扩展名）</td></tr>
+<tr><td align="center"><code>PINNED_OUTPUT_NAME</code></td><td align="center"><code>PINNED</code></td><td align="center">可选</td><td align="center">固定保留列表文件名（不含扩展名）；单独成文件，不混入其他列表</td></tr>
 <tr><td align="center"><code>OVERALL_TOPS</code></td><td align="center"><code>20,50,100,200,400</code></td><td align="center">建议</td><td align="center">全量列表条数（逗号分隔，任意正整数）→ 每项一个 <code>GLOBAL{N}.txt</code></td></tr>
 <tr><td align="center"><code>COUNTRY_FILTERS</code></td><td align="center"><code>false</code></td><td align="center">建议</td><td align="center">国家列表总开关；<code>true</code> 才按各国数值生成</td></tr>
 <tr><td align="center"><code>TOP_US</code> / <code>TOP_JP</code> / <code>TOP_SG</code> / <code>TOP_DE</code> / <code>TOP_NL</code> / <code>TOP_FR</code></td><td align="center"><code>100</code></td><td align="center">可选</td><td align="center">各国列表条数 → <code>{国家代码}{N}.txt</code>；仅开关为 <code>true</code> 时生效</td></tr>
@@ -439,13 +441,6 @@ TCP 握手测量是初筛，也是排名依据（代理客户端显示的"TCP �
 - `128` = 样本翻倍，耗时约翻倍；
 - `512` = 样本减半、更快，但覆盖变稀。
 
-### `MAX_CANDIDATES`
-
-候选总量上限。`0` = 全量（默认，约 2~5 分钟）。
-
-- 首次验证环境建议设 `200` 左右，几十秒就能看到结果；
-- 想逐小时慢慢覆盖整个库，可以保持 `0` 并靠 `CRON_SCHEDULE` 定时跑。
-
 ### `OVERALL_TOPS` / `COUNTRY_FILTERS` / `TOP_US` …
 
 订阅列表分两组，每组只回答两个问题：**要不要**、**要多少**。
@@ -462,7 +457,7 @@ TCP 握手测量是初筛，也是排名依据（代理客户端显示的"TCP �
 - `COUNTRY_FILTERS=false`（默认）→ 一个都不生成，下面的数值全部忽略。
 - `COUNTRY_FILTERS=true` → 按 `TOP_<国家代码>=N` 生成 `{国家代码}{N}.txt`：
   `TOP_US=100` → `US100.txt`，`TOP_JP=50` → `JP50.txt`；`0` 表示该国不生成。
-- 国家代码来自 `data/locations.json` 的机房映射；没有映射的机房不会进国家列表。
+- 国家代码来自机房映射（数据库里的 `locations`，投影为 `/data/locations.json`）；没有映射的机房不会进国家列表。
 
 ### `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`
 
@@ -507,9 +502,11 @@ no_proxy=localhost,127.0.0.1,::1,192.168.0.0/16,172.16.0.0/12,probe.example.com
 
 **3. 先小规模验证（几十秒出结果）**
 
+扫描范围只由地址库决定：在面板「参数调整 · 自定义 IP 库」里把暂时不想扫的网段行首加 `#` 注释掉，
+只留下几行即可（标题右侧能看到参与探测的数量）。
+
 ```dotenv
 PROBE_HOST=probe.example.com
-MAX_CANDIDATES=200
 RUN_ON_START=true
 ```
 

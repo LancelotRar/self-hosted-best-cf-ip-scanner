@@ -59,48 +59,52 @@ watch(cronValue, () => void loadPreview(), { immediate: true });
 </script>
 
 <template>
-  <div class="config-card">
-    <ParamField
-      v-for="param in params"
-      :key="param.name"
-      :param="param"
-      :model-value="store.values[param.name]"
-      @update:model-value="update(param, $event)"
-    />
+  <section class="block">
+    <header class="block__head">
+      <el-icon><Timer /></el-icon><span>调度与预览</span>
+    </header>
+    <div class="panel block__card">
+      <ParamField
+        v-for="param in params"
+        :key="param.name"
+        :param="param"
+        :model-value="store.values[param.name]"
+        @update:model-value="update(param, $event)"
+      />
 
-    <div class="schedule-preview">
-      <div class="schedule-preview__head">
-        <span class="row">
-          <el-icon><Timer /></el-icon>
-          <strong>未来 5 次执行</strong>
-          <span v-if="timezone" class="muted">{{ timezone }}</span>
-        </span>
-        <el-button :loading="applying" size="small" @click="applyNow">
-          <el-icon><RefreshRight /></el-icon>
-          立即应用调度
-        </el-button>
+      <div class="schedule-preview">
+        <div class="schedule-preview__head">
+          <span class="row">
+            <el-icon><Timer /></el-icon>
+            <strong>未来 5 次执行</strong>
+            <span v-if="timezone" class="muted">{{ timezone }}</span>
+          </span>
+          <el-button :loading="applying" size="small" @click="applyNow">
+            <el-icon><RefreshRight /></el-icon>
+            立即应用调度
+          </el-button>
+        </div>
+
+        <p v-if="previewError" class="preview-error" role="alert">{{ previewError }}</p>
+        <ol v-else-if="preview.length" class="preview-list">
+          <li v-for="run in preview" :key="run" class="mono">{{ formatTime(run) }}</li>
+        </ol>
+        <p v-else class="muted">尚无预览；检查表达式是否合法。</p>
+
+        <pre v-if="applyOutput" class="apply-output mono">{{ applyOutput }}</pre>
+        <p class="muted schedule-note">
+          「立即应用调度」只对已保存的 .env 生效；修改 cron 后请先保存。
+        </p>
       </div>
-
-      <p v-if="previewError" class="preview-error" role="alert">{{ previewError }}</p>
-      <ol v-else-if="preview.length" class="preview-list">
-        <li v-for="run in preview" :key="run" class="mono">{{ formatTime(run) }}</li>
-      </ol>
-      <p v-else class="muted">尚无预览；检查表达式是否合法。</p>
-
-      <pre v-if="applyOutput" class="apply-output mono">{{ applyOutput }}</pre>
-      <p class="muted schedule-note">
-        「立即应用调度」只对已保存的 .env 生效；修改 cron 后请先保存。
-      </p>
     </div>
-  </div>
+  </section>
 </template>
 
 <style scoped>
 .schedule-preview {
   margin-top: var(--space-3);
   padding: var(--space-4);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: var(--surface-2);
 }
 

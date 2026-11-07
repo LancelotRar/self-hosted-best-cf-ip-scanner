@@ -2,7 +2,7 @@
 
 [← 返回首页](../README.md) · [定时设置](scheduling.md)
 
-默认关闭：产物只写在本机 `./output/`。开启后，每轮扫描结束会把产物同步到指定的 Git
+默认关闭：产物只留在容器卷里、在面板中查看。开启后，每轮扫描结束会把产物同步到指定的 Git
 仓库并提交推送。
 
 ## 配置
@@ -53,20 +53,20 @@
 
 ## 仓库侧效果
 
-`./cache/repo` 是目标仓库的浅克隆，只在发布瞬间使用：
+`publish-cache` 卷里的 `repo/` 是目标仓库的浅克隆，只在发布瞬间使用：
 
 ```
-./cache/repo/
+<卷 publish-cache>/repo/
 └── result/            # 由 GIT_OUTPUT_SUBDIR 决定
     ├── detail.csv
     ├── GLOBAL20.txt
     └── US50.txt
 ```
 
-怀疑本地克隆状态异常时，删除后下一轮会重新克隆：
+怀疑本地克隆状态异常时，清掉这个卷后下一轮会重新克隆：
 
 ```bash
-rm -rf ./cache/repo
+docker run --rm -v <compose项目名>_publish-cache:/cache alpine rm -rf /cache/repo
 ```
 
 ## 不推送远端时的验证方式

@@ -127,9 +127,6 @@ TRACE_ATTEMPTS: int = _value("TRACE_ATTEMPTS")        # 端点校验最大尝试
 # 切分/合并无关；取 256（一个 /24 的长度）时，等价于每 /24 抽 1 个。
 # 末尾不足一个窗口的区间仍抽 1 个。
 SAMPLE_STRIDE: int = _value("SAMPLE_STRIDE")
-# 候选总量上限：0 = 不限；>0 时按采样种子洗牌后截断，
-# 避免地址序靠前的网段永远被优先选中（快速验证环境时也很有用）。
-MAX_CANDIDATES: int = _value("MAX_CANDIDATES")
 # 采样种子：实际种子 = SAMPLE_SEED * SEED_HOUR_FACTOR + 当前北京小时(YYYYMMDDHH)。
 # 同一小时内多次运行结果可复现；跨小时自动轮换，长期覆盖库内更多 IP 与端口组合。
 SAMPLE_SEED: int = _value("SAMPLE_SEED")
@@ -143,6 +140,8 @@ SEED_HOUR_FACTOR: int = _value("SEED_HOUR_FACTOR")
 # 行首 # 为注释；空行与 cidr/ip 表头行会被跳过。
 # 脚本不修改该文件——要排除网段在行首加 # 并写明依据即可（可一行恢复）。
 LIBRARY_FILE: str = _value("LIBRARY_FILE")
+# 固定保留条目：不参与扫描与机房映射，原样附加到全量列表末尾。
+PINNED_FILE: str = _value("PINNED_FILE")
 # 数据目录（候选地址库 + 机房映射）。容器内默认 /data，由 compose 挂载宿主目录。
 DATA_DIR: str = _raw("DATA_DIR") or str(APP_DIR / "data")
 
@@ -152,6 +151,8 @@ DATA_DIR: str = _raw("DATA_DIR") or str(APP_DIR / "data")
 OUTPUT_DIR: str = _raw("OUTPUT_DIR") or str(APP_DIR / "output")
 # 明细表文件名（不含扩展名）：记录全部合格候选及其测量指标，供排查与二次筛选。
 DETAIL_CSV_NAME: str = _value("DETAIL_CSV_NAME")
+# 固定保留文件名（不含扩展名）：单独成文件，不混入 GLOBAL/国家列表。
+PINNED_OUTPUT_NAME: str = _value("PINNED_OUTPUT_NAME")
 # 明细表列定义（顺序即列序，下游按列名读取，改列名需同步上游写入逻辑）。
 # 语义：
 #   TCP握手平均延迟 = TCP_ATTEMPTS 次握手中成功样本的平均往返时延（排名依据）

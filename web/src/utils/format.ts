@@ -63,6 +63,12 @@ export function formatClock(value: Date | null | undefined): string {
   return value.toLocaleTimeString("zh-CN", { hour12: false });
 }
 
+/** 千位分隔：IP 数量可能上百万，不分隔读不出量级。 */
+export function formatCount(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return "—";
+  return value.toLocaleString("zh-CN");
+}
+
 export function formatSize(size: number | null | undefined): string {
   if (size === null || size === undefined) return "—";
   if (size < 1024) return `${size} B`;

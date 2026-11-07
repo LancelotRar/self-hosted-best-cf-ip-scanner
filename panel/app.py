@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import db
+from . import artifacts_store, bootstrap, library_store
 from .routers import auth as auth_routes
 from .routers import config as config_routes
 from .routers import schedule as schedule_routes
@@ -20,6 +21,7 @@ from .routers import runs as runs_routes
 from .routers import logs as logs_routes
 from .routers import outputs as outputs_routes
 from .routers import library as library_routes
+from .routers import locations as locations_routes
 from .routers import publish as publish_routes
 from .routers import overview as overview_routes
 from .routers import system as system_routes
@@ -55,6 +57,10 @@ def create_app(settings: Settings | None = None, controller=None) -> FastAPI:
     conn = db.connect(app.state.settings.db_path)
     db.migrate(conn)
     app.state.conn = conn
+    # 数据库是唯一真源：先把旧版宿主文件搬进容器卷，再导入数据库并投影回去。
+    bootstrap.migrate(conn, app.state.settings)
+    library_store.ensure(conn, app.state.settings)
+    artifacts_store.sync(conn, app.state.settings)
     app.state.security = configure(app.state.settings)
 
     static_dir = Path(__file__).resolve().parent / "static"
@@ -90,6 +96,7 @@ def create_app(settings: Settings | None = None, controller=None) -> FastAPI:
     app.include_router(logs_routes.router)
     app.include_router(outputs_routes.router)
     app.include_router(library_routes.router)
+    app.include_router(locations_routes.router)
     app.include_router(publish_routes.router)
     app.include_router(overview_routes.router)
     app.include_router(system_routes.router)

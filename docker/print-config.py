@@ -2,7 +2,7 @@
 """打印当前生效配置（JSON），供 `docker exec` 与面板核对生效值。
 
 输出结构：
-    {"MAX_CANDIDATES": {"value": 200, "source": "dotenv"}, ...}
+    {"SAMPLE_STRIDE": {"value": 256, "source": "dotenv"}, ...}
 
 `source` 取值：`env`（显式环境变量）/ `dotenv`（项目 `.env`）/ `default`（schema 默认值）。
 敏感参数（GIT_TOKEN、代理 URL）只输出 `{"value": null, "configured": bool}`，

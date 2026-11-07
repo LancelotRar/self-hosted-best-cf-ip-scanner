@@ -27,7 +27,6 @@ scanner/config.py；入口不接受命令行参数。
 
 from __future__ import annotations
 
-import random
 import sys
 import time
 from collections import Counter
@@ -45,8 +44,9 @@ from scanner.config import (
     COUNTRY_FILTERS as COUNTRY_FILTERS,
     OVERALL_TOPS as OVERALL_TOPS,
     LIBRARY_FILE as LIBRARY_FILE,
+    PINNED_FILE as PINNED_FILE,
+    PINNED_OUTPUT_NAME as PINNED_OUTPUT_NAME,
     LOCATIONS_FILE as LOCATIONS_FILE,
-    MAX_CANDIDATES as MAX_CANDIDATES,
     OUTPUT_DIR as OUTPUT_DIR,
     PROBE_CONCURRENCY as PROBE_CONCURRENCY,
     SAMPLE_SEED as SAMPLE_SEED,
@@ -62,9 +62,16 @@ from scanner.config import (
 from scanner.timeutil import rotation_seed as rotation_seed
 from scanner.ippool import (
     assign_ports as assign_ports,
+    commented_networks as commented_networks,
+    count_addresses as count_addresses,
     merge_to_runs as merge_to_runs,
-    read_library as read_library,
+    parse_library as parse_library,
     sample_representatives as sample_representatives,
+    subtract_runs as subtract_runs,
+)
+from scanner.pinned import (
+    format_line as format_line,
+    read_pinned as read_pinned,
 )
 from scanner.probe import (
     Candidate as Candidate,
@@ -98,6 +105,7 @@ from scanner.outputs import (
     flag_emoji as flag_emoji,
     generate_subscriptions as generate_subscriptions,
     resolve_targets as resolve_targets,
+    write_pinned_list as write_pinned_list,
 )
 
 
@@ -125,7 +133,6 @@ def _purge_previous_outputs(output_dir: Path) -> None:
 def run(
     output_dir: str | Path,
     library_file: str | Path = LIBRARY_FILE,
-    max_candidates: int = MAX_CANDIDATES,
     concurrency: int = PROBE_CONCURRENCY,
     trace_timeout: int = TRACE_TIMEOUT,
     sample_seed: int = SAMPLE_SEED,
@@ -137,6 +144,7 @@ def run(
     country_enabled: bool = COUNTRY_FILTERS,
     country_tops: dict[str, int] | None = None,
     sample_stride: int = SAMPLE_STRIDE,
+    pinned_output_name: str = PINNED_OUTPUT_NAME,
 ) -> int:
     """执行完整流程，返回进程退出码（0 成功；1 配置非法/输入缺失/筛选全灭）。
 
@@ -144,7 +152,6 @@ def run(
     阶段全灭时返回 1 且不写产物，避免用空结果覆盖上一次有效结果。
     """
     problems = numeric_problems(
-        max_candidates=max_candidates,
         concurrency=concurrency,
         trace_timeout=trace_timeout,
         sample_stride=sample_stride,
@@ -170,34 +177,47 @@ def run(
         print(f"[错误] 未找到候选地址库：{library_path}", file=sys.stderr)
         return 1
 
-    networks, fixed_ports, skipped_lines = read_library(library_path)
-    if not networks and not fixed_ports:
+    content = library_path.read_text(encoding="utf-8-sig", errors="ignore")
+    networks, skipped_lines = parse_library(content)
+    if not networks:
         print(f"[错误] 候选地址库中没有可解析的 IPv4 条目：{library_path}", file=sys.stderr)
         return 1
     if skipped_lines:
-        print(f"[提示] 已跳过 {skipped_lines} 行无法解析的条目（空行/注释/表头不计）", file=sys.stderr)
+        print(
+            f"[提示] 已跳过 {skipped_lines} 行地址库条目（空行/注释/表头/带端口条目不计）",
+            file=sys.stderr,
+        )
 
-    runs = merge_to_runs(networks)
+    pinned_path = Path(PINNED_FILE)
+    if not pinned_path.is_absolute():
+        pinned_path = data_dir / pinned_path
+    pinned_entries, pinned_skipped = read_pinned(pinned_path)
+    if pinned_skipped:
+        print(
+            f"[提示] 固定保留中有 {pinned_skipped} 行无法解析，已忽略", file=sys.stderr
+        )
+
+    # 注释掉的网段是"排除集"：从有效库里扣掉，支持只排除某个大段的子集。
+    active_runs = merge_to_runs(networks)
+    runs = subtract_runs(active_runs, merge_to_runs(commented_networks(content)))
+    excluded_total = count_addresses(active_runs) - count_addresses(runs)
+    if not runs:
+        print("[错误] 排除后地址库没有可扫描的地址", file=sys.stderr)
+        return 1
+
     effective_seed = rotation_seed(sample_seed)
     representatives = sample_representatives(runs, stride=sample_stride, seed=effective_seed)
-    if fixed_ports:
-        # 库内 IP:端口 条目原样加入，不参与采样（否则会被同段其它地址替换）
-        sampled = set(representatives)
-        representatives.extend(ip for ip in sorted(fixed_ports) if ip not in sampled)
-    if max_candidates > 0:
-        # 用同一有效种子洗牌后截断，避免地址序靠前的区间永远被优先选中
-        limit_rng = random.Random(effective_seed)
-        limit_rng.shuffle(representatives)
-        representatives = representatives[:max_candidates]
-    ports = assign_ports(representatives, seed=effective_seed, fixed_ports=fixed_ports)
+    ports = assign_ports(representatives, seed=effective_seed)
     pairs = [(ip, ports[ip]) for ip in representatives]
 
     print(
-        f"候选地址库：{library_path}（{len(networks)} 个网段 -> {len(runs)} 个连续地址区间，"
-        f"每 {sample_stride} 个地址抽 1 个"
-        + (f"，另含 {len(fixed_ports)} 个固定 IP:端口 条目" if fixed_ports else "")
-        + f"）共 {len(pairs)} 个候选 IP"
+        f"候选地址库：{library_path}（{len(networks)} 个网段 -> 排除 {excluded_total} 个地址 -> "
+        f"{len(runs)} 个连续地址区间，每 {sample_stride} 个地址抽 1 个）共 {len(pairs)} 个候选 IP"
     )
+    if pinned_entries:
+        print(
+            f"固定保留：{len(pinned_entries)} 条（不参与扫描，直接附加到全量列表）"
+        )
     print(
         f"采样参数：种子 {effective_seed}（SAMPLE_SEED {sample_seed} × 1e6 + 北京小时），"
         f"端口池 {','.join(str(p) for p in PROBE_PORTS)}，并发 {concurrency}"
@@ -278,8 +298,18 @@ def run(
     )
     for name, count in written.items():
         print(f"  订阅列表：{name}（{count} 条）")
+
+    pinned_file = write_pinned_list(
+        result_dir,
+        pinned_output_name,
+        [format_line(entry) for entry in pinned_entries],
+    )
+    if pinned_file:
+        print(f"  固定保留：{pinned_file}（{len(pinned_entries)} 条，未参与扫描）")
     print(
-        f"本轮完成：{len(written)} 个订阅列表 + 1 个明细表 -> {result_dir}"
+        f"本轮完成：{len(written)} 个订阅列表 + 1 个明细表"
+        + (" + 1 个固定保留列表" if pinned_file else "")
+        + f" -> {result_dir}"
         f"  总耗时 {time.monotonic() - started:.1f}s"
     )
     return 0

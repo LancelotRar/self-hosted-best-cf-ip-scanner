@@ -8,12 +8,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_export_skips_existing_and_empty(tmp_path):
     env_file = tmp_path / ".env"
-    env_file.write_text("MAX_CANDIDATES=200\nPROBE_HOST=\n", encoding="utf-8")
-    env = dict(os.environ, DOTENV_PATH=str(env_file), MAX_CANDIDATES="10")
+    env_file.write_text("SAMPLE_STRIDE=128\nPROBE_HOST=\n", encoding="utf-8")
+    env = dict(os.environ, DOTENV_PATH=str(env_file), SAMPLE_STRIDE="512")
     out = subprocess.check_output(
         [sys.executable, str(ROOT / "docker/export-dotenv.py")], env=env, text=True
     )
-    assert "MAX_CANDIDATES" not in out
+    assert "SAMPLE_STRIDE" not in out
     assert "PROBE_HOST" not in out
 
 

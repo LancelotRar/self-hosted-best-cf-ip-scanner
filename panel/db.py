@@ -9,7 +9,7 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 3
 
 _SCHEMA: tuple[str, ...] = (
     """
@@ -63,6 +63,55 @@ _SCHEMA: tuple[str, ...] = (
     """,
     "CREATE INDEX IF NOT EXISTS idx_audit_at ON audit (at DESC)",
     "CREATE INDEX IF NOT EXISTS idx_runs_started ON runs (started_at DESC)",
+    # ---- v2：IP 库、机房映射与产物入库；容器卷里的同名文件只是交给扫描器的投影 ----
+    """
+    CREATE TABLE IF NOT EXISTS library (
+        id         INTEGER PRIMARY KEY CHECK (id = 1),
+        content    TEXT    NOT NULL,
+        sha256     TEXT    NOT NULL,
+        updated_at TEXT    NOT NULL,
+        actor      TEXT    NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS library_versions (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        created_at TEXT    NOT NULL,
+        actor      TEXT    NOT NULL,
+        sha256     TEXT    NOT NULL,
+        content    TEXT    NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS locations (
+        id         INTEGER PRIMARY KEY CHECK (id = 1),
+        content    TEXT    NOT NULL,
+        sha256     TEXT    NOT NULL,
+        updated_at TEXT    NOT NULL,
+        actor      TEXT    NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS pinned (
+        id         INTEGER PRIMARY KEY CHECK (id = 1),
+        content    TEXT    NOT NULL,
+        sha256     TEXT    NOT NULL,
+        updated_at TEXT    NOT NULL,
+        actor      TEXT    NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS artifacts (
+        name        TEXT PRIMARY KEY,
+        kind        TEXT    NOT NULL,
+        size        INTEGER NOT NULL,
+        mtime       TEXT    NOT NULL,
+        sha256      TEXT    NOT NULL,
+        content     BLOB,
+        imported_at TEXT    NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_artifacts_mtime ON artifacts (mtime DESC)",
 )
 
 
