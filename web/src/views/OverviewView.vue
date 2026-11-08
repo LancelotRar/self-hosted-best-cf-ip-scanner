@@ -17,7 +17,7 @@ import { useTableWidths } from "../composables/useTableWidths";
 import ErrorState from "../components/ErrorState.vue";
 import PageHeader from "../components/PageHeader.vue";
 import StatusPill from "../components/StatusPill.vue";
-import type { LibraryDocument, OutputFile, Overview, Param, RunRecord } from "../types";
+import type { OutputFile, Overview, Param, RunRecord } from "../types";
 import {
   exitLabel,
   formatCount,
@@ -25,6 +25,7 @@ import {
   formatMinute,
   formatSize,
   formatTime,
+  triggerLabel,
 } from "../utils/format";
 
 interface PublishResponse {
@@ -51,7 +52,7 @@ const error = ref("");
 const overview = ref<Overview | null>(null);
 const runs = ref<RunRecord[]>([]);
 const files = ref<OutputFile[]>([]);
-const library = ref<LibraryDocument | null>(null);
+const detailFile = ref<OutputFile | null>(null);
 const { widthFor: runsWidth, onHeaderDragEnd: onRunsDragEnd } = useTableWidths("overview-runs");
 const { widthFor: filesWidth, onHeaderDragEnd: onFilesDragEnd } = useTableWidths("overview-outputs");
 const { widthFor: previewWidth, onHeaderDragEnd: onPreviewDragEnd } = useTableWidths("preview-csv");
@@ -88,14 +89,6 @@ const imageTag = computed(() => {
   return tag && tag !== image ? tag : image;
 });
 
-/** 注释说明已移到「参数调整 · 自定义 IP 库」，总览只列地址条目。 */
-const libraryEntries = computed(() =>
-  (library.value?.content ?? "")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith("#")),
-);
-
 function paramValue(name: string): unknown {
   return publish.value?.params.find((param) => param.name === name)?.value;
 }
@@ -106,18 +99,17 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    const [ov, history, outputs, lib, pub, config] = await Promise.all([
+    const [ov, history, outputs, pub, config] = await Promise.all([
       get<Overview>("/api/overview"),
-      get<{ runs: RunRecord[] }>("/api/runs?limit=20"),
+      get<{ runs: RunRecord[] }>("/api/runs?limit=10"),
       get<{ read_at: string; files: OutputFile[] }>("/api/outputs"),
-      get<LibraryDocument>("/api/library"),
       get<PublishResponse>("/api/publish"),
       get<{ params: Param[] }>("/api/config"),
     ]);
     overview.value = ov;
     runs.value = history.runs;
-    files.value = outputs.files;
-    library.value = lib;
+    files.value = sortOutputs(outputs.files.filter((file) => /\.txt$/i.test(file.name)));
+    detailFile.value = outputs.files.find((file) => /\.csv$/i.test(file.name)) ?? null;
     publish.value = pub;
     const cron = config.params.find((param) => param.name === "CRON_SCHEDULE");
     const tz = config.params.find((param) => param.name === "TZ");
@@ -167,14 +159,6 @@ function describeCron(expr: string): string {
   return "按自定义计划执行";
 }
 
-function healthLabel(value?: string | null): string {
-  if (!value) return "";
-  if (value === "healthy") return "健康";
-  if (value === "unhealthy") return "异常";
-  if (value === "starting") return "启动中";
-  return value;
-}
-
 function runLabel(record: RunRecord): string {
   if (record.status === "running") return "运行中";
   if (record.status === "interrupted") return "中断";
@@ -198,6 +182,29 @@ function startText(record: RunRecord): string {
   return `${year}-${month}-${day} ${hour}:${minute}`;
 }
 
+/** 产物排序：全量列表在前，国家列表随后，其他文本列表与明细表最后。 */
+function listOrder(name: string): [number, string, number] {
+  const global = /^GLOBAL(\d+)\.txt$/i.exec(name);
+  if (global) return [0, "", Number(global[1])];
+  const country = /^([A-Z]{2})(\d+)\.txt$/i.exec(name);
+  if (country) return [1, country[1].toUpperCase(), Number(country[2])];
+  if (/\.txt$/i.test(name)) return [2, name.toLowerCase(), 0];
+  return [3, name.toLowerCase(), 0];
+}
+
+function sortOutputs(rows: OutputFile[]): OutputFile[] {
+  return [...rows].sort((left, right) => {
+    const a = listOrder(left.name);
+    const b = listOrder(right.name);
+    return (
+      a[0] - b[0] ||
+      a[1].localeCompare(b[1]) ||
+      a[2] - b[2] ||
+      left.name.localeCompare(right.name)
+    );
+  });
+}
+
 async function openPreview(file: OutputFile) {
   previewVisible.value = true;
   previewLoading.value = true;
@@ -212,6 +219,10 @@ async function openPreview(file: OutputFile) {
   }
 }
 
+function openDetail() {
+  if (detailFile.value) void openPreview(detailFile.value);
+}
+
 onMounted(load);
 </script>
 
@@ -219,14 +230,14 @@ onMounted(load);
   <section class="page">
     <PageHeader
       title="信息总览"
-      subtitle="扫描器、IP 库、计划、运行、产物与推送情况的综合视图"
+      subtitle="扫描器、计划、运行、产物与推送情况的综合视图"
     />
 
     <ErrorState v-if="error" :message="error" @retry="load" />
     <el-skeleton v-else-if="loading" :rows="8" animated />
 
     <div v-else-if="overview" class="overview">
-      <!-- 1. 容器状态：标题在卡片外，四张统计卡直接落在页面底色上 -->
+      <!-- 1. 容器状态：四张统计卡，只保留标签与主值 -->
       <section class="block">
         <header class="block__head">
           <el-icon><Monitor /></el-icon><span>容器状态</span>
@@ -235,93 +246,140 @@ onMounted(load);
           <article class="stat">
             <div class="stat__head">
               <span class="stat__label">扫描容器</span>
-                <span class="stat__icon stat__icon--green"><el-icon><Monitor /></el-icon></span>
-              </div>
-              <strong class="stat__value" :class="scannerOnline ? 'is-on' : 'is-off'">
-                {{ scannerOnline ? "在线" : "离线" }}
-              </strong>
-              <span class="stat__note">健康状态 · {{ healthLabel(overview.scanner.health) || "—" }}</span>
-            </article>
+              <span class="stat__icon stat__icon--green"><el-icon><Monitor /></el-icon></span>
+            </div>
+            <strong class="stat__value" :class="scannerOnline ? 'is-on' : 'is-off'">
+              {{ scannerOnline ? "在线" : "离线" }}
+            </strong>
+          </article>
 
-            <article class="stat">
-              <div class="stat__head">
-                <span class="stat__label">当前任务</span>
-                <span class="stat__icon stat__icon--blue"><el-icon><VideoPlay /></el-icon></span>
-              </div>
-              <strong class="stat__value" :class="overview.running ? 'is-busy' : ''">
-                {{ overview.running ? "运行中" : "空闲" }}
-              </strong>
-              <span class="stat__note">
-                上次完成 · {{ formatTime(overview.last_run?.finished_at) }}
-              </span>
-            </article>
+          <article class="stat">
+            <div class="stat__head">
+              <span class="stat__label">当前任务</span>
+              <span class="stat__icon stat__icon--blue"><el-icon><VideoPlay /></el-icon></span>
+            </div>
+            <strong class="stat__value" :class="overview.running ? 'is-busy' : ''">
+              {{ overview.running ? "运行中" : "空闲" }}
+            </strong>
+          </article>
 
-            <article class="stat">
-              <div class="stat__head">
-                <span class="stat__label">镜像</span>
-                <span class="stat__icon stat__icon--violet"><el-icon><Box /></el-icon></span>
-              </div>
-              <strong class="stat__value">{{ imageTag }}</strong>
-              <span class="stat__note" :title="overview.scanner.image ?? ''">
-                {{ overview.scanner.image ?? "—" }}
-              </span>
-            </article>
+          <article class="stat">
+            <div class="stat__head">
+              <span class="stat__label">镜像</span>
+              <span class="stat__icon stat__icon--violet"><el-icon><Box /></el-icon></span>
+            </div>
+            <strong class="stat__value">{{ imageTag }}</strong>
+          </article>
 
-            <article class="stat">
-              <div class="stat__head">
-                <span class="stat__label">已运行</span>
-                <span class="stat__icon stat__icon--amber"><el-icon><Timer /></el-icon></span>
-              </div>
-              <strong class="stat__value">{{ uptime }}</strong>
-              <span class="stat__note">启动于 {{ formatTime(overview.scanner.started_at, false) }}</span>
-            </article>
-          </div>
+          <article class="stat">
+            <div class="stat__head">
+              <span class="stat__label">已运行</span>
+              <span class="stat__icon stat__icon--amber"><el-icon><Timer /></el-icon></span>
+            </div>
+            <strong class="stat__value">{{ uptime }}</strong>
+          </article>
+        </div>
 
-          <p v-if="overview.scanner.reason" class="stat-alert">
-            离线原因：{{ overview.scanner.reason }}
-          </p>
+        <p v-if="overview.scanner.reason" class="stat-alert">
+          离线原因：{{ overview.scanner.reason }}
+        </p>
       </section>
 
-      <!-- 2. IP 库信息 -->
+      <!-- 2. 计划详情 + 推送情况：各合并为一张卡，横向排列 -->
+      <div class="overview-split">
+        <section class="block">
+          <header class="block__head">
+            <el-icon><Timer /></el-icon><span>计划详情</span>
+          </header>
+          <div class="panel block__card info-card">
+            <div class="info-row">
+              <span class="info-label">计划任务</span>
+              <strong class="info-value">{{ describeCron(cronExpression) }}</strong>
+            </div>
+            <div class="info-row">
+              <span class="info-label">下一次运行时间</span>
+              <strong class="info-value mono">{{ formatTime(overview.next_runs[0]) }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="block">
+          <header class="block__head">
+            <el-icon><Upload /></el-icon><span>推送情况</span>
+          </header>
+          <div class="panel block__card info-card">
+            <div class="info-row">
+              <span class="info-label">推送状态</span>
+              <strong class="info-value" :class="pushEnabled() ? 'is-on' : 'is-off'">
+                {{ pushEnabled() ? "已开启" : "已关闭" }}
+              </strong>
+            </div>
+            <div class="info-row">
+              <span class="info-label">目标仓库</span>
+              <strong class="info-value mono">{{ paramValue("GIT_REPO_URL") || "—" }}</strong>
+            </div>
+            <div class="info-row">
+              <span class="info-label">分支与目录</span>
+              <strong class="info-value mono">
+                {{ paramValue("GIT_BRANCH") || "—" }} /
+                {{ paramValue("GIT_OUTPUT_SUBDIR") || "—" }}
+              </strong>
+            </div>
+            <div class="info-row">
+              <span class="info-label">上次推送时间</span>
+              <strong class="info-value mono">
+                {{ pushEnabled() && publish?.last ? formatTime(publish.last.finished_at) : "—" }}
+              </strong>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- 3. 优选 IP 列表 -->
       <section class="block">
         <header class="block__head">
-          <el-icon><DataLine /></el-icon><span>IP 库信息</span>
+          <el-icon><FolderOpened /></el-icon><span>优选 IP 列表</span>
+          <button
+            type="button"
+            class="block__meta block__meta--link"
+            :disabled="!detailFile"
+            :title="detailFile ? '查看明细统计' : '暂无明细表'"
+            @click="openDetail"
+          >
+            <el-icon aria-hidden="true"><DataLine /></el-icon>
+            统计信息
+          </button>
         </header>
         <div class="panel block__card">
-          <template v-if="library">
-            <p class="section-note">
-              参与探测 {{ formatCount(library.stats.probe) }} · 跳过
-              {{ formatCount(library.stats.skipped) }}
-            </p>
-            <p class="section-note muted">
-              只列出可参与采样的地址条目；编辑在「参数调整 · 自定义 IP 库」。
-            </p>
-            <div class="library-preview mono">
-              <span v-for="(entry, index) in libraryEntries" :key="index">{{ entry }}</span>
-            </div>
-          </template>
-          <EmptyState v-else title="尚未读取到 IP 库" description="请检查 ./data/ip-library.txt" />
+          <el-table
+            border
+            v-if="files.length"
+            :data="files"
+            size="small"
+            max-height="280"
+            class="scroll-table"
+            @header-dragend="onFilesDragEnd"
+          >
+            <el-table-column label="文件" :width="filesWidth('文件')" min-width="220" show-overflow-tooltip>
+              <template #default="{ row }"><span class="mono">{{ row.name }}</span></template>
+            </el-table-column>
+            <el-table-column label="数量" :width="filesWidth('数量')" min-width="110" align="center">
+              <template #default="{ row }">{{ formatCount(row.count) }}</template>
+            </el-table-column>
+            <el-table-column label="修改时间" :width="filesWidth('修改时间')" min-width="210">
+              <template #default="{ row }">{{ formatTime(row.mtime) }}</template>
+            </el-table-column>
+            <el-table-column label="预览" :width="filesWidth('预览')" min-width="110" >
+              <template #default="{ row }">
+                <el-button size="small" @click="openPreview(row)">查看</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          <EmptyState v-else title="尚无优选 IP 列表" description="下一轮扫描成功后生成全量与国家列表" />
         </div>
       </section>
 
-      <!-- 3. 计划详情：两块（计划任务 / 下一次运行时间） -->
-      <section class="block">
-        <header class="block__head">
-          <el-icon><Timer /></el-icon><span>计划详情</span>
-        </header>
-        <div class="card-grid card-grid--2">
-          <article class="mini-card">
-            <span class="mini-card__label">计划任务</span>
-            <strong class="mini-card__value">{{ describeCron(cronExpression) }}</strong>
-          </article>
-          <article class="mini-card">
-            <span class="mini-card__label">下一次运行时间</span>
-            <strong class="mini-card__value mono">{{ formatTime(overview.next_runs[0]) }}</strong>
-          </article>
-        </div>
-      </section>
-
-      <!-- 4. 近期扫描情况 -->
+      <!-- 4. 近期扫描情况：只展示最近 10 次 -->
       <section class="block">
         <header class="block__head">
           <el-icon><VideoPlay /></el-icon><span>近期扫描情况</span>
@@ -341,8 +399,8 @@ onMounted(load);
                 <span class="mono">{{ startText(row) }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="触发" :width="runsWidth('触发')" min-width="77">
-              <template #default="{ row }">{{ row.trigger ?? "—" }}</template>
+            <el-table-column label="触发器" :width="runsWidth('触发器')" min-width="90">
+              <template #default="{ row }">{{ triggerLabel(row.trigger) }}</template>
             </el-table-column>
             <el-table-column label="状态" :width="runsWidth('状态')" min-width="102">
               <template #default="{ row }">
@@ -356,81 +414,7 @@ onMounted(load);
               <template #default="{ row }">{{ formatDuration(row.duration_s) }}</template>
             </el-table-column>
           </el-table>
-          <EmptyState v-else title="尚无扫描记录" description="定时任务或手动执行完成后显示在这里" />
-        </div>
-      </section>
-
-      <!-- 5. 产物情况 -->
-      <section class="block">
-        <header class="block__head">
-          <el-icon><FolderOpened /></el-icon><span>产物情况</span>
-        </header>
-        <div class="panel block__card">
-          <el-table
-            border
-            v-if="files.length"
-            :data="files"
-            size="small"
-            max-height="280"
-            class="scroll-table"
-            @header-dragend="onFilesDragEnd"
-          >
-            <el-table-column label="文件" :width="filesWidth('文件')" min-width="175" show-overflow-tooltip>
-              <template #default="{ row }"><span class="mono">{{ row.name }}</span></template>
-            </el-table-column>
-            <el-table-column label="大小" :width="filesWidth('大小')" min-width="175">
-              <template #default="{ row }">{{ formatSize(row.size) }}</template>
-            </el-table-column>
-            <el-table-column label="修改时间" :width="filesWidth('修改时间')" min-width="175">
-              <template #default="{ row }">{{ formatTime(row.mtime) }}</template>
-            </el-table-column>
-            <el-table-column label="预览" :width="filesWidth('预览')" min-width="175" >
-              <template #default="{ row }">
-                <el-button size="small" @click="openPreview(row)">查看</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-          <EmptyState v-else title="尚无产物" description="下一轮扫描成功后生成订阅列表与明细表" />
-        </div>
-      </section>
-
-      <!-- 6. 推送情况：三块（状态 / 目标仓库与分支目录 / 上次推送时间） -->
-      <section class="block">
-        <header class="block__head">
-          <el-icon><Upload /></el-icon><span>推送情况</span>
-        </header>
-        <div class="card-grid card-grid--3">
-          <article class="mini-card">
-            <span class="mini-card__label">推送状态</span>
-            <strong class="mini-card__value" :class="pushEnabled() ? 'is-on' : 'is-off'">
-              {{ pushEnabled() ? "已开启" : "已关闭" }}
-            </strong>
-            <span class="mini-card__note">
-              {{ pushEnabled() ? "每轮成功后自动推送" : "已关闭，不执行推送" }}
-            </span>
-          </article>
-
-          <article class="mini-card">
-            <span class="mini-card__label">目标仓库</span>
-            <strong class="mini-card__value mono">
-              {{ paramValue("GIT_REPO_URL") || "—" }}
-            </strong>
-            <span class="mini-card__note mono">
-              {{ paramValue("GIT_BRANCH") || "—" }} /
-              {{ paramValue("GIT_OUTPUT_SUBDIR") || "—" }}
-            </span>
-          </article>
-
-          <article class="mini-card">
-            <span class="mini-card__label">上次推送时间</span>
-            <strong class="mini-card__value mono">
-              {{ pushEnabled() && publish?.last ? formatTime(publish.last.finished_at) : "—" }}
-            </strong>
-            <span v-if="pushEnabled() && publish?.last" class="mini-card__note">
-              {{ exitLabel(publish.last.scan_exit) }} / {{ exitLabel(publish.last.publish_exit) }}
-            </span>
-            <span v-else class="mini-card__note">推送关闭时不记录推送结果</span>
-          </article>
+          <EmptyState v-else title="尚无扫描记录" description="计划任务或手动触发完成后显示在这里" />
         </div>
       </section>
     </div>
@@ -481,6 +465,38 @@ onMounted(load);
   gap: 24px;
 }
 
+.block__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-faint);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.block__meta .el-icon {
+  font-size: 13px;
+}
+
+.block__meta--link {
+  cursor: pointer;
+}
+
+.block__meta--link:hover:not(:disabled) {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.block__meta--link:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
 /* 容器状态：四个等宽统计块 */
 .stat-row {
   display: grid;
@@ -488,67 +504,73 @@ onMounted(load);
   gap: var(--space-3);
 }
 
-.card-grid {
+.overview-split {
   display: grid;
-  gap: var(--space-3);
-}
-
-.card-grid--2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+  align-items: stretch;
 }
 
-.card-grid--3 {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+.overview-split .block {
+  min-width: 0;
 }
 
-@media (max-width: 767px) {
-  .card-grid--2,
-  .card-grid--3 {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.mini-card {
+.info-card {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-  padding: 18px 20px;
-  background: var(--surface);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow);
+  gap: 0;
+  height: 100%;
 }
 
-.mini-card__label {
+.info-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: 12px 0;
+}
+
+.info-row:first-child {
+  padding-top: 0;
+}
+
+.info-row:last-child {
+  padding-bottom: 0;
+}
+
+.info-row + .info-row {
+  border-top: 1px solid var(--border-soft);
+}
+
+.info-label {
+  flex: 0 0 auto;
   color: var(--text-muted);
   font-size: 13px;
-  line-height: 18px;
+  line-height: 20px;
 }
 
-.mini-card__value {
+.info-value {
+  min-width: 0;
   color: var(--text);
-  font-size: 18px;
-  line-height: 26px;
+  font-size: 15px;
+  line-height: 22px;
   font-weight: 650;
-  letter-spacing: -0.01em;
+  text-align: right;
   overflow-wrap: anywhere;
 }
 
-.mini-card__value.is-on {
+.info-value.is-on {
   color: var(--success);
 }
 
-.mini-card__value.is-off {
+.info-value.is-off {
   color: var(--text-muted);
 }
 
-.mini-card__note {
-  color: var(--text-faint);
-  font-size: 12px;
-  line-height: 18px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+@media (max-width: 1023px) {
+  .overview-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .stat {
@@ -646,17 +668,6 @@ html[data-theme="dark"] .stat__icon {
   color: var(--info);
 }
 
-.stat__note {
-  display: block;
-  margin-top: 6px;
-  color: var(--text-faint);
-  font-size: 12px;
-  line-height: 18px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .stat-alert {
   margin: var(--space-3) 0 0;
   color: var(--danger);
@@ -727,27 +738,6 @@ html[data-theme="dark"] .stat__icon {
 .kv dd {
   margin: 0;
   overflow-wrap: anywhere;
-}
-
-.library-preview {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
-  gap: 2px 16px;
-  max-height: 216px;
-  overflow: auto;
-  padding: 12px 14px;
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  color: var(--text);
-  font-size: 12px;
-  line-height: 20px;
-}
-
-.library-preview span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .dialog-preview {

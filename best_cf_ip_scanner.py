@@ -41,6 +41,7 @@ from scanner.config import (
     COUNTRY_TOPS as COUNTRY_TOPS,
     DETAIL_COLUMNS as DETAIL_COLUMNS,
     DETAIL_CSV_NAME as DETAIL_CSV_NAME,
+    LIST_FILENAMES as LIST_FILENAMES,
     COUNTRY_FILTERS as COUNTRY_FILTERS,
     OVERALL_TOPS as OVERALL_TOPS,
     LIBRARY_FILE as LIBRARY_FILE,
@@ -295,6 +296,7 @@ def run(
         overall_tops=overall_tops,
         country_enabled=country_enabled,
         country_tops=country_tops,
+        list_filenames=LIST_FILENAMES,
     )
     for name, count in written.items():
         print(f"  订阅列表：{name}（{count} 条）")

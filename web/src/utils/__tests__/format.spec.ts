@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatLogLine, formatMinute } from "../format";
+import { formatLogLine, formatMinute, triggerLabel } from "../format";
 
 const CASE = /^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\]\[(信息|警告|错误)\]：/;
 
@@ -44,5 +44,13 @@ describe("formatMinute", () => {
   it("空值与非法值不报错", () => {
     expect(formatMinute(null)).toBe("—");
     expect(formatMinute("not-a-time")).toBe("not-a-time");
+  });
+});
+
+describe("triggerLabel", () => {
+  it("只向用户展示两类触发器", () => {
+    expect(triggerLabel("cron")).toBe("计划任务");
+    expect(triggerLabel("panel")).toBe("手动触发");
+    expect(triggerLabel(null)).toBe("—");
   });
 });

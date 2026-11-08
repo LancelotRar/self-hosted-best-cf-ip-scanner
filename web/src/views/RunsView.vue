@@ -16,7 +16,7 @@ import StatusPill from "../components/StatusPill.vue";
 import { useEventStream } from "../composables/useEventStream";
 import { useTableWidths } from "../composables/useTableWidths";
 import type { RunRecord } from "../types";
-import { exitLabel, formatDuration, formatTime } from "../utils/format";
+import { exitLabel, formatDuration, formatTime, triggerLabel } from "../utils/format";
 
 const router = useRouter();
 const { widthFor: colWidth, onHeaderDragEnd: onColumnDragEnd } = useTableWidths("runs-history");
@@ -109,7 +109,7 @@ onMounted(async () => {
   <section class="page">
     <PageHeader
       title="手动运行"
-      subtitle="手动执行与定时任务共用同一份 .env，仅触发方式不同"
+      subtitle="手动执行与计划任务共用同一套配置，仅触发方式不同"
     />
 
     <ErrorState v-if="error" :message="error" @retry="loadHistory" />
@@ -123,7 +123,7 @@ onMounted(async () => {
             :pulse="running"
           />
           <span class="muted">
-            同一时间只允许一轮；定时任务正在跑时手动触发会被拒绝（409）。
+            同一时间只允许一轮；已有轮次在执行时无法再次触发。
           </span>
           <span class="spacer" />
           <el-button type="primary" :loading="triggering" :disabled="running" @click="trigger">
@@ -140,10 +140,10 @@ onMounted(async () => {
         />
         <section v-else class="panel empty-panel">
           <EmptyState
-            :title="running ? '定时任务正在执行' : '尚无运行输出'"
+            :title="running ? '计划任务正在执行' : '尚无运行输出'"
             :description="
               running
-                ? '定时轮次的输出请到「日志」页查看；手动执行时会在这里实时显示。'
+                ? '计划任务的输出请到「日志」页查看；手动执行时会在这里实时显示。'
                 : '点击右上角「立即执行一轮」开始；执行期间可实时查看输出。'
             "
             :action-label="running ? '去日志页' : ''"
@@ -163,7 +163,7 @@ onMounted(async () => {
             <template #default="{ row }"><span class="mono">{{ row.run_id }}</span></template>
           </el-table-column>
           <el-table-column label="触发" :width="colWidth('触发') ?? 80">
-            <template #default="{ row }">{{ row.trigger ?? "—" }}</template>
+            <template #default="{ row }">{{ triggerLabel(row.trigger) }}</template>
           </el-table-column>
           <el-table-column label="状态" :width="colWidth('状态') ?? 100">
             <template #default="{ row }">
@@ -193,7 +193,7 @@ onMounted(async () => {
         <EmptyState
           v-else
           title="尚无轮次记录"
-          description="定时任务或手动执行完成后出现在这里"
+          description="计划任务或手动执行完成后出现在这里"
           action-label="刷新"
           @action="loadHistory"
         />

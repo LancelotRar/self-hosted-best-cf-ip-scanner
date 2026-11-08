@@ -15,6 +15,7 @@ export interface Param {
   restart: boolean;
   consumer: string;
   effect: Effect;
+  hidden: boolean;
 }
 
 export interface ConfigResponse {
@@ -106,6 +107,8 @@ export interface OutputFile {
   name: string;
   size: number;
   mtime: string;
+  /** 文本列表的条目数；CSV/二进制为 null。 */
+  count: number | null;
 }
 
 export interface LibraryStats {

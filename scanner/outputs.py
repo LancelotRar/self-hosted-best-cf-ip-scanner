@@ -145,23 +145,39 @@ def select_subscription_lines(
     return lines
 
 
+def _normalize_stem(name: str, fallback: str) -> str:
+    """文件名主体：去掉目录部分与 .txt 后缀；空值回退默认名。"""
+    stem = Path(str(name).strip() or fallback).name
+    if stem.lower().endswith(".txt"):
+        stem = stem[:-4]
+    return stem or fallback
+
+
 def resolve_targets(
     overall_tops: tuple[int, ...] = OVERALL_TOPS,
     country_enabled: bool = COUNTRY_FILTERS,
     country_tops: dict[str, int] | None = None,
-) -> list[tuple[str, int]]:
-    """解析要生成的列表，返回 [(文件名主体, 条数)]。
+    list_filenames: dict[str, str] | None = None,
+) -> list[tuple[str, int, str]]:
+    """解析要生成的列表，返回 [(默认名, 条数, 输出文件名主体)]。
 
-    全量：overall_tops 里每个 N>0 生成 ("GLOBAL{N}", N)；
-    国家：country_enabled 为真时，每个 N>0 的国家生成 ("{国家代码}{N}", N)。
+    全量：overall_tops 里每个 N>0 生成默认名 ("GLOBAL{N}", N)；
+    国家：country_enabled 为真时，每个 N>0 的国家生成默认名 ("{国家代码}{N}", N)。
+    用户自定义名以默认名为键；未配置时使用默认名。
     两组都为空时返回空列表（只产出明细表）。
     """
     tops = COUNTRY_TOPS if country_tops is None else country_tops
-    specs: list[tuple[str, int]] = [
-        (f"GLOBAL{size}", size) for size in overall_tops if size > 0
-    ]
+    custom = list_filenames or {}
+    specs: list[tuple[str, int, str]] = []
+    for size in overall_tops:
+        if size > 0:
+            key = f"GLOBAL{size}"
+            specs.append((key, size, _normalize_stem(custom.get(key, key), key)))
     if country_enabled:
-        specs.extend((f"{code}{size}", size) for code, size in tops.items() if size > 0)
+        for code, size in tops.items():
+            if size > 0:
+                key = f"{code}{size}"
+                specs.append((key, size, _normalize_stem(custom.get(key, key), key)))
     return specs
 
 
@@ -171,11 +187,12 @@ def generate_subscriptions(
     overall_tops: tuple[int, ...] = OVERALL_TOPS,
     country_enabled: bool = COUNTRY_FILTERS,
     country_tops: dict[str, int] | None = None,
+    list_filenames: dict[str, str] | None = None,
 ) -> dict[str, int]:
     """由明细表生成订阅列表（写入 output_dir，与明细表同目录），返回 {文件名: 行数}。
 
-    - 全量排名：`GLOBAL{N}.txt`
-    - 国家筛选：`{国家代码}{N}.txt`
+    - 全量排名：默认 `GLOBAL{N}.txt`，可用 LIST_FILENAMES 自定义
+    - 国家筛选：默认 `{国家代码}{N}.txt`，可用 LIST_FILENAMES 自定义
     - 每个文件首行是注释头：条数、排名口径、扫描时间。
     """
     rows = _read_detail_csv(csv_path)
@@ -190,12 +207,14 @@ def generate_subscriptions(
 
     # 排序一次复用：不依赖明细表已排序，所有文件共享同一有序序列
     ordered_rows = sorted(rows, key=_rank_key)
-    for kind, size in resolve_targets(overall_tops, country_enabled, country_tops):
+    for kind, size, stem in resolve_targets(
+        overall_tops, country_enabled, country_tops, list_filenames
+    ):
         if kind.startswith("GLOBAL"):
-            _emit(f"{kind}.txt", select_subscription_lines(ordered_rows, size, pre_sorted=True))
-        else:  # 国家筛选：前缀两位是国家代码
+            _emit(f"{stem}.txt", select_subscription_lines(ordered_rows, size, pre_sorted=True))
+        else:  # 国家筛选：默认名前缀两位是国家代码
             _emit(
-                f"{kind}.txt",
+                f"{stem}.txt",
                 select_subscription_lines(ordered_rows, size, country=kind[:2], pre_sorted=True),
             )
     return written

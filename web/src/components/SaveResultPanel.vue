@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
+import { useConfigStore } from "../stores/config";
 import { useTableWidths } from "../composables/useTableWidths";
 import type { SaveResult } from "../types";
 import { effectLabel, formatTime } from "../utils/format";
 import StatusPill from "./StatusPill.vue";
 
 const props = defineProps<{ result: SaveResult | null }>();
+const store = useConfigStore();
+
+const labelOf = (name: string) =>
+  store.params.find((param) => param.name === name)?.label ?? name;
 
 const { widthFor: colWidth, onHeaderDragEnd: onColumnDragEnd } = useTableWidths("save-result");
 
@@ -57,16 +62,16 @@ const canRestart = computed(
         <dd class="mono">{{ formatTime(result.next_run) }}</dd>
       </div>
       <div>
-        <dt>调度热重载</dt>
-        <dd>{{ result.effects.schedule_reloaded ? "已重载" : "未变化 / 待 watcher" }}</dd>
+        <dt>计划任务</dt>
+        <dd>{{ result.effects.schedule_reloaded ? "已生效" : "未变化" }}</dd>
       </div>
       <div v-if="result.effects.restart_required.length">
         <dt>需重启参数</dt>
-        <dd class="mono">{{ result.effects.restart_required.join(", ") }}</dd>
+        <dd class="mono">{{ result.effects.restart_required.map(labelOf).join("、") }}</dd>
       </div>
       <div v-if="result.effects.next_round.length">
         <dt>下一轮生效</dt>
-        <dd class="mono">{{ result.effects.next_round.join(", ") }}</dd>
+        <dd class="mono">{{ result.effects.next_round.map(labelOf).join("、") }}</dd>
       </div>
     </dl>
 
@@ -78,7 +83,9 @@ const canRestart = computed(
       class="result__table"
       @header-dragend="onColumnDragEnd"
     >
-      <el-table-column prop="name" label="参数" :width="colWidth('参数')" min-width="240" />
+      <el-table-column label="参数" :width="colWidth('参数')" min-width="240">
+        <template #default="{ row }">{{ labelOf(row.name) }}</template>
+      </el-table-column>
       <el-table-column label="原值" :width="colWidth('原值')" min-width="160">
         <template #default="{ row }">
           <span class="mono">{{ row.old ?? "—" }}</span>
@@ -99,10 +106,10 @@ const canRestart = computed(
       class="result__alert result__alert--danger"
       role="alert"
     >
-      <strong>扫描器读到的值与本文件不一致</strong>
+      <strong>扫描器读到的值与面板保存的值不一致</strong>
       <ul>
         <li v-for="detail in result.verification.details" :key="detail.name">
-          <span class="mono">{{ detail.name }}</span>：期望
+          <span class="mono">{{ labelOf(detail.name ?? '') }}</span>：期望
           <span class="mono">{{ detail.expected }}</span>，实际
           <span class="mono">{{ detail.actual }}</span>
         </li>

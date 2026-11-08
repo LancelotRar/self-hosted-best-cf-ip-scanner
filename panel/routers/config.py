@@ -30,7 +30,7 @@ def _document(request: Request) -> config_store.EnvDocument:
     except DotenvError as exc:
         raise HTTPException(
             status_code=422,
-            detail={"code": "config_unparsable", "message": f".env 解析失败：{exc}"},
+            detail={"code": "config_unparsable", "message": f"配置解析失败：{exc}"},
         ) from exc
 
 

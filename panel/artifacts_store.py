@@ -91,11 +91,28 @@ def sync(conn, settings) -> None:
             conn.execute("DELETE FROM artifacts WHERE name = ?", (name,))
 
 
+def _text_count(data: bytes) -> int:
+    """列表文件的条目数：忽略空行与注释行。"""
+    text = data.decode("utf-8", "replace")
+    return sum(
+        1
+        for line in text.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    )
+
+
 def list_rows(conn) -> list[dict[str, object]]:
     rows = conn.execute(
-        "SELECT name, size, mtime FROM artifacts ORDER BY mtime DESC, name"
+        "SELECT name, size, mtime, kind, content"
+        " FROM artifacts ORDER BY mtime DESC, name"
     ).fetchall()
-    return [dict(row) for row in rows]
+    result: list[dict[str, object]] = []
+    for row in rows:
+        item = {"name": row["name"], "size": row["size"], "mtime": row["mtime"]}
+        # 只有文本列表能直接数条目；CSV/二进制不提供数量。
+        item["count"] = _text_count(row["content"]) if row["kind"] == "text" else None
+        result.append(item)
+    return result
 
 
 def get(conn, name: str) -> dict[str, object] | None:

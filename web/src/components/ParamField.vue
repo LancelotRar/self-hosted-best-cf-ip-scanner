@@ -1,15 +1,5 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import {
-  Connection,
-  Document,
-  Files,
-  Key,
-  List,
-  Odometer,
-  Select,
-  Timer,
-} from "@element-plus/icons-vue";
 
 import type { Param } from "../types";
 
@@ -65,29 +55,14 @@ const NUMERIC_BOUNDS: Record<string, { min: number; max: number; step: number }>
   SAMPLE_STRIDE: { min: 1, max: 65536, step: 64 },
   SAMPLE_SEED: { min: 0, max: 10_000_000, step: 1 },
   SEED_HOUR_FACTOR: { min: 1, max: 10_000_000, step: 1 },
-  PUID: { min: 0, max: 65535, step: 1 },
-  PGID: { min: 0, max: 65535, step: 1 },
   GIT_RETRY_MAX: { min: 0, max: 10, step: 1 },
   GIT_RETRY_BASE_DELAY: { min: 0, max: 600, step: 5 },
   TCP_TIMEOUT: { min: 0.5, max: 60, step: 0.5 },
 };
 const DEFAULT_BOUNDS = { min: 0, max: 999999, step: 1 };
 
+/** 数字框统一为窄控件，避免每个字段各自计算宽度导致版式参差。 */
 const bounds = computed(() => NUMERIC_BOUNDS[props.param.name] ?? DEFAULT_BOUNDS);
-
-const KIND_ICONS = {
-  bool: Select,
-  int: Odometer,
-  float: Odometer,
-  ports: Connection,
-  csv_int: List,
-  cron: Timer,
-  secret: Key,
-  path: Files,
-  str: Document,
-} as const;
-
-const kindIcon = computed(() => KIND_ICONS[props.param.kind as keyof typeof KIND_ICONS] ?? Document);
 
 const disabled = computed(() => props.disabled || props.param.read_only);
 
@@ -101,16 +76,6 @@ const textValue = computed(() => {
 const numberValue = computed(() =>
   typeof props.modelValue === "number" ? props.modelValue : Number(props.modelValue) || 0,
 );
-
-/** 数字框宽度按内容长度自适应，避免固定宽度造成的空洞或截断。 */
-const numberWidth = computed(() => {
-  const values = [numberValue.value, props.param.default, bounds.value.min].map((value) =>
-    String(value ?? ""),
-  );
-  const digits = Math.max(3, ...values.map((value) => value.length));
-  // 76px 覆盖右侧上下两个步进按钮（各 32px 含内边距）与输入内边距，避免数字被截断
-  return `calc(${digits}ch + 76px)`;
-});
 
 const listValue = computed<number[]>(() => {
   const value = props.modelValue;
@@ -132,9 +97,9 @@ const effectTag = computed(() => {
     case "restart_required":
       return { label: "需重启生效", tone: "warning" };
     case "schedule_reload":
-      return { label: "热重载生效", tone: "info" };
+      return { label: "保存后立即生效", tone: "info" };
     default:
-      return { label: "下一轮生效", tone: "success" };
+      return { label: "下一轮生效", tone: "neutral" };
   }
 });
 
@@ -169,12 +134,7 @@ function onBool(value: string | number | boolean) {
     }"
   >
     <div class="field__head">
-      <label class="field__label" :for="`param-${param.name}`">
-        <el-icon class="field__kind" :size="14" aria-hidden="true">
-          <component :is="kindIcon" />
-        </el-icon>
-        {{ param.label }}
-      </label>
+      <label class="field__label" :for="`param-${param.name}`">{{ param.label }}</label>
       <div class="field__tags">
         <span class="tag" :class="`tag--${effectTag.tone}`">{{ effectTag.label }}</span>
         <span v-if="param.read_only" class="tag">只读</span>
@@ -184,178 +144,177 @@ function onBool(value: string | number | boolean) {
       </div>
     </div>
 
-    <p :id="`param-${param.name}-help`" class="field__help">
-      <span>{{ param.help }}</span>
-      <span class="field__default">默认 {{ defaultText }}</span>
-    </p>
-
-    <el-switch
-      v-if="param.kind === 'bool'"
-      :model-value="Boolean(modelValue)"
-      :disabled="disabled"
-      @change="onBool"
-    />
-
-    <el-input-number
-      v-else-if="param.kind === 'int' || param.kind === 'float'"
-      :id="`param-${param.name}`"
-      class="control control--number"
-      :style="{ width: numberWidth }"
-      :model-value="numberValue"
-      :min="bounds.min"
-      :max="bounds.max"
-      :step="bounds.step"
-      :precision="param.kind === 'float' ? 1 : 0"
-      controls-position="right"
-      :disabled="disabled"
-      :aria-describedby="`param-${param.name}-help`"
-      @update:model-value="onNumber"
-    />
-
-    <el-select
-      v-else-if="param.kind === 'ports'"
-      :id="`param-${param.name}`"
-      class="control control--select"
-      :model-value="listValue"
-      multiple
-      filterable
-      allow-create
-      default-first-option
-      :disabled="disabled"
-      placeholder="选择或输入端口"
-      :aria-describedby="`param-${param.name}-help`"
-      @change="onList"
-    >
-      <el-option
-        v-for="option in PORT_OPTIONS"
-        :key="option.value"
-        :label="option.label"
-        :value="option.value"
-      />
-    </el-select>
-
-    <el-select
-      v-else-if="param.kind === 'csv_int'"
-      :id="`param-${param.name}`"
-      class="control control--select"
-      :model-value="listValue"
-      multiple
-      filterable
-      allow-create
-      default-first-option
-      :disabled="disabled"
-      placeholder="选择或输入条数"
-      :aria-describedby="`param-${param.name}-help`"
-      @change="onList"
-    >
-      <el-option
-        v-for="option in TOPS_OPTIONS"
-        :key="option.value"
-        :label="option.label"
-        :value="option.value"
-      />
-    </el-select>
-
-    <div v-else-if="param.kind === 'cron'" class="field__cron">
-      <el-input
+    <div class="field__control">
+      <el-switch
+        v-if="param.kind === 'bool'"
         :id="`param-${param.name}`"
-        class="mono"
+        :model-value="Boolean(modelValue)"
+        :disabled="disabled"
+        @change="onBool"
+      />
+
+      <el-input-number
+        v-else-if="param.kind === 'int' || param.kind === 'float'"
+        :id="`param-${param.name}`"
+        class="control control--number"
+        :model-value="numberValue"
+        :min="bounds.min"
+        :max="bounds.max"
+        :step="bounds.step"
+        :precision="param.kind === 'float' ? 1 : 0"
+        controls-position="right"
+        :disabled="disabled"
+        :aria-describedby="`param-${param.name}-help`"
+        @update:model-value="onNumber"
+      />
+
+      <el-select
+        v-else-if="param.kind === 'ports'"
+        :id="`param-${param.name}`"
+        class="control control--select"
+        :model-value="listValue"
+        multiple
+        filterable
+        allow-create
+        default-first-option
+        :disabled="disabled"
+        placeholder="选择或输入端口"
+        :aria-describedby="`param-${param.name}-help`"
+        @change="onList"
+      >
+        <el-option
+          v-for="option in PORT_OPTIONS"
+          :key="option.value"
+          :label="option.label"
+          :value="option.value"
+        />
+      </el-select>
+
+      <el-select
+        v-else-if="param.kind === 'csv_int'"
+        :id="`param-${param.name}`"
+        class="control control--select"
+        :model-value="listValue"
+        multiple
+        filterable
+        allow-create
+        default-first-option
+        :disabled="disabled"
+        placeholder="选择或输入条数"
+        :aria-describedby="`param-${param.name}-help`"
+        @change="onList"
+      >
+        <el-option
+          v-for="option in TOPS_OPTIONS"
+          :key="option.value"
+          :label="option.label"
+          :value="option.value"
+        />
+      </el-select>
+
+      <div v-else-if="param.kind === 'cron'" class="field__cron">
+        <el-input
+          :id="`param-${param.name}`"
+          class="mono"
+          :model-value="textValue"
+          :disabled="disabled"
+          :aria-describedby="`param-${param.name}-help`"
+          @input="onText"
+        />
+        <el-dropdown trigger="click" :disabled="disabled">
+          <el-button :disabled="disabled">常用模板</el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item
+                v-for="preset in CRON_PRESETS"
+                :key="preset.value"
+                @click="onText(preset.value)"
+              >
+                {{ preset.label }}
+                <span class="mono preset-value">{{ preset.value }}</span>
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </div>
+
+      <el-select
+        v-else-if="param.name === 'TZ'"
+        :id="`param-${param.name}`"
+        class="control control--select control--short"
+        :model-value="textValue"
+        filterable
+        allow-create
+        default-first-option
+        :disabled="disabled"
+        placeholder="选择时区"
+        :aria-describedby="`param-${param.name}-help`"
+        @change="onText"
+      >
+        <el-option
+          v-for="option in TIMEZONE_OPTIONS"
+          :key="option.value"
+          :label="option.label"
+          :value="option.value"
+        />
+      </el-select>
+
+      <el-select
+        v-else-if="param.name === 'GIT_BRANCH'"
+        :id="`param-${param.name}`"
+        class="control control--select control--short"
+        :model-value="textValue"
+        filterable
+        allow-create
+        default-first-option
+        :disabled="disabled"
+        placeholder="选择或输入分支"
+        :aria-describedby="`param-${param.name}-help`"
+        @change="onText"
+      >
+        <el-option
+          v-for="option in BRANCH_OPTIONS"
+          :key="option.value"
+          :label="option.label"
+          :value="option.value"
+        />
+      </el-select>
+
+      <el-input
+        v-else-if="param.secret"
+        :id="`param-${param.name}`"
+        type="password"
+        show-password
+        :model-value="textValue"
+        :disabled="disabled"
+        :placeholder="param.configured ? '已配置；留空表示不修改' : '未配置'"
+        :aria-describedby="`param-${param.name}-help`"
+        @input="onText"
+      />
+
+      <el-input
+        v-else
+        :id="`param-${param.name}`"
+        :class="{ mono: param.kind === 'path' }"
         :model-value="textValue"
         :disabled="disabled"
         :aria-describedby="`param-${param.name}-help`"
         @input="onText"
       />
-      <el-dropdown trigger="click" :disabled="disabled">
-        <el-button :disabled="disabled">常用模板</el-button>
-        <template #dropdown>
-          <el-dropdown-menu>
-            <el-dropdown-item
-              v-for="preset in CRON_PRESETS"
-              :key="preset.value"
-              @click="onText(preset.value)"
-            >
-              {{ preset.label }}
-              <span class="mono preset-value">{{ preset.value }}</span>
-            </el-dropdown-item>
-          </el-dropdown-menu>
-        </template>
-      </el-dropdown>
     </div>
 
-    <el-select
-      v-else-if="param.name === 'TZ'"
-      :id="`param-${param.name}`"
-      class="control control--select control--short"
-      :model-value="textValue"
-      filterable
-      allow-create
-      default-first-option
-      :disabled="disabled"
-      placeholder="选择时区"
-      :aria-describedby="`param-${param.name}-help`"
-      @change="onText"
-    >
-      <el-option
-        v-for="option in TIMEZONE_OPTIONS"
-        :key="option.value"
-        :label="option.label"
-        :value="option.value"
-      />
-    </el-select>
-
-    <el-select
-      v-else-if="param.name === 'GIT_BRANCH'"
-      :id="`param-${param.name}`"
-      class="control control--select control--short"
-      :model-value="textValue"
-      filterable
-      allow-create
-      default-first-option
-      :disabled="disabled"
-      placeholder="选择或输入分支"
-      :aria-describedby="`param-${param.name}-help`"
-      @change="onText"
-    >
-      <el-option
-        v-for="option in BRANCH_OPTIONS"
-        :key="option.value"
-        :label="option.label"
-        :value="option.value"
-      />
-    </el-select>
-
-    <el-input
-      v-else-if="param.secret"
-      :id="`param-${param.name}`"
-      type="password"
-      show-password
-      :model-value="textValue"
-      :disabled="disabled"
-      :placeholder="param.configured ? '已配置；留空表示不修改' : '未配置'"
-      :aria-describedby="`param-${param.name}-help`"
-      @input="onText"
-    />
-
-    <el-input
-      v-else
-      :id="`param-${param.name}`"
-      :class="{ mono: param.kind === 'path' }"
-      :model-value="textValue"
-      :disabled="disabled"
-      :aria-describedby="`param-${param.name}-help`"
-      @input="onText"
-    />
+    <p :id="`param-${param.name}-help`" class="field__help">
+      <span class="field__desc">{{ param.help }}</span>
+      <span class="field__default">默认 {{ defaultText }}</span>
+    </p>
   </div>
 </template>
 
 <style scoped>
 .field {
-  padding: 14px 0;
-  border-bottom: 1px solid var(--border-soft);
-}
-
-.field:last-child {
-  border-bottom: none;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .field--readonly {
@@ -366,20 +325,14 @@ function onBool(value: string | number | boolean) {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin-bottom: var(--space-2);
+  margin-bottom: 8px;
   flex-wrap: wrap;
 }
 
 .field__label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
   font-weight: 600;
   font-size: 13px;
-}
-
-.field__kind {
-  color: var(--text-muted);
+  line-height: 20px;
 }
 
 /* 生效方式标签紧跟参数名，所有字段位置一致 */
@@ -392,10 +345,10 @@ function onBool(value: string | number | boolean) {
 .tag {
   display: inline-flex;
   align-items: center;
-  height: 20px;
+  height: 18px;
   padding: 0 6px;
   border-radius: 4px;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   background: var(--surface-2);
   color: var(--text-muted);
   font-size: 11px;
@@ -403,24 +356,31 @@ function onBool(value: string | number | boolean) {
   white-space: nowrap;
 }
 
-.tag--success {
-  color: var(--success);
-  border-color: color-mix(in srgb, var(--success) 38%, var(--border));
+.tag--neutral {
+  color: var(--text-muted);
 }
 
 .tag--warning {
   color: var(--warning);
-  border-color: color-mix(in srgb, var(--warning) 38%, var(--border));
+  border-color: color-mix(in srgb, var(--warning) 32%, transparent);
 }
 
 .tag--info {
   color: var(--info);
-  border-color: color-mix(in srgb, var(--info) 38%, var(--border));
+  border-color: color-mix(in srgb, var(--info) 32%, transparent);
+}
+
+.field__control {
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  min-width: 0;
 }
 
 .field__cron {
   display: flex;
   gap: var(--space-2);
+  width: 100%;
 }
 
 .field__cron :deep(.el-input) {
@@ -434,43 +394,40 @@ function onBool(value: string | number | boolean) {
 }
 
 .field__help {
-  margin: 0 0 var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 8px 0 0;
   color: var(--text-muted);
   font-size: 12px;
   line-height: 18px;
-  max-width: 720px;
 }
 
 .field__default {
-  display: block;
-  margin-top: 2px;
   color: var(--text-faint);
 }
 
-.field :deep(.el-input),
-.field :deep(.el-select),
-.field :deep(.el-textarea) {
-  max-width: 100%;
+.field__control :deep(.el-input),
+.field__control :deep(.el-select),
+.field__control :deep(.el-textarea) {
+  width: 100%;
 }
 
-.field :deep(.el-input-number) {
-  max-width: 100%;
+/* 数字输入统一为窄控件，避免逐字段计算宽度导致参差 */
+.field__control :deep(.el-input-number) {
+  width: 100%;
+  max-width: 220px;
 }
 
-/* 数字内容居中，宽度随内容自适应 */
-.field :deep(.el-input-number .el-input__inner) {
+.field__control :deep(.el-select.control--short) {
+  max-width: 220px;
+}
+
+/* 数字内容居中，配合右侧步进按钮 */
+.field__control :deep(.el-input-number .el-input__inner) {
   text-align: center;
   padding-left: 4px;
   padding-right: 4px;
   font-variant-numeric: tabular-nums;
-}
-
-.field :deep(.el-select) {
-  width: 100%;
-  max-width: 560px;
-}
-
-.field :deep(.el-select.control--short) {
-  max-width: 340px;
 }
 </style>

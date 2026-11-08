@@ -1,5 +1,6 @@
 from scanner.outputs import generate_subscriptions, write_pinned_list
 from scanner.pinned import format_line, parse_line, parse_pinned, pinned_errors
+from scanner.validation import list_filename_problems
 
 
 def test_parse_line_defaults_port_and_keeps_label():
@@ -75,3 +76,26 @@ def test_pinned_file_is_separate_from_subscription_lists(tmp_path):
     global_text = (tmp_path / "GLOBAL1.txt").read_text(encoding="utf-8")
     assert "9.9.9.9" not in global_text
     assert "9.9.9.9:443#手动" in (tmp_path / "PINNED.txt").read_text(encoding="utf-8")
+
+
+def test_custom_list_filenames_are_used(tmp_path):
+    written = generate_subscriptions(
+        _detail_csv(tmp_path),
+        tmp_path,
+        overall_tops=(1,),
+        country_enabled=True,
+        country_tops={"US": 1},
+        list_filenames={"GLOBAL1": "all-ips", "US1": "us-ips.txt"},
+    )
+    assert set(written) == {"all-ips.txt", "us-ips.txt"}
+    assert (tmp_path / "all-ips.txt").is_file()
+    assert (tmp_path / "us-ips.txt").is_file()
+    assert not (tmp_path / "GLOBAL1.txt").exists()
+
+
+def test_list_filename_validation_rejects_paths_and_duplicates():
+    assert list_filename_problems((20,), False, {}, {}) == []
+    assert list_filename_problems((20,), False, {}, {"GLOBAL20": "../x"})
+    assert list_filename_problems(
+        (20,), True, {"US": 1}, {"GLOBAL20": "same", "US1": "same"}
+    )

@@ -16,6 +16,7 @@
   刻意不做静默回退：配置写错却照常运行，只会得到一轮看不懂的结果。
 """
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -81,14 +82,11 @@ def _value(name: str) -> object:
 #   2) 淘汰 EIV 受限子池（专属/静态/BYOIP 地址）；
 #   3) 取得边缘机房代码，用于国家/国旗标注。
 #
-# PROBE_HOST 必须是**你自己托管在 Cloudflare、且已开启代理（小黄云）的域名**：
-#   - 用 CF 自有域名（speed.cloudflare.com 等）时，EIV 受限 IP 同样返回 colo，
+# 默认使用 cloudflare-ech.com（Cloudflare 边缘会直接应答 /cdn-cgi/trace）。
+# 若需要更严格的 EIV 受限子池淘汰，换成你自己托管在 Cloudflare、已开启代理的域名：
+#   - 用 CF 自有/公共域名时，EIV 受限 IP 也可能返回 colo，
 #     但它们只在所属账号的 zone 上可用，当代理节点不可用，会被误收录；
 #   - 用自己 zone 的域名时，受限子池直接返回 403 / error 1034，天然淘汰。
-# 另外该域名需满足：证书覆盖、PROBE_PORTS 中的端口都能服务、PROBE_PATH 由
-# CF 边缘直接应答（不依赖源站存活）。
-#
-# 没有默认值：探测域名决定"什么算合格节点"，必须由使用者按自己的 zone 决定。
 PROBE_HOST: str = _value("PROBE_HOST")
 PROBE_PATH: str = _value("PROBE_PATH")
 
@@ -153,6 +151,26 @@ OUTPUT_DIR: str = _raw("OUTPUT_DIR") or str(APP_DIR / "output")
 DETAIL_CSV_NAME: str = _value("DETAIL_CSV_NAME")
 # 固定保留文件名（不含扩展名）：单独成文件，不混入 GLOBAL/国家列表。
 PINNED_OUTPUT_NAME: str = _value("PINNED_OUTPUT_NAME")
+
+
+def _list_filenames() -> dict[str, str]:
+    """自定义列表文件名映射：键为默认名（GLOBAL20/US100），值为用户文件名。"""
+    raw = _raw("LIST_FILENAMES")
+    if not raw:
+        return {}
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        _fail("LIST_FILENAMES", raw, "JSON 对象")
+    if not isinstance(data, dict) or any(
+        not isinstance(key, str) or not isinstance(value, str)
+        for key, value in data.items()
+    ):
+        _fail("LIST_FILENAMES", raw, "字符串到字符串的 JSON 对象")
+    return data
+
+
+LIST_FILENAMES: dict[str, str] = _list_filenames()
 # 明细表列定义（顺序即列序，下游按列名读取，改列名需同步上游写入逻辑）。
 # 语义：
 #   TCP握手平均延迟 = TCP_ATTEMPTS 次握手中成功样本的平均往返时延（排名依据）

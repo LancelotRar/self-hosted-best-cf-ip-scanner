@@ -48,6 +48,17 @@ def test_year_field_restricts_next_run():
     assert runs[0].strftime("%Y-%m-%d %H:%M") == "2027-01-01 09:00"
 
 
+def test_yearly_schedule_returns_five_runs():
+    runs = next_runs(
+        "0 4 1 1 *",
+        "UTC",
+        count=5,
+        now=datetime(2026, 11, 8, 0, 0, tzinfo=ZoneInfo("UTC")),
+    )
+    assert [run.year for run in runs] == [2027, 2028, 2029, 2030, 2031]
+    assert [run.strftime("%H:%M") for run in runs] == ["04:00"] * 5
+
+
 @pytest.mark.parametrize("expr", ["@daily", "61 * * * *", "* * *"])
 def test_invalid_cron(expr):
     with pytest.raises(CronInvalid):

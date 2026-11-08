@@ -9,6 +9,15 @@ def test_get_lists_params_with_source_and_hash(client, settings):
     assert params["TCP_MIN_SUCCESS"]["source"] == "default"
     assert params["IMAGE_TAG"]["read_only"] is True
     assert params["GIT_TOKEN"]["secret"] is True
+    # 底层参数只保留给后端，不在面板展示与修改
+    assert params["PROBE_PATH"]["hidden"] is True
+    assert params["SKIP_LOCATIONS"]["hidden"] is True
+    assert params["PINNED_FILE"]["hidden"] is True
+    assert params["DETAIL_CSV_NAME"]["hidden"] is False
+    assert params["PINNED_OUTPUT_NAME"]["hidden"] is False
+    assert params["GIT_AUTHOR_NAME"]["hidden"] is True
+    assert params["no_proxy"]["hidden"] is True
+    assert params["PROBE_HOST"]["hidden"] is False
 
 
 def test_get_does_not_expose_removed_candidate_cap(client, settings):
@@ -46,6 +55,18 @@ def test_put_returns_save_result(client, fake_controller):
     assert body["written"] is True
     assert body["changed"][0]["name"] == "SAMPLE_STRIDE"
     assert body["changed"][0]["effect"] == "next_round"
+
+
+def test_put_syncs_lowercase_no_proxy(client, fake_controller, settings):
+    doc = client.get("/api/config").json()
+    response = client.put(
+        "/api/config",
+        json={"hash": doc["hash"], "values": {"NO_PROXY": "example.com"}},
+    )
+    assert response.status_code == 200
+    text = settings.env_path.read_text(encoding="utf-8")
+    assert "NO_PROXY=example.com" in text
+    assert "no_proxy=example.com" in text
 
 
 def test_config_get_requires_login(anon_client):

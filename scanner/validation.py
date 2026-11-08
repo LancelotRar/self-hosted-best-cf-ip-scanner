@@ -84,6 +84,35 @@ def top_problems(
     return problems
 
 
+def list_filename_problems(
+    overall_tops: tuple[int, ...],
+    country_enabled: bool,
+    country_tops: dict[str, int],
+    filenames: Mapping[str, str],
+) -> list[str]:
+    """校验自定义列表文件名：不允许路径、空名或重复。"""
+    keys = [f"GLOBAL{size}" for size in overall_tops if size > 0]
+    if country_enabled:
+        keys += [f"{code}{size}" for code, size in country_tops.items() if size > 0]
+
+    problems: list[str] = []
+    seen: dict[str, str] = {}
+    for key in keys:
+        raw = str(filenames.get(key, key)).strip()
+        stem = raw[:-4] if raw.lower().endswith(".txt") else raw
+        if not stem or any(char in stem for char in ("/", "\\", "\x00")) or ".." in stem:
+            problems.append(f"列表 {key} 的文件名非法：{raw!r}")
+            continue
+        lowered = stem.lower()
+        if lowered in seen:
+            problems.append(
+                f"列表文件名重复：{seen[lowered]} 与 {key} 都使用 {stem}.txt"
+            )
+        else:
+            seen[lowered] = key
+    return problems
+
+
 def probe_host_problems(
     probe_host: str, environ: Mapping[str, str] | None = None
 ) -> list[str]:
@@ -134,5 +163,11 @@ def startup_problems() -> list[str]:
         )
         + ports_problems(config.PROBE_PORTS)
         + top_problems(config.OVERALL_TOPS, config.COUNTRY_FILTERS, config.COUNTRY_TOPS)
+        + list_filename_problems(
+            config.OVERALL_TOPS,
+            config.COUNTRY_FILTERS,
+            config.COUNTRY_TOPS,
+            config.LIST_FILENAMES,
+        )
         + probe_host_problems(config.PROBE_HOST)
     )

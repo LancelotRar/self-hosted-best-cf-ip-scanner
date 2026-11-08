@@ -1,33 +1,48 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { ElMessage } from "element-plus";
-import { RefreshRight, Timer } from "@element-plus/icons-vue";
+import { ElMessage, ElMessageBox } from "element-plus";
+import { Clock, Timer } from "@element-plus/icons-vue";
 
-import { get, post } from "../api";
-import ParamField from "./ParamField.vue";
+import { get } from "../api";
 import { useConfigStore } from "../stores/config";
-import type { Param, SchedulePreview } from "../types";
-import { formatTime } from "../utils/format";
+import type { SchedulePreview } from "../types";
+import { formatMinute } from "../utils/format";
 
 const store = useConfigStore();
 const preview = ref<string[]>([]);
 const timezone = ref("");
 const previewError = ref("");
-const applying = ref(false);
-const applyOutput = ref("");
+const previewing = ref(false);
+const saveError = ref("");
 
-const params = computed<Param[]>(() =>
-  store.params.filter((param) => param.group === "定时计划"),
+const presets = [
+  { label: "每 1 小时", value: "0 * * * *" },
+  { label: "每 3 小时 30 分", value: "30 */3 * * *" },
+  { label: "每天 0:00", value: "0 0 * * *" },
+  { label: "每天 12:45", value: "45 12 * * *" },
+  { label: "每周一 6:30", value: "30 6 * * 1" },
+];
+
+const cronValue = computed({
+  get: () => String(store.values.CRON_SCHEDULE ?? ""),
+  set: (value: string) => store.applyLocal({ CRON_SCHEDULE: value }),
+});
+
+const previewRows = computed(() =>
+  preview.value.map((run) => {
+    const [date, time] = formatMinute(run).split(" ");
+    return { date, time };
+  }),
 );
-const cronValue = computed(() => String(store.values.CRON_SCHEDULE ?? ""));
 
-function update(param: Param, value: unknown) {
-  store.applyLocal({ [param.name]: value });
+function usePreset(value: string) {
+  cronValue.value = value;
 }
 
 async function loadPreview() {
   if (!cronValue.value.trim()) return;
   previewError.value = "";
+  previewing.value = true;
   try {
     const data = await get<SchedulePreview>(
       `/api/schedule/preview?cron=${encodeURIComponent(cronValue.value)}`,
@@ -37,21 +52,39 @@ async function loadPreview() {
   } catch (error) {
     previewError.value = (error as Error).message;
     preview.value = [];
+  } finally {
+    previewing.value = false;
   }
 }
 
-async function applyNow() {
-  applying.value = true;
-  applyOutput.value = "";
+function cancel() {
+  store.cancel();
+  saveError.value = "";
+}
+
+async function saveSchedule() {
+  saveError.value = "";
   try {
-    const data = await post<{ applied: boolean; output: string }>("/api/schedule/apply");
-    applyOutput.value = data.output ? `已应用\n${data.output}` : "已应用";
-    ElMessage.success("已应用调度");
+    const result = await store.save();
+    ElMessage.success(
+      result?.effects.schedule_reloaded ? "计划任务已保存并生效" : "计划任务已保存",
+    );
   } catch (error) {
-    applyOutput.value = `应用失败：${(error as Error).message}`;
-    ElMessage.error((error as Error).message);
-  } finally {
-    applying.value = false;
+    const failure = error as Error & { status?: number };
+    if (failure.status === 409) {
+      try {
+        await ElMessageBox.confirm(
+          "设置已被其他方式修改。重新加载会丢弃当前未保存的修改。",
+          "设置已被修改",
+          { confirmButtonText: "重新加载", cancelButtonText: "取消", type: "warning" },
+        );
+        await store.load();
+      } catch {
+        /* 用户取消 */
+      }
+      return;
+    }
+    saveError.value = failure.message;
   }
 }
 
@@ -59,94 +92,179 @@ watch(cronValue, () => void loadPreview(), { immediate: true });
 </script>
 
 <template>
-  <section class="block">
-    <header class="block__head">
-      <el-icon><Timer /></el-icon><span>调度与预览</span>
-    </header>
-    <div class="panel block__card">
-      <ParamField
-        v-for="param in params"
-        :key="param.name"
-        :param="param"
-        :model-value="store.values[param.name]"
-        @update:model-value="update(param, $event)"
-      />
+  <div class="schedule-grid">
+    <section class="block">
+      <header class="block__head">
+        <el-icon><Timer /></el-icon><span>执行频率</span>
+      </header>
+      <div class="panel block__card schedule-card">
+        <p class="schedule-help">选择常用节奏，或直接填写表达式。</p>
 
-      <div class="schedule-preview">
-        <div class="schedule-preview__head">
-          <span class="row">
-            <el-icon><Timer /></el-icon>
-            <strong>未来 5 次执行</strong>
-            <span v-if="timezone" class="muted">{{ timezone }}</span>
-          </span>
-          <el-button :loading="applying" size="small" @click="applyNow">
-            <el-icon><RefreshRight /></el-icon>
-            立即应用调度
+        <div class="preset-row" role="group" aria-label="常用执行频率">
+          <el-button
+            v-for="preset in presets"
+            :key="preset.value"
+            size="small"
+            class="preset-button"
+            :class="{ 'preset-button--active': cronValue === preset.value }"
+            @click="usePreset(preset.value)"
+          >
+            {{ preset.label }}
           </el-button>
         </div>
 
+        <el-input
+          id="param-CRON_SCHEDULE"
+          v-model="cronValue"
+          class="mono schedule-input"
+          placeholder="30 */6 * * *"
+        />
         <p v-if="previewError" class="preview-error" role="alert">{{ previewError }}</p>
-        <ol v-else-if="preview.length" class="preview-list">
-          <li v-for="run in preview" :key="run" class="mono">{{ formatTime(run) }}</li>
-        </ol>
-        <p v-else class="muted">尚无预览；检查表达式是否合法。</p>
-
-        <pre v-if="applyOutput" class="apply-output mono">{{ applyOutput }}</pre>
-        <p class="muted schedule-note">
-          「立即应用调度」只对已保存的 .env 生效；修改 cron 后请先保存。
+        <p v-else class="schedule-help schedule-help--mono">
+          5 段：分 时 日 月 周；6 段：再加年；7 段：秒 + 分 时 日 月 周 + 年。
         </p>
+
+        <p v-if="saveError" class="preview-error" role="alert">{{ saveError }}</p>
+
+        <footer class="schedule-actions">
+          <span class="muted">
+            {{ store.dirty ? `未保存 ${store.dirtyCount} 项` : "没有未保存的修改" }}
+          </span>
+          <span class="spacer" />
+          <el-button :disabled="!store.dirty" @click="cancel">取消</el-button>
+          <el-button
+            type="primary"
+            :disabled="!store.dirty || Boolean(previewError)"
+            :loading="store.saving"
+            @click="saveSchedule"
+          >
+            保存
+          </el-button>
+        </footer>
       </div>
-    </div>
-  </section>
+    </section>
+
+    <section class="block">
+      <header class="block__head">
+        <el-icon><Clock /></el-icon><span>未来 5 次执行计划</span>
+      </header>
+      <div class="panel block__card preview-card">
+        <p class="preview-meta">
+          <span v-if="timezone">{{ timezone }}</span>
+          <span class="muted">保存后自动应用</span>
+        </p>
+
+        <el-table
+          v-if="previewRows.length"
+          :data="previewRows"
+          border
+          size="small"
+          class="preview-table"
+        >
+          <el-table-column label="日期" min-width="150">
+            <template #default="{ row }"><span class="mono">{{ row.date }}</span></template>
+          </el-table-column>
+          <el-table-column label="时间" width="110" align="center">
+            <template #default="{ row }"><span class="mono">{{ row.time }}</span></template>
+          </el-table-column>
+        </el-table>
+        <p v-else-if="previewing" class="muted">正在计算下一次执行…</p>
+        <p v-else class="muted">暂时无法预览，请检查表达式。</p>
+      </div>
+    </section>
+  </div>
 </template>
 
 <style scoped>
-.schedule-preview {
-  margin-top: var(--space-3);
-  padding: var(--space-4);
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
+.schedule-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: stretch;
 }
 
-.schedule-preview__head {
+.schedule-grid .block {
+  min-width: 0;
+}
+
+.schedule-card,
+.preview-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.schedule-help {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.schedule-help--mono {
+  color: var(--text-faint);
+}
+
+.preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+}
+
+.preset-button {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+}
+
+.preset-button--active {
+  color: var(--primary-text);
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+}
+
+.schedule-input {
+  max-width: 420px;
+  margin-bottom: var(--space-2);
+}
+
+.schedule-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: auto;
+  padding-top: var(--space-5);
+}
+
+.preview-card {
+  gap: var(--space-3);
+}
+
+.preview-meta {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  flex-wrap: wrap;
-  margin-bottom: var(--space-3);
+  margin: 0;
+  font-size: 12px;
 }
 
-.preview-list {
-  margin: 0;
-  padding-left: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+.preview-table {
+  width: 100%;
 }
 
 .preview-error {
-  margin: 0;
+  margin: var(--space-2) 0 0;
   color: var(--danger);
   font-size: 13px;
   overflow-wrap: anywhere;
 }
 
-.apply-output {
-  margin: var(--space-3) 0 0;
-  padding: var(--space-3);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  font-size: 12px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  max-height: 180px;
-  overflow: auto;
-}
-
-.schedule-note {
-  margin: var(--space-2) 0 0;
-  font-size: 12px;
+@media (max-width: 1023px) {
+  .schedule-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 </style>

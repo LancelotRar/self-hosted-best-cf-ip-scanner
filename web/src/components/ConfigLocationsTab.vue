@@ -244,7 +244,13 @@ onBeforeRouteLeave(async () => {
               :aria-invalid="rowErrors.has(index)"
               @update:model-value="(value: string | number) => updateCell(index, 'country', value)"
             />
-            <el-button text type="danger" class="loc-row__remove" @click="removeRow(index)">
+            <el-button
+              text
+              type="danger"
+              class="loc-row__remove"
+              :aria-label="`删除机房 ${row.code || '该行'}`"
+              @click="removeRow(index)"
+            >
               <el-icon><Delete /></el-icon>
             </el-button>
             <p v-if="rowErrors.has(index)" class="loc-row__error" role="alert">
@@ -284,6 +290,17 @@ onBeforeRouteLeave(async () => {
 </template>
 
 <style scoped>
+.loc-meta,
+.loc-note,
+.loc-toolbar,
+.loc-table,
+.loc-actions {
+  width: 100%;
+  max-width: 760px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .loc-meta {
   display: flex;
   align-items: baseline;
@@ -343,7 +360,8 @@ onBeforeRouteLeave(async () => {
 .loc-table__head,
 .loc-row {
   display: grid;
-  grid-template-columns: 160px 160px 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 40px;
+  justify-content: start;
   gap: var(--space-3);
   align-items: center;
   padding: 6px var(--space-3);

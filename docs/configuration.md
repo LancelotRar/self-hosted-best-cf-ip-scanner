@@ -15,7 +15,7 @@
 ```bash
 cd <部署目录>          # 里面有 compose.yaml 与 .env
 vi .env               # 唯一的配置文件（或直接在面板「参数」页修改）
-grep '^PROBE_HOST=' .env      # 确认必填项已填
+grep '^PROBE_HOST=' .env      # 可留空，使用默认 cloudflare-ech.com
 docker compose up -d          # 首次启动
 docker compose exec -T scanner python /usr/local/bin/print-config.py --json  # 查看生效值
 ```
@@ -27,7 +27,7 @@ docker compose exec -T scanner python /usr/local/bin/print-config.py --json  # �
 ## 完整配置模板
 
 以下是 `.env` 的完整内容（与仓库根目录的 `.env.example` 一致，含全部注释）。
-只想先跑通：**填 `PROBE_HOST` 一项即可**，其余保持原样。
+只想先跑通：**保持默认即可**，`PROBE_HOST` 留空会使用 `cloudflare-ech.com`。
 
 ```dotenv
 # ============================================================================
@@ -35,7 +35,7 @@ docker compose exec -T scanner python /usr/local/bin/print-config.py --json  # �
 #
 # 用法：
 #   1) 复制为 .env
-#   2) 只需填写【必填】项（默认只有 PROBE_HOST 一项）
+#   2) PROBE_HOST 可留空，默认使用 cloudflare-ech.com
 #   3) docker compose up -d
 #
 # 分级：
@@ -256,7 +256,7 @@ IMAGE_TAG=latest
 </tr>
 </thead>
 <tbody>
-<tr><td align="center"><code>PROBE_HOST</code></td><td align="center">留空</td><td align="center"><strong>无默认值，启动直接报错退出</strong>（不会进入调度）</td></tr>
+<tr><td align="center"><code>PROBE_HOST</code></td><td align="center">留空</td><td align="center">使用默认 <code>cloudflare-ech.com</code></td></tr>
 <tr><td align="center"><code>OVERALL_TOPS</code></td><td align="center">留空</td><td align="center">不生成全量列表</td></tr>
 <tr><td align="center"><code>OVERALL_TOPS</code></td><td align="center"><code>20,50,100</code></td><td align="center">每个数字生成一个文件：<code>GLOBAL20.txt</code> / <code>GLOBAL50.txt</code> / <code>GLOBAL100.txt</code></td></tr>
 <tr><td align="center"><code>COUNTRY_FILTERS</code></td><td align="center"><code>false</code>（默认）</td><td align="center"><strong>不生成国家列表</strong>，所有 <code>TOP_&lt;国家代码&gt;</code> 数值被忽略</td></tr>
@@ -316,7 +316,7 @@ IMAGE_TAG=latest
 
 ```
 [entrypoint] 配置不合法，容器不会进入调度：
-  1. 未配置 PROBE_HOST（探测域名）：见 docs/deployment.md 与 .env.example
+  1. PROBE_HOST 只能填域名（不带协议/端口/路径），当前为 'https://example.com'
   2. 已配置出网代理，但 NO_PROXY 未豁免探测域名 probe.example.com：...
   参数说明：docs/configuration.md
 ```
@@ -338,13 +338,13 @@ IMAGE_TAG=latest
 </tr>
 </thead>
 <tbody>
-<tr><th align="center">必填</th><td align="center"><code>PROBE_HOST</code></td><td align="center">无</td><td align="center">必填</td><td align="center">边缘端点校验域名。必须是你自己托管在 Cloudflare、且已开启代理（小黄云）的域名</td></tr>
+<tr><th align="center">探测域名</th><td align="center"><code>PROBE_HOST</code></td><td align="center"><code>cloudflare-ech.com</code></td><td align="center">可选</td><td align="center">边缘端点校验域名；可换成你自己托管在 Cloudflare、且已开启代理的域名</td></tr>
 <tr><th rowspan="3" align="center">调度</th><td align="center"><code>CRON_SCHEDULE</code></td><td align="center"><code>30 */6 * * *</code></td><td align="center">建议</td><td align="center">标准 cron（分 时 日 月 周），时区由 <code>TZ</code> 决定</td></tr>
 <tr><td align="center"><code>RUN_ON_START</code></td><td align="center"><code>true</code></td><td align="center">可选</td><td align="center">容器启动后是否立即执行一轮</td></tr>
 <tr><td align="center"><code>TZ</code></td><td align="center"><code>Asia/Shanghai</code></td><td align="center">可选</td><td align="center">调度与提交信息时区；产物中的扫描时间固定为北京时间</td></tr>
 <tr><th rowspan="2" align="center">运行身份</th><td align="center"><code>PUID</code></td><td align="center"><code>1000</code></td><td align="center">建议</td><td align="center">业务进程 uid；入口把三个数据卷的属主对齐到它</td></tr>
 <tr><td align="center"><code>PGID</code></td><td align="center"><code>1000</code></td><td align="center">建议</td><td align="center">业务进程 gid；同上</td></tr>
-<tr><th rowspan="3" align="center">探测端点</th><td align="center"><code>PROBE_HOST</code></td><td align="center">无</td><td align="center"><strong>必填</strong></td><td align="center">见上表</td></tr>
+<tr><th rowspan="3" align="center">探测端点</th><td align="center"><code>PROBE_HOST</code></td><td align="center"><code>cloudflare-ech.com</code></td><td align="center">可选</td><td align="center">见上表</td></tr>
 <tr><td align="center"><code>PROBE_PATH</code></td><td align="center"><code>/cdn-cgi/trace</code></td><td align="center">可选</td><td align="center">端点校验路径，由 CF 边缘直接应答，一般不改</td></tr>
 <tr><td align="center"><code>PROBE_USER_AGENT</code></td><td align="center">内置浏览器 UA</td><td align="center">可选</td><td align="center">端点校验请求的 User-Agent</td></tr>
 <tr><th rowspan="7" align="center">探测参数</th><td align="center"><code>PROBE_PORTS</code></td><td align="center"><code>443</code></td><td align="center">建议</td><td align="center">候选端口集合，每个候选随机分配一个</td></tr>
@@ -360,8 +360,9 @@ IMAGE_TAG=latest
 <tr><td align="center"><code>PINNED_FILE</code></td><td align="center"><code>ip-pinned.txt</code></td><td align="center">可选</td><td align="center">固定保留投影文件名（不参与扫描，原样附加到全量列表）</td></tr>
 <tr><td align="center"><code>LOCATIONS_FILE</code></td><td align="center"><code>locations.json</code></td><td align="center">可选</td><td align="center">机房映射投影文件名（相对 <code>DATA_DIR</code> 卷；内容以数据库为准）</td></tr>
 <tr><td align="center"><code>SKIP_LOCATIONS</code></td><td align="center"><code>false</code></td><td align="center">可选</td><td align="center">调试用：跳过机房映射</td></tr>
-<tr><th rowspan="5" align="center">输出</th><td align="center"><code>DETAIL_CSV_NAME</code></td><td align="center"><code>detail</code></td><td align="center">可选</td><td align="center">明细表文件名（不含扩展名）</td></tr>
+<tr><th rowspan="6" align="center">输出</th><td align="center"><code>DETAIL_CSV_NAME</code></td><td align="center"><code>detail</code></td><td align="center">可选</td><td align="center">明细表文件名（不含扩展名）</td></tr>
 <tr><td align="center"><code>PINNED_OUTPUT_NAME</code></td><td align="center"><code>PINNED</code></td><td align="center">可选</td><td align="center">固定保留列表文件名（不含扩展名）；单独成文件，不混入其他列表</td></tr>
+<tr><td align="center"><code>LIST_FILENAMES</code></td><td align="center">空</td><td align="center">可选</td><td align="center">自定义全量/国家列表文件名，JSON 对象，键为默认名（如 <code>GLOBAL20</code>、<code>US100</code>）；面板「文件名调整」自动维护</td></tr>
 <tr><td align="center"><code>OVERALL_TOPS</code></td><td align="center"><code>20,50,100,200,400</code></td><td align="center">建议</td><td align="center">全量列表条数（逗号分隔，任意正整数）→ 每项一个 <code>GLOBAL{N}.txt</code></td></tr>
 <tr><td align="center"><code>COUNTRY_FILTERS</code></td><td align="center"><code>false</code></td><td align="center">建议</td><td align="center">国家列表总开关；<code>true</code> 才按各国数值生成</td></tr>
 <tr><td align="center"><code>TOP_US</code> / <code>TOP_JP</code> / <code>TOP_SG</code> / <code>TOP_DE</code> / <code>TOP_NL</code> / <code>TOP_FR</code></td><td align="center"><code>100</code></td><td align="center">可选</td><td align="center">各国列表条数 → <code>{国家代码}{N}.txt</code>；仅开关为 <code>true</code> 时生效</td></tr>
@@ -385,7 +386,7 @@ IMAGE_TAG=latest
 
 ## 关键参数详解
 
-### `PROBE_HOST`（必填）
+### `PROBE_HOST`（默认 `cloudflare-ech.com`）
 
 边缘端点校验域名。工具会把该域名"钉"到候选 `IP:端口` 上请求一次
 `/cdn-cgi/trace`，因此这个域名必须满足：
@@ -393,10 +394,12 @@ IMAGE_TAG=latest
 - 由 Cloudflare 边缘代理（小黄云开启），证书覆盖该域名；
 - `PROBE_PATH` 能返回 `colo=`（机场码）字段；
 - `PROBE_PORTS` 里启用的端口它都能服务；
-- **是你自己 zone 的域名**，不能是 `speed.cloudflare.com` 这类 CF 自有域名。
+- 默认 `cloudflare-ech.com` 已满足前三项；若需要更严格的筛选，建议换成
+  **你自己 zone 的域名**。
 
-第 4 点决定筛选口径：用 CF 自有域名时，EIV 受限子池（专属/静态/BYOIP 地址）也会返回
-`colo` 被误判为合格，但它们实际只在所属账号的 zone 上可用。详见 [为什么探测域名必须是自己的域名](../README.md#为什么探测域名必须是自己的域名)。
+默认端点可直接使用；换成自己 zone 的域名时，EIV 受限子池（专属/静态/BYOIP 地址）
+会直接返回 `403 / error 1034`，可进一步淘汰；使用 CF 公共域名时这类 IP 也可能返回
+`colo`。详见 [探测域名的默认值与选择](../README.md#探测域名的默认值与选择)。
 
 > 该域名只需要保持 CF 代理开启，不要求源站存活（trace 由边缘直接应答）。
 

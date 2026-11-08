@@ -505,6 +505,11 @@ a {
   --el-skeleton-to-color: var(--surface-3);
 }
 
+/* 开关与主按钮使用同一强调色，避免绿色被误读为状态 */
+.el-switch {
+  --el-switch-on-color: var(--primary);
+}
+
 /* --------------------------------------------------------------- 辅助类 */
 
 .text-success {

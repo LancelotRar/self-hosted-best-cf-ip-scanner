@@ -33,6 +33,27 @@ from .settings import Settings
 
 MANAGED_BLOCK = "# --- panel managed ---"
 BACKUP_KEEP = 30
+
+# 面板不展示、也不允许在面板修改的底层参数：由内置策略或部署配置决定。
+# 用户只需要面向业务的概念（域名、端口、采样、发布），不需要看到文件名与运行身份。
+PANEL_HIDDEN = frozenset(
+    {
+        "PROBE_PATH",
+        "PROBE_USER_AGENT",
+        "LOCATIONS_FILE",
+        "SKIP_LOCATIONS",
+        "LIBRARY_FILE",
+        "PINNED_FILE",
+        "GIT_AUTHOR_NAME",
+        "GIT_AUTHOR_EMAIL",
+        "GIT_RETRY_MAX",
+        "GIT_RETRY_BASE_DELAY",
+        "no_proxy",
+        "LIST_FILENAMES",
+        "PUID",
+        "PGID",
+    }
+)
 CHECK_CONFIG_SCRIPT = "/usr/local/bin/check-config.py"
 PRINT_CONFIG_SCRIPT = "/usr/local/bin/print-config.py"
 APPLY_CONFIG_SCRIPT = "/usr/local/bin/apply-config.sh"
@@ -191,6 +212,42 @@ def _semantic_errors(values: Mapping[str, str]) -> list[dict[str, object]]:
                 raise ValueError
         except ValueError:
             errors.append({"name": name, "message": "必须是非负整数"})
+
+    raw_names = (values.get("LIST_FILENAMES") or "").strip()
+    if raw_names:
+        try:
+            mapping = json.loads(raw_names)
+        except ValueError:
+            mapping = None
+            errors.append(
+                {"name": "LIST_FILENAMES", "message": "列表文件名映射不是合法 JSON"}
+            )
+        if mapping is not None:
+            if not isinstance(mapping, dict) or any(
+                not isinstance(key, str) or not isinstance(value, str)
+                for key, value in mapping.items()
+            ):
+                errors.append(
+                    {
+                        "name": "LIST_FILENAMES",
+                        "message": "列表文件名映射必须是字符串到字符串的对象",
+                    }
+                )
+            else:
+                for value in mapping.values():
+                    stem = value[:-4] if value.lower().endswith(".txt") else value
+                    if (
+                        not stem.strip()
+                        or any(char in stem for char in ("/", "\\", "\x00"))
+                        or ".." in stem
+                    ):
+                        errors.append(
+                            {
+                                "name": "LIST_FILENAMES",
+                                "message": f"列表文件名非法：{value!r}",
+                            }
+                        )
+                        break
     return errors
 
 
@@ -255,7 +312,7 @@ def _canonical_updates(updates: Mapping[str, object]) -> dict[str, str]:
             continue
         if spec.read_only:
             errors.append(
-                {"name": name, "message": "该参数只读，请在 .env 手工修改并重建容器"}
+                {"name": name, "message": "该参数为只读，无法在面板中修改"}
             )
             continue
         if raw is None:
@@ -274,6 +331,9 @@ def _canonical_updates(updates: Mapping[str, object]) -> dict[str, str]:
         clean[name] = format_value(spec, value)
     if errors:
         raise ConfigInvalid(errors)
+    # 大小写两份豁免清单对用户只暴露一份，保存时自动同步，兼容只认小写的工具。
+    if "NO_PROXY" in clean and "no_proxy" not in clean:
+        clean["no_proxy"] = clean["NO_PROXY"]
     return clean
 
 
@@ -293,7 +353,7 @@ def _with_proxy_exemption(
         if host not in entries and host.lower() not in {entry.lower() for entry in entries}:
             entries.append(host)
             clean[key] = ",".join(entries)
-            warnings.append(f"PROBE_HOST 变更：已把 {host} 追加到 {key}")
+            warnings.append(f"探测域名已变更：已自动放行 {host}")
     return warnings
 
 
@@ -444,7 +504,7 @@ def save(
     """保存事务：校验 -> 写入 -> 回读 -> 调度 -> 核对 -> 版本与审计。"""
     document = read_env(settings)
     if expected_hash != document.sha256:
-        raise ConfigConflict("配置文件已被修改，请刷新后重试")
+        raise ConfigConflict("设置已被修改，请刷新后重试")
 
     clean = _canonical_updates(updates)
     warnings = _with_proxy_exemption(clean, document.values)
@@ -484,6 +544,8 @@ def save(
         raise ConfigWriteUnverified("写入后回读不一致，已回滚到保存前内容")
     changed: list[dict] = []
     for name, new_value in clean.items():
+        if name == "no_proxy" and "NO_PROXY" in clean:
+            continue  # 小写清单是自动同步的影子项，不重复展示
         spec = BY_NAME[name]
         old_raw = document.values.get(name)
         if old_raw == new_value:
@@ -508,7 +570,7 @@ def save(
         offline = False
         if controller is None:
             offline = True
-            warnings.append("扫描容器不可用：已保存，容器恢复后由 watcher 自动重载调度")
+            warnings.append("扫描容器暂不可用：已保存，容器恢复后会自动生效")
         else:
             try:
                 handle = controller.exec_script(APPLY_CONFIG_SCRIPT, {})
@@ -516,10 +578,10 @@ def save(
             except ScannerUnavailable:
                 offline = True
                 code = 0
-                warnings.append("扫描容器不可用：已保存，容器恢复后由 watcher 自动重载调度")
+                warnings.append("扫描容器暂不可用：已保存，容器恢复后会自动生效")
             if not offline and code != 0:
                 _restore(settings, backup)
-                raise ConfigApplyFailed("调度应用失败，已回滚 .env")
+                raise ConfigApplyFailed("计划任务应用失败，已回滚")
         schedule_reloaded = not offline
 
     hot_names = [
@@ -545,7 +607,7 @@ def save(
     stored = _stored_values(merged)
     diff = redact(
         "\n".join(
-            f"- {item['name']}={item['old']}\n+ {item['name']}={item['new']}"
+            f"- {BY_NAME[item['name']].label}={item['old']}\n+ {BY_NAME[item['name']].label}={item['new']}"
             for item in changed
             if not BY_NAME[item["name"]].secret
         )
@@ -639,6 +701,7 @@ def param_entries(document: EnvDocument) -> list[dict[str, object]]:
                 "restart": spec.restart,
                 "consumer": spec.consumer,
                 "effect": _effect(spec),
+                "hidden": spec.name in PANEL_HIDDEN,
             }
         )
     return entries

@@ -181,7 +181,7 @@ onMounted(async () => {
           <header class="block__head"><el-icon><Timer /></el-icon><span>时区</span></header>
           <div class="panel block__card">
             <p class="muted settings-hint">
-              影响调度表达式、运行记录与日志时间；保存后需重启扫描容器生效。
+              影响计划任务、运行记录与日志时间；保存后需重启扫描容器生效。
             </p>
             <ErrorState v-if="!tzParam && config.lastError" :message="config.lastError.message" />
             <ParamField
@@ -247,9 +247,9 @@ onMounted(async () => {
               <span class="preview__eyebrow muted">预览</span>
               <h2 class="preview__title">扫描器在线 · 核对通过</h2>
               <p class="preview__text">
-                每轮扫描会重新读取 .env；保存后下一轮生效，调度变更立即热重载。
+                每轮扫描都会读取最新配置；保存后下一轮生效，计划任务变更立即生效。
               </p>
-              <p class="preview__meta mono">2026/11/03 15:20:00 · SAMPLE_STRIDE=256</p>
+              <p class="preview__meta mono">2026/11/03 15:20:00 · 采样步长 256</p>
             </div>
           </div>
         </section>
@@ -389,11 +389,8 @@ onMounted(async () => {
               <dt>Docker SDK</dt>
               <dd class="mono">{{ info.docker }}</dd>
             </dl>
-            <p class="muted about-hint">
-              忘记密码时在宿主机执行：
-              <code class="mono">docker compose exec panel python -m panel.cli reset-password</code>
-            </p>
-            <p class="muted">配置版本与审计记录都会保留；不要把删除 panel.db 当作恢复手段。</p>
+            <p class="muted about-hint">忘记密码请联系部署管理员。</p>
+            <p class="muted">配置版本与审计记录都会保留，可在面板内完成回滚与核查。</p>
           </div>
         </section>
       </el-tab-pane>

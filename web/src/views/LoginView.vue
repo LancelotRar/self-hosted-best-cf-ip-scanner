@@ -65,10 +65,7 @@ async function submit() {
         </el-button>
       </form>
 
-      <p class="auth__foot muted">
-        忘记密码：在宿主机执行
-        <code class="mono">docker compose exec panel python -m panel.cli reset-password</code>
-      </p>
+      <p class="auth__foot muted">忘记密码请联系部署管理员。</p>
     </div>
   </div>
 </template>

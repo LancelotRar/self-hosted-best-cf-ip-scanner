@@ -18,11 +18,14 @@ def test_preview_txt_and_csv(client, output_dir):
 
 
 def test_list_reports_read_time_and_files(client, output_dir):
-    (output_dir / "GLOBAL20.txt").write_text("x\n", encoding="utf-8")
+    (output_dir / "GLOBAL20.txt").write_text(
+        "# 20 条\n1.2.3.4\n5.6.7.8\n", encoding="utf-8"
+    )
     body = client.get("/api/outputs").json()
     assert body["read_at"]
     names = [item["name"] for item in body["files"]]
     assert names == ["GLOBAL20.txt"]
+    assert body["files"][0]["count"] == 2
 
 
 def test_download_returns_attachment(client, output_dir):

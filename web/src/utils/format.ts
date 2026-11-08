@@ -89,8 +89,16 @@ export function exitLabel(code: number | null | undefined): string {
   return code === 0 ? "成功" : `失败（${code}）`;
 }
 
+/** 运行触发方式：对用户只暴露「计划任务 / 面板」，不出现内部标识。 */
+export function triggerLabel(trigger: string | null | undefined): string {
+  if (!trigger) return "—";
+  if (trigger === "cron") return "计划任务";
+  if (trigger === "panel") return "手动触发";
+  return trigger;
+}
+
 export function effectLabel(effect: string): string {
   if (effect === "restart_required") return "重启后生效";
-  if (effect === "schedule_reload") return "已热重载";
+  if (effect === "schedule_reload") return "立即生效";
   return "下一轮生效";
 }

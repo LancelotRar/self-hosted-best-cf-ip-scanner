@@ -20,6 +20,7 @@ const intParam: Param = {
   restart: false,
   consumer: "scanner",
   effect: "next_round",
+  hidden: false,
 };
 
 const portParam: Param = {

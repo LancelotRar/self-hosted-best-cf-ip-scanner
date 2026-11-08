@@ -129,14 +129,22 @@ def next_runs(
     reference = (now or datetime.now(zone)).astimezone(zone).replace(microsecond=0)
     cursor = reference.replace(second=0)
     runs: list[datetime] = []
-    limit = MAX_DAYS * 24 * 60
-    for _ in range(limit):
-        if (
+    limit_days = MAX_DAYS * 10
+    deadline = cursor + timedelta(days=limit_days)
+    while cursor <= deadline:
+        # 日期不匹配时整天跳过：年度/月度的表达式不必逐分钟扫 366 天。
+        if not (
             cursor.year in fields["year"]
             and cursor.month in fields["month"]
-            and cursor.hour in fields["hour"]
-            and cursor.minute in fields["minute"]
             and _day_matches(cursor, fields)
+        ):
+            cursor = (cursor + timedelta(days=1)).replace(
+                hour=0, minute=0, second=0
+            )
+            continue
+        if (
+            cursor.hour in fields["hour"]
+            and cursor.minute in fields["minute"]
         ):
             for second in seconds:
                 candidate = cursor.replace(second=second)

@@ -184,108 +184,119 @@ onBeforeRouteLeave(async () => {
       @retry="saveError = ''"
     />
 
-    <section class="block">
-      <header class="block__head">
-        <el-icon><Connection /></el-icon><span>Cloudflare 官方段</span>
-      </header>
-      <div class="panel block__card">
-        <p class="library-desc">默认扫描库，来源 Cloudflare 官方 IPv4 段
-          <a href="https://www.cloudflare.com/ips-v4" target="_blank" rel="noreferrer">
-            https://www.cloudflare.com/ips-v4
-          </a>
-        </p>
-        <p class="library-desc">若要排除某个网段，可在行首直接加 <code>#</code> 并写明依据，不建议整行删除</p>
-        <p class="library-desc">若要排除部分网段，手动另起新的一行，写入网段，并在行首加 <code>#</code></p>
-        <p class="library-desc">
-          参与种子采样逻辑，展开后按采样步长抽 1 个代表 IP 进行扫描。
-        </p>
-        <p class="library-desc">当前 IP 总量：{{ formatCount(library?.stats.total) }}</p>
+    <div class="library-grid">
+      <section class="block">
+        <header class="block__head">
+          <el-icon><Connection /></el-icon><span>Cloudflare 官方段</span>
+        </header>
+        <div class="panel block__card">
+          <p class="library-desc">
+            默认地址库，来源 Cloudflare 官方 IPv4 段
+            <a href="https://www.cloudflare.com/ips-v4" target="_blank" rel="noreferrer">
+              https://www.cloudflare.com/ips-v4
+            </a>
+          </p>
+          <p class="library-desc">
+            若要排除某个网段，可在行首直接加 <code>#</code> 并写明依据，不建议整行删除
+          </p>
+          <p class="library-desc">
+            若要排除部分网段，手动另起新的一行，写入网段，并在行首加 <code>#</code>
+          </p>
+          <p class="library-desc">
+            参与种子采样逻辑，展开后按采样步长抽 1 个代表 IP 进行扫描。
+          </p>
+          <p class="library-desc">当前 IP 总量：{{ formatCount(library?.stats.total) }}</p>
 
-        <el-input
-          v-model="draft"
-          type="textarea"
-          :rows="14"
-          class="library-editor__input mono"
-          spellcheck="false"
-          placeholder="每行一条：104.16.0.0/13 或 104.17.3.3"
-        />
+          <el-input
+            v-model="draft"
+            type="textarea"
+            :rows="12"
+            class="library-editor__input mono"
+            spellcheck="false"
+            placeholder="每行一条：104.16.0.0/13 或 104.17.3.3"
+          />
 
-        <ul v-if="libraryErrors.length" class="field-errors" role="alert">
-          <li v-for="(item, index) in libraryErrors" :key="index">
-            <template v-if="item.line">第 {{ item.line }} 行：</template>
-            {{ item.message ?? "无法解析的条目" }}
-            <span v-if="item.raw" class="mono">（{{ item.raw }}）</span>
-          </li>
-        </ul>
+          <ul v-if="libraryErrors.length" class="field-errors" role="alert">
+            <li v-for="(item, index) in libraryErrors" :key="index">
+              <template v-if="item.line">第 {{ item.line }} 行：</template>
+              {{ item.message ?? "无法解析的条目" }}
+              <span v-if="item.raw" class="mono">（{{ item.raw }}）</span>
+            </li>
+          </ul>
 
-        <footer class="library-actions">
-          <span class="muted">{{ libraryDirty ? "有未保存的修改" : "没有未保存的修改" }}</span>
-          <span class="spacer" />
-          <el-button :disabled="!libraryDirty" @click="restoreLibrary">
-            <el-icon><RefreshLeft /></el-icon>还原
-          </el-button>
-          <el-button
-            type="primary"
-            :disabled="!libraryDirty"
-            :loading="savingLibrary"
-            @click="saveLibrary"
-          >
-            <el-icon><Check /></el-icon>保存
-          </el-button>
-        </footer>
-      </div>
-    </section>
+          <footer class="library-actions">
+            <span class="muted">
+              {{ libraryDirty ? "有未保存的修改" : "没有未保存的修改" }}
+            </span>
+            <span class="spacer" />
+            <el-button :disabled="!libraryDirty" @click="restoreLibrary">
+              <el-icon><RefreshLeft /></el-icon>还原
+            </el-button>
+            <el-button
+              type="primary"
+              :disabled="!libraryDirty"
+              :loading="savingLibrary"
+              @click="saveLibrary"
+            >
+              <el-icon><Check /></el-icon>保存
+            </el-button>
+          </footer>
+        </div>
+      </section>
 
-    <section class="block">
-      <header class="block__head">
-        <el-icon><Star /></el-icon><span>固定保留</span>
-      </header>
-      <div class="panel block__card">
-        <p class="library-meta">共 {{ formatCount(pinnedCount) }} 条</p>
+      <section class="block">
+        <header class="block__head">
+          <el-icon><Star /></el-icon><span>固定保留</span>
+        </header>
+        <div class="panel block__card">
+          <p class="library-meta">共 {{ formatCount(pinnedCount) }} 条</p>
 
-        <p class="library-desc">
-          此来源为用户希望固定添加的优选 IP。不做探测、不做机房映射，产物单独生成。
-          文件名在「扫描参数 · 输入输出 · 固定保留文件名」中修改。
-        </p>
-        <p class="library-desc">
-          格式，<code>IP</code> 或 <code>IP:端口</code>，可跟 <code>#备注</code>，如
-          <code>1.2.3.4:443#手动添加</code>；省略端口时按 443。
-        </p>
+          <p class="library-desc">
+            此来源为用户希望固定添加的优选 IP。不做探测、不做机房映射，产物单独生成。
+            文件名在「产物与发布 · 产物文件 · 固定保留文件名」中修改。
+          </p>
+          <p class="library-desc">
+            格式，<code>IP</code> 或 <code>IP:端口</code>，可跟 <code>#备注</code>，如
+            <code>1.2.3.4:443#手动添加</code>；省略端口时按 443。
+          </p>
 
-        <el-input
-          v-model="pinnedDraft"
-          type="textarea"
-          :rows="6"
-          class="library-editor__input mono"
-          spellcheck="false"
-          placeholder="1.2.3.4:443#手动添加"
-        />
+          <el-input
+            v-model="pinnedDraft"
+            type="textarea"
+            :rows="8"
+            class="library-editor__input mono"
+            spellcheck="false"
+            placeholder="示例：1.2.3.4:443#手动添加"
+          />
 
-        <ul v-if="pinnedErrors.length" class="field-errors" role="alert">
-          <li v-for="(item, index) in pinnedErrors" :key="index">
-            <template v-if="item.line">第 {{ item.line }} 行：</template>
-            {{ item.message ?? "无法解析的条目" }}
-            <span v-if="item.raw" class="mono">（{{ item.raw }}）</span>
-          </li>
-        </ul>
+          <ul v-if="pinnedErrors.length" class="field-errors" role="alert">
+            <li v-for="(item, index) in pinnedErrors" :key="index">
+              <template v-if="item.line">第 {{ item.line }} 行：</template>
+              {{ item.message ?? "无法解析的条目" }}
+              <span v-if="item.raw" class="mono">（{{ item.raw }}）</span>
+            </li>
+          </ul>
 
-        <footer class="library-actions">
-          <span class="muted">{{ pinnedDirty ? "有未保存的修改" : "没有未保存的修改" }}</span>
-          <span class="spacer" />
-          <el-button :disabled="!pinnedDirty" @click="restorePinned">
-            <el-icon><RefreshLeft /></el-icon>还原
-          </el-button>
-          <el-button
-            type="primary"
-            :disabled="!pinnedDirty"
-            :loading="savingPinned"
-            @click="savePinned"
-          >
-            <el-icon><Check /></el-icon>保存
-          </el-button>
-        </footer>
-      </div>
-    </section>
+          <footer class="library-actions">
+            <span class="muted">
+              {{ pinnedDirty ? "有未保存的修改" : "没有未保存的修改" }}
+            </span>
+            <span class="spacer" />
+            <el-button :disabled="!pinnedDirty" @click="restorePinned">
+              <el-icon><RefreshLeft /></el-icon>还原
+            </el-button>
+            <el-button
+              type="primary"
+              :disabled="!pinnedDirty"
+              :loading="savingPinned"
+              @click="savePinned"
+            >
+              <el-icon><Check /></el-icon>保存
+            </el-button>
+          </footer>
+        </div>
+      </section>
+    </div>
 
     <UnsavedDialog
       v-model="unsavedVisible"
@@ -297,8 +308,32 @@ onBeforeRouteLeave(async () => {
 </template>
 
 <style scoped>
-.block + .block {
-  margin-top: var(--space-5);
+.library-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+  align-items: stretch;
+}
+
+.library-grid .block {
+  min-width: 0;
+}
+
+.library-grid .block__card {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.library-grid .library-actions {
+  margin-top: auto;
+  padding-top: var(--space-3);
+}
+
+@media (max-width: 1099px) {
+  .library-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .library-meta {
@@ -333,6 +368,13 @@ onBeforeRouteLeave(async () => {
 
 .library-editor__input {
   margin-top: var(--space-3);
+  display: flex;
+  flex: 1;
+}
+
+.library-editor__input :deep(.el-textarea) {
+  display: flex;
+  flex: 1;
 }
 
 .library-editor__input :deep(.el-textarea__inner) {
@@ -340,7 +382,8 @@ onBeforeRouteLeave(async () => {
   font-size: 12.5px;
   line-height: 1.7;
   background: var(--surface-2);
-  min-height: 120px;
+  height: 100%;
+  min-height: 220px;
 }
 
 .library-actions {
