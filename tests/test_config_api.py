@@ -17,6 +17,7 @@ def test_get_lists_params_with_source_and_hash(client, settings):
     assert params["PINNED_OUTPUT_NAME"]["hidden"] is False
     assert params["GIT_AUTHOR_NAME"]["hidden"] is True
     assert params["no_proxy"]["hidden"] is True
+    assert params["PUSH_LISTS"]["hidden"] is True
     assert params["PROBE_HOST"]["hidden"] is False
 
 

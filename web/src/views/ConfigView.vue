@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {
-  Aim, Check, Clock, Close, Connection, EditPen,
+  Aim, Check, Clock, Close, Connection, EditPen, Files,
   RefreshRight, SetUp, Setting, Share, Upload,
 } from "@element-plus/icons-vue";
 import { computed, nextTick, onMounted, ref, type Component } from "vue";
@@ -10,6 +10,7 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { post } from "../api";
 import EmptyState from "../components/EmptyState.vue";
 import ArtifactNamesEditor from "../components/ArtifactNamesEditor.vue";
+import PushListsEditor from "../components/PushListsEditor.vue";
 import ConfigLibraryTab from "../components/ConfigLibraryTab.vue";
 import ConfigLocationsTab from "../components/ConfigLocationsTab.vue";
 import ConfigScheduleTab from "../components/ConfigScheduleTab.vue";
@@ -291,15 +292,6 @@ onBeforeRouteLeave(async () => {
           <div class="card-columns">
             <section class="block">
               <header class="block__head">
-                <el-icon><EditPen /></el-icon><span>文件名调整</span>
-              </header>
-              <div class="panel block__card">
-                <ArtifactNamesEditor />
-              </div>
-            </section>
-
-            <section class="block">
-              <header class="block__head">
                 <el-icon><SetUp /></el-icon><span>列表档位</span>
               </header>
               <div class="panel block__card">
@@ -309,31 +301,55 @@ onBeforeRouteLeave(async () => {
                     :key="param.name"
                     :param="param"
                     :model-value="store.values[param.name]"
+                    :disabled="
+                      (param.name === 'OVERALL_TOPS' && !store.values.OVERALL_ENABLED) ||
+                      (param.name.startsWith('TOP_') && !store.values.COUNTRY_FILTERS)
+                    "
                     @update:model-value="update(param, $event)"
                   />
                 </div>
               </div>
             </section>
+
+            <section class="block">
+              <header class="block__head">
+                <el-icon><EditPen /></el-icon><span>文件名调整</span>
+              </header>
+              <div class="panel block__card">
+                <ArtifactNamesEditor />
+              </div>
+            </section>
           </div>
         </el-tab-pane>
 
-        <el-tab-pane label="推送设置" name="publish" lazy>
-          <section class="block">
-            <header class="block__head">
-              <el-icon><Upload /></el-icon><span>推送设置</span>
-            </header>
-            <div class="panel block__card">
-              <div class="field-grid field-grid--two">
-                <ParamField
-                  v-for="param in paramsFor('发布')"
-                  :key="param.name"
-                  :param="param"
-                  :model-value="store.values[param.name]"
-                  @update:model-value="update(param, $event)"
-                />
+        <el-tab-pane label="仓库设置" name="publish" lazy>
+          <div class="card-columns">
+            <section class="block">
+              <header class="block__head">
+                <el-icon><Upload /></el-icon><span>仓库设置</span>
+              </header>
+              <div class="panel block__card">
+                <div class="field-grid">
+                  <ParamField
+                    v-for="param in paramsFor('发布')"
+                    :key="param.name"
+                    :param="param"
+                    :model-value="store.values[param.name]"
+                    @update:model-value="update(param, $event)"
+                  />
+                </div>
               </div>
-            </div>
-          </section>
+            </section>
+
+            <section class="block">
+              <header class="block__head">
+                <el-icon><Files /></el-icon><span>推送列表</span>
+              </header>
+              <div class="panel block__card">
+                <PushListsEditor />
+              </div>
+            </section>
+          </div>
         </el-tab-pane>
 
         <el-tab-pane label="代理设置" name="proxy" lazy>

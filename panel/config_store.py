@@ -50,6 +50,7 @@ PANEL_HIDDEN = frozenset(
         "GIT_RETRY_BASE_DELAY",
         "no_proxy",
         "LIST_FILENAMES",
+        "PUSH_LISTS",
         "PUID",
         "PGID",
     }
@@ -248,6 +249,25 @@ def _semantic_errors(values: Mapping[str, str]) -> list[dict[str, object]]:
                             }
                         )
                         break
+    raw_push = (values.get("PUSH_LISTS") or "").strip()
+    if raw_push:
+        try:
+            selected = json.loads(raw_push)
+        except ValueError:
+            selected = None
+            errors.append(
+                {"name": "PUSH_LISTS", "message": "推送列表不是合法 JSON"}
+            )
+        if selected is not None and (
+            not isinstance(selected, list)
+            or any(not isinstance(item, str) for item in selected)
+        ):
+            errors.append(
+                {
+                    "name": "PUSH_LISTS",
+                    "message": "推送列表必须是字符串数组",
+                }
+            )
     return errors
 
 

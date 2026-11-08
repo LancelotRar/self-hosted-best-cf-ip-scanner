@@ -13,6 +13,7 @@ const store = useConfigStore();
 const drafts = reactive<Record<string, string>>({});
 
 const fullTargets = computed<Target[]>(() => {
+  if (!store.values.OVERALL_ENABLED) return [];
   const value = store.values.OVERALL_TOPS;
   if (!Array.isArray(value)) return [];
   return value

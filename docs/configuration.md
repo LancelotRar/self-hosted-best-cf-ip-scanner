@@ -162,8 +162,10 @@ GIT_BRANCH=main
 # 具备目标仓库 contents:write 权限的访问令牌（使用 HTTP(S) 远端时必填）。
 # 只经 http.extraheader 注入，不写入 .git/config，也不会出现在日志里。
 GIT_TOKEN=
-# 产物在目标仓库中的目录名，默认 result/
-GIT_OUTPUT_SUBDIR=result
+# 产物在目标仓库中的目录名；留空 = 推送到仓库根目录
+GIT_OUTPUT_SUBDIR=
+# 推送列表（面板维护）：留空 = 全部；JSON 数组 = 只推送选中的列表
+PUSH_LISTS=
 # 提交作者信息（会出现在目标仓库的提交记录里）
 GIT_AUTHOR_NAME=cf-ip-scanner-bot
 GIT_AUTHOR_EMAIL=cf-ip-scanner-bot@users.noreply.github.com
@@ -360,17 +362,19 @@ IMAGE_TAG=latest
 <tr><td align="center"><code>PINNED_FILE</code></td><td align="center"><code>ip-pinned.txt</code></td><td align="center">可选</td><td align="center">固定保留投影文件名（不参与扫描，原样附加到全量列表）</td></tr>
 <tr><td align="center"><code>LOCATIONS_FILE</code></td><td align="center"><code>locations.json</code></td><td align="center">可选</td><td align="center">机房映射投影文件名（相对 <code>DATA_DIR</code> 卷；内容以数据库为准）</td></tr>
 <tr><td align="center"><code>SKIP_LOCATIONS</code></td><td align="center"><code>false</code></td><td align="center">可选</td><td align="center">调试用：跳过机房映射</td></tr>
-<tr><th rowspan="6" align="center">输出</th><td align="center"><code>DETAIL_CSV_NAME</code></td><td align="center"><code>detail</code></td><td align="center">可选</td><td align="center">明细表文件名（不含扩展名）</td></tr>
+<tr><th rowspan="7" align="center">输出</th><td align="center"><code>DETAIL_CSV_NAME</code></td><td align="center"><code>detail</code></td><td align="center">可选</td><td align="center">明细表文件名（不含扩展名）</td></tr>
 <tr><td align="center"><code>PINNED_OUTPUT_NAME</code></td><td align="center"><code>PINNED</code></td><td align="center">可选</td><td align="center">固定保留列表文件名（不含扩展名）；单独成文件，不混入其他列表</td></tr>
-<tr><td align="center"><code>LIST_FILENAMES</code></td><td align="center">空</td><td align="center">可选</td><td align="center">自定义全量/国家列表文件名，JSON 对象，键为默认名（如 <code>GLOBAL20</code>、<code>US100</code>）；面板「文件名调整」自动维护</td></tr>
+<tr><td align="center"><code>LIST_FILENAMES</code></td><td align="center">空</td><td align="center">可选</td><td align="center">自定义全量/国家列表文件名，JSON 对象，键为默认名（如 <code>GLOBAL20</code>、<code>US100</code>）；面板「产物定制」自动维护</td></tr>
+<tr><td align="center"><code>OVERALL_ENABLED</code></td><td align="center"><code>true</code></td><td align="center">可选</td><td align="center">全量列表总开关；<code>false</code> 时不生成任何 GLOBAL 列表</td></tr>
 <tr><td align="center"><code>OVERALL_TOPS</code></td><td align="center"><code>20,50,100,200,400</code></td><td align="center">建议</td><td align="center">全量列表条数（逗号分隔，任意正整数）→ 每项一个 <code>GLOBAL{N}.txt</code></td></tr>
 <tr><td align="center"><code>COUNTRY_FILTERS</code></td><td align="center"><code>false</code></td><td align="center">建议</td><td align="center">国家列表总开关；<code>true</code> 才按各国数值生成</td></tr>
 <tr><td align="center"><code>TOP_US</code> / <code>TOP_JP</code> / <code>TOP_SG</code> / <code>TOP_DE</code> / <code>TOP_NL</code> / <code>TOP_FR</code></td><td align="center"><code>100</code></td><td align="center">可选</td><td align="center">各国列表条数 → <code>{国家代码}{N}.txt</code>；仅开关为 <code>true</code> 时生效</td></tr>
-<tr><th rowspan="7" align="center">产物发布</th><td align="center"><code>GIT_PUSH_ENABLED</code></td><td align="center"><code>false</code></td><td align="center">建议</td><td align="center">是否需要把产物推到 Git 仓库</td></tr>
+<tr><th rowspan="8" align="center">产物发布</th><td align="center"><code>GIT_PUSH_ENABLED</code></td><td align="center"><code>false</code></td><td align="center">建议</td><td align="center">是否需要把产物推到 Git 仓库</td></tr>
 <tr><td align="center"><code>GIT_REPO_URL</code></td><td align="center">空</td><td align="center">建议</td><td align="center">目标仓库 HTTPS 地址</td></tr>
 <tr><td align="center"><code>GIT_BRANCH</code></td><td align="center"><code>main</code></td><td align="center">可选</td><td align="center">目标分支</td></tr>
 <tr><td align="center"><code>GIT_TOKEN</code></td><td align="center">空</td><td align="center">建议</td><td align="center"><code>contents:write</code> 权限令牌（HTTP(S) 远端必填）</td></tr>
-<tr><td align="center"><code>GIT_OUTPUT_SUBDIR</code></td><td align="center"><code>result</code></td><td align="center">可选</td><td align="center">产物在目标仓库中的目录</td></tr>
+<tr><td align="center"><code>GIT_OUTPUT_SUBDIR</code></td><td align="center">空</td><td align="center">可选</td><td align="center">产物子目录；留空推送仓库根目录</td></tr>
+<tr><td align="center"><code>PUSH_LISTS</code></td><td align="center">空</td><td align="center">可选</td><td align="center">只推送选中的全量/国家列表，JSON 数组；留空推送全部；面板「仓库设置 · 推送列表」自动维护</td></tr>
 <tr><td align="center"><code>GIT_AUTHOR_NAME</code> / <code>GIT_AUTHOR_EMAIL</code></td><td align="center"><code>cf-ip-scanner-bot</code> / <code>…@users.noreply.github.com</code></td><td align="center">可选</td><td align="center">提交作者</td></tr>
 <tr><td align="center"><code>GIT_RETRY_MAX</code> / <code>GIT_RETRY_BASE_DELAY</code></td><td align="center"><code>3</code> / <code>10</code></td><td align="center">可选</td><td align="center">推送失败重试次数与初始退避秒数</td></tr>
 <tr><th rowspan="2" align="center">网络代理</th><td align="center"><code>HTTP_PROXY</code> / <code>HTTPS_PROXY</code></td><td align="center">空</td><td align="center">建议</td><td align="center">容器出网代理（也用于镜像构建）</td></tr>
@@ -477,8 +481,9 @@ TCP 握手测量是初筛，也是排名依据（代理客户端显示的"TCP �
 
 默认关闭，只在本地产出。开启需要 `GIT_PUSH_ENABLED=true` + `GIT_REPO_URL` + `GIT_TOKEN`。
 
-- 产物以镜像语义同步到 `GIT_OUTPUT_SUBDIR`（默认 `result/`）：目录内旧的 `*.txt` / `*.csv`
+- 产物以镜像语义同步到 `GIT_OUTPUT_SUBDIR`（留空 = 仓库根目录）：目录内旧的 `*.txt` / `*.csv`
   会被本轮替换，把某个 `*_TOP` 改成 0 后不会留下孤儿文件。
+- `PUSH_LISTS` 可只推送部分全量/国家列表；明细表与固定保留始终跟随推送。
 - 令牌只经 `http.extraheader` 注入，不写入 `.git/config`，不出现在日志里。
 - 提交信息带 `[skip ci]`，不触发目标仓库 CI。
 - 目标仓库也可以是本地路径或 `file://`（此时不需要令牌），便于离线验证。

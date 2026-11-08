@@ -186,11 +186,12 @@ DETAIL_COLUMNS: list[str] = [
     "边缘机房代码", "国家代码", "国旗", "扫描时间",
 ]
 # 订阅列表规格：分两组，各自回答「要不要 / 要多少」。
-#   全量列表：OVERALL_TOPS 为条数列表，生成 GLOBAL{N}.txt —— 对**全部合格候选**
-#             排名，不按国家筛选。默认 20/50/100/200/400；填多少生成多少
-#             （任意正整数，逗号分隔），留空 = 不生成。
+#   全量列表：OVERALL_ENABLED 是总开关；OVERALL_TOPS 为条数列表，生成 GLOBAL{N}.txt
+#             —— 对**全部合格候选**排名，不按国家筛选。默认 20/50/100/200/400；
+#             填多少生成多少（任意正整数，逗号分隔），留空 = 不生成。
 #   国家列表：COUNTRY_FILTERS 是总开关。false（默认）= 不生成任何国家列表；
 #             true 时才按 TOP_<国家代码> 的数值生成 {国家代码}{N}.txt。
+OVERALL_ENABLED: bool = _value("OVERALL_ENABLED")
 OVERALL_TOPS: tuple[int, ...] = _value("OVERALL_TOPS")
 COUNTRY_FILTERS: bool = _value("COUNTRY_FILTERS")
 

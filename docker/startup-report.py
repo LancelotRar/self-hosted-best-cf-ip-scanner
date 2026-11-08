@@ -130,9 +130,11 @@ def main() -> int:
     publish = (os.environ.get("GIT_PUSH_ENABLED") or "false").lower() in {"true", "1", "yes", "on"}
     token = os.environ.get("GIT_TOKEN") or ""
     repo = os.environ.get("GIT_REPO_URL") or ""
+    subdir = os.environ.get("GIT_OUTPUT_SUBDIR") or ""
+    branch = os.environ.get("GIT_BRANCH") or "main"
+    target = f"{branch}:{subdir}/" if subdir else f"{branch}:/"
     print(f"产物发布        : {'开启' if publish else '关闭'}  "
-          f"{_mask_proxy(repo) if repo else '<未配置仓库>'}@"
-          f"{os.environ.get('GIT_BRANCH') or 'main'}:{os.environ.get('GIT_OUTPUT_SUBDIR') or 'result'}/"
+          f"{_mask_proxy(repo) if repo else '<未配置仓库>'}@{target}"
           f"  令牌: {'已配置' if token else '未配置'}")
     print("=" * 72)
     return 0

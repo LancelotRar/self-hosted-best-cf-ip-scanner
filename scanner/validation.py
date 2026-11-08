@@ -89,9 +89,10 @@ def list_filename_problems(
     country_enabled: bool,
     country_tops: dict[str, int],
     filenames: Mapping[str, str],
+    overall_enabled: bool = True,
 ) -> list[str]:
     """校验自定义列表文件名：不允许路径、空名或重复。"""
-    keys = [f"GLOBAL{size}" for size in overall_tops if size > 0]
+    keys = [f"GLOBAL{size}" for size in overall_tops if size > 0] if overall_enabled else []
     if country_enabled:
         keys += [f"{code}{size}" for code, size in country_tops.items() if size > 0]
 
@@ -168,6 +169,7 @@ def startup_problems() -> list[str]:
             config.COUNTRY_FILTERS,
             config.COUNTRY_TOPS,
             config.LIST_FILENAMES,
+            config.OVERALL_ENABLED,
         )
         + probe_host_problems(config.PROBE_HOST)
     )

@@ -19,11 +19,12 @@
 <tr><td align="center"><code>GIT_REPO_URL</code></td><td align="center">目标仓库 HTTPS 地址，如 <code>https://github.com/OWNER/REPO.git</code></td></tr>
 <tr><td align="center"><code>GIT_TOKEN</code></td><td align="center">具备该仓库 <code>contents:write</code> 权限的令牌</td></tr>
 <tr><td align="center"><code>GIT_BRANCH</code></td><td align="center">目标分支，默认 <code>main</code></td></tr>
-<tr><td align="center"><code>GIT_OUTPUT_SUBDIR</code></td><td align="center">产物在目标仓库中的目录，默认 <code>result</code></td></tr>
+<tr><td align="center"><code>GIT_OUTPUT_SUBDIR</code></td><td align="center">产物子目录；留空推送到仓库根目录</td></tr>
+<tr><td align="center"><code>PUSH_LISTS</code></td><td align="center">只推送选中的全量/国家列表（JSON 数组）；留空推送全部</td></tr>
 </tbody>
 </table>
 
-改完在面板「发布」页保存即可，下一轮生效；手工编辑 `.env` 同样在下一轮生效。
+改完在面板「仓库设置」页保存即可，下一轮生效；手工编辑 `.env` 同样在下一轮生效。
 只有 `PUID` / `PGID` / `TZ` / `RUN_ON_START` 需要重启扫描容器。
 
 目标仓库不需要预先存在任何提交：新建的空仓库也能直接发布，首次会创建
@@ -57,11 +58,13 @@
 
 ```
 <卷 publish-cache>/repo/
-└── result/            # 由 GIT_OUTPUT_SUBDIR 决定
+└── result/            # 由 GIT_OUTPUT_SUBDIR 决定；留空则为仓库根目录
     ├── detail.csv
     ├── GLOBAL20.txt
     └── US50.txt
 ```
+
+推送列表（`PUSH_LISTS`）只影响全量/国家列表；`detail.csv` 与固定保留列表始终跟随推送。
 
 怀疑本地克隆状态异常时，清掉这个卷后下一轮会重新克隆：
 

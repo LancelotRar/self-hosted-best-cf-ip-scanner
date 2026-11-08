@@ -44,6 +44,7 @@ from scanner.config import (
     LIST_FILENAMES as LIST_FILENAMES,
     COUNTRY_FILTERS as COUNTRY_FILTERS,
     OVERALL_TOPS as OVERALL_TOPS,
+    OVERALL_ENABLED as OVERALL_ENABLED,
     LIBRARY_FILE as LIBRARY_FILE,
     PINNED_FILE as PINNED_FILE,
     PINNED_OUTPUT_NAME as PINNED_OUTPUT_NAME,
@@ -142,6 +143,7 @@ def run(
     tcp_min_success: int = TCP_MIN_SUCCESS,
     tcp_timeout: float = TCP_TIMEOUT,
     overall_tops: tuple[int, ...] = OVERALL_TOPS,
+    overall_enabled: bool = OVERALL_ENABLED,
     country_enabled: bool = COUNTRY_FILTERS,
     country_tops: dict[str, int] | None = None,
     sample_stride: int = SAMPLE_STRIDE,
@@ -297,6 +299,7 @@ def run(
         country_enabled=country_enabled,
         country_tops=country_tops,
         list_filenames=LIST_FILENAMES,
+        overall_enabled=overall_enabled,
     )
     for name, count in written.items():
         print(f"  订阅列表：{name}（{count} 条）")

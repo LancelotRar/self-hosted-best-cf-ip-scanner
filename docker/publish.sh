@@ -34,9 +34,10 @@ esac
 GIT_BRANCH="${GIT_BRANCH:-main}"
 GIT_REMOTE="${GIT_REMOTE:-origin}"
 REPO_DIR="${GIT_REPO_DIR:-/cache/repo}"
-TARGET_SUBDIR="${GIT_OUTPUT_SUBDIR:-result}"
+TARGET_SUBDIR="${GIT_OUTPUT_SUBDIR:-}"
 OUTPUT_DIR="${OUTPUT_DIR:-/output}"
 SRC_DIR="${OUTPUT_DIR}"
+PUSH_STAGE="${PUSH_STAGE:-/tmp/publish-stage}"
 RETRY_MAX="${GIT_RETRY_MAX:-3}"
 RETRY_DELAY="${GIT_RETRY_BASE_DELAY:-10}"
 AUTHOR_NAME="${GIT_AUTHOR_NAME:-cf-ip-scanner-bot}"
@@ -47,13 +48,22 @@ if [ ! -d "$SRC_DIR" ]; then
   exit 1
 fi
 
-# 至少要有一个 txt，否则说明上游产物异常，不应把空目录同步进仓库。
-has_txt=false
-for f in "$SRC_DIR"/*.txt; do
-  [ -e "$f" ] && has_txt=true && break
+# 按「推送列表」筛选本轮要发布的文件；明细表与固定保留始终保留。
+rm -rf "$PUSH_STAGE"
+mkdir -p "$PUSH_STAGE" || exit 1
+if ! python "${PUSH_FILTER:-/usr/local/bin/push-filter.py}" "$SRC_DIR" "$PUSH_STAGE"; then
+  err "筛选推送列表失败"
+  exit 1
+fi
+SRC_DIR="$PUSH_STAGE"
+
+# 至少要有一个产物文件，否则说明上游产物异常，不应把空目录同步进仓库。
+has_output=false
+for f in "$SRC_DIR"/*.txt "$SRC_DIR"/*.csv; do
+  [ -e "$f" ] && has_output=true && break
 done
-if [ "$has_txt" != "true" ]; then
-  err "产物目录没有 txt 文件: $SRC_DIR"
+if [ "$has_output" != "true" ]; then
+  err "没有可推送的产物: $SRC_DIR"
   exit 1
 fi
 
@@ -110,7 +120,11 @@ sync_repo() {
 }
 
 mirror_outputs() {
-  dest="${REPO_DIR}/${TARGET_SUBDIR}"
+  if [ -n "$TARGET_SUBDIR" ]; then
+    dest="${REPO_DIR}/${TARGET_SUBDIR}"
+  else
+    dest="${REPO_DIR}"
+  fi
   mkdir -p "$dest" || return 1
   # 先清掉上一轮留下的产物，再拷本轮全部文件（镜像语义）
   find "$dest" -maxdepth 1 -type f \( -name '*.txt' -o -name '*.csv' \) -exec rm -f {} + || return 1
@@ -118,7 +132,11 @@ mirror_outputs() {
 }
 
 commit_and_push() {
-  git_q add -A -- "$TARGET_SUBDIR" || return 1
+  if [ -n "$TARGET_SUBDIR" ]; then
+    git_q add -A -- "$TARGET_SUBDIR" || return 1
+  else
+    git_q add -A || return 1
+  fi
   if git_q diff --cached --quiet; then
     log "产物无变化，跳过提交"
     return 0
@@ -132,7 +150,7 @@ attempt=1
 delay="$RETRY_DELAY"
 while :; do
   if sync_repo && mirror_outputs && commit_and_push; then
-    log "发布成功: $(mask_url "$GIT_REPO_URL") ${GIT_BRANCH}:${TARGET_SUBDIR}/（$(ls "$SRC_DIR"/*.txt 2>/dev/null | wc -l | tr -d ' ') 个 txt）"
+    log "发布成功: $(mask_url "$GIT_REPO_URL") ${GIT_BRANCH}:${TARGET_SUBDIR:-/}（$(ls "$SRC_DIR"/*.txt 2>/dev/null | wc -l | tr -d ' ') 个 txt）"
     exit 0
   fi
   if [ "$attempt" -ge "$RETRY_MAX" ]; then

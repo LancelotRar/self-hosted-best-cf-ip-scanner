@@ -93,6 +93,19 @@ def test_custom_list_filenames_are_used(tmp_path):
     assert not (tmp_path / "GLOBAL1.txt").exists()
 
 
+def test_overall_lists_can_be_disabled(tmp_path):
+    written = generate_subscriptions(
+        _detail_csv(tmp_path),
+        tmp_path,
+        overall_tops=(1,),
+        overall_enabled=False,
+        country_enabled=True,
+        country_tops={"US": 1},
+    )
+    assert set(written) == {"US1.txt"}
+    assert not (tmp_path / "GLOBAL1.txt").exists()
+
+
 def test_list_filename_validation_rejects_paths_and_duplicates():
     assert list_filename_problems((20,), False, {}, {}) == []
     assert list_filename_problems((20,), False, {}, {"GLOBAL20": "../x"})

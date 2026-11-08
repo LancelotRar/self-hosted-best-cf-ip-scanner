@@ -158,10 +158,11 @@ def resolve_targets(
     country_enabled: bool = COUNTRY_FILTERS,
     country_tops: dict[str, int] | None = None,
     list_filenames: dict[str, str] | None = None,
+    overall_enabled: bool = True,
 ) -> list[tuple[str, int, str]]:
     """解析要生成的列表，返回 [(默认名, 条数, 输出文件名主体)]。
 
-    全量：overall_tops 里每个 N>0 生成默认名 ("GLOBAL{N}", N)；
+    全量：overall_enabled 为真时，overall_tops 里每个 N>0 生成默认名 ("GLOBAL{N}", N)；
     国家：country_enabled 为真时，每个 N>0 的国家生成默认名 ("{国家代码}{N}", N)。
     用户自定义名以默认名为键；未配置时使用默认名。
     两组都为空时返回空列表（只产出明细表）。
@@ -169,10 +170,11 @@ def resolve_targets(
     tops = COUNTRY_TOPS if country_tops is None else country_tops
     custom = list_filenames or {}
     specs: list[tuple[str, int, str]] = []
-    for size in overall_tops:
-        if size > 0:
-            key = f"GLOBAL{size}"
-            specs.append((key, size, _normalize_stem(custom.get(key, key), key)))
+    if overall_enabled:
+        for size in overall_tops:
+            if size > 0:
+                key = f"GLOBAL{size}"
+                specs.append((key, size, _normalize_stem(custom.get(key, key), key)))
     if country_enabled:
         for code, size in tops.items():
             if size > 0:
@@ -188,6 +190,7 @@ def generate_subscriptions(
     country_enabled: bool = COUNTRY_FILTERS,
     country_tops: dict[str, int] | None = None,
     list_filenames: dict[str, str] | None = None,
+    overall_enabled: bool = True,
 ) -> dict[str, int]:
     """由明细表生成订阅列表（写入 output_dir，与明细表同目录），返回 {文件名: 行数}。
 
@@ -208,7 +211,11 @@ def generate_subscriptions(
     # 排序一次复用：不依赖明细表已排序，所有文件共享同一有序序列
     ordered_rows = sorted(rows, key=_rank_key)
     for kind, size, stem in resolve_targets(
-        overall_tops, country_enabled, country_tops, list_filenames
+        overall_tops,
+        country_enabled,
+        country_tops,
+        list_filenames,
+        overall_enabled,
     ):
         if kind.startswith("GLOBAL"):
             _emit(f"{stem}.txt", select_subscription_lines(ordered_rows, size, pre_sorted=True))
