@@ -2,7 +2,6 @@
 import { computed, onMounted, ref } from "vue";
 import { ElMessage } from "element-plus";
 import {
-  Box,
   DataLine,
   FolderOpened,
   Monitor,
@@ -81,12 +80,11 @@ function uptimeText(started?: string | null): string {
 
 const uptime = computed(() => uptimeText(overview.value?.scanner.started_at));
 
-/** 镜像名太长，卡片主值只放 tag，完整名字放到注释里。 */
-const imageTag = computed(() => {
+/** 镜像名太长，卡片主值只放仓库名与标签；完整地址放到 title。 */
+const imageLabel = computed(() => {
   const image = overview.value?.scanner.image ?? "";
   if (!image) return "—";
-  const tag = image.split(":").pop();
-  return tag && tag !== image ? tag : image;
+  return image.split("/").pop() || image;
 });
 
 function paramValue(name: string): unknown {
@@ -162,16 +160,34 @@ function describeCron(expr: string): string {
 function runLabel(record: RunRecord): string {
   if (record.status === "running") return "运行中";
   if (record.status === "interrupted") return "中断";
-  if (record.status === "done") return "完成";
+  if (record.status === "done" || (!record.status && record.finished_at)) {
+    return typeof record.scan_exit === "number" && record.scan_exit !== 0 ? "失败" : "完成";
+  }
   return "—";
 }
 
 function runTone(record: RunRecord): "success" | "warning" | "info" | "neutral" {
   if (record.status === "running") return "info";
   if (record.status === "interrupted") return "warning";
-  if (record.status === "done") return "success";
+  if (record.status === "done" || (!record.status && record.finished_at)) {
+    return typeof record.scan_exit === "number" && record.scan_exit !== 0 ? "warning" : "success";
+  }
   return "neutral";
 }
+
+const lastRun = computed<RunRecord | null>(() => overview.value?.last_run ?? runs.value[0] ?? null);
+
+const lastRunMeta = computed(() => {
+  const record = lastRun.value;
+  if (!record) return "暂无运行记录";
+  const duration = formatDuration(record.duration_s);
+  return duration === "—" ? triggerLabel(record.trigger) : `${duration} · ${triggerLabel(record.trigger)}`;
+});
+
+const uptimeMeta = computed(() => {
+  const started = overview.value?.scanner.started_at;
+  return started ? `自 ${formatMinute(started)} 起` : "容器未运行";
+});
 
 /** 开始时间按分钟展示；缺失记录时从 run_id（`YYYYMMDDTHHMMSS-序号`）回退解析。 */
 function startText(record: RunRecord): string {
@@ -237,46 +253,79 @@ onMounted(load);
     <el-skeleton v-else-if="loading" :rows="8" animated />
 
     <div v-else-if="overview" class="overview">
-      <!-- 1. 容器状态：四张统计卡，只保留标签与主值 -->
+      <!-- 1. 容器状态：四张等宽指标卡 -->
       <section class="block">
         <header class="block__head">
           <el-icon><Monitor /></el-icon><span>容器状态</span>
+          <span class="block__meta">每 30 秒自动刷新</span>
         </header>
         <div class="stat-row">
-          <article class="stat">
-            <div class="stat__head">
+          <article class="stat" :class="scannerOnline ? 'stat--success' : 'stat--danger'">
+            <div class="stat__top">
+              <span class="stat__icon"><el-icon><Monitor /></el-icon></span>
               <span class="stat__label">扫描容器</span>
-              <span class="stat__icon stat__icon--green"><el-icon><Monitor /></el-icon></span>
             </div>
             <strong class="stat__value" :class="scannerOnline ? 'is-on' : 'is-off'">
               {{ scannerOnline ? "在线" : "离线" }}
             </strong>
+            <span class="stat__meta truncate" :title="overview.scanner.image ?? ''">
+              {{ imageLabel === "—" ? "镜像未知" : imageLabel }}
+            </span>
           </article>
 
-          <article class="stat">
-            <div class="stat__head">
+          <article class="stat" :class="overview.running ? 'stat--info' : 'stat--neutral'">
+            <div class="stat__top">
+              <span class="stat__icon"><el-icon><VideoPlay /></el-icon></span>
               <span class="stat__label">当前任务</span>
-              <span class="stat__icon stat__icon--blue"><el-icon><VideoPlay /></el-icon></span>
             </div>
             <strong class="stat__value" :class="overview.running ? 'is-busy' : ''">
               {{ overview.running ? "运行中" : "空闲" }}
             </strong>
+            <span class="stat__meta truncate">
+              {{ overview.running ? "正在执行本轮扫描" : lastRunMeta }}
+            </span>
           </article>
 
-          <article class="stat">
-            <div class="stat__head">
-              <span class="stat__label">镜像</span>
-              <span class="stat__icon stat__icon--violet"><el-icon><Box /></el-icon></span>
+          <article
+            class="stat"
+            :class="
+              lastRun
+                ? runTone(lastRun) === 'success'
+                  ? 'stat--success'
+                  : 'stat--warning'
+                : 'stat--neutral'
+            "
+          >
+            <div class="stat__top">
+              <span class="stat__icon"><el-icon><DataLine /></el-icon></span>
+              <span class="stat__label">最近一轮</span>
             </div>
-            <strong class="stat__value">{{ imageTag }}</strong>
+            <strong
+              class="stat__value"
+              :class="
+                lastRun
+                  ? runTone(lastRun) === 'success'
+                    ? 'is-on'
+                    : runTone(lastRun) === 'warning'
+                      ? 'is-failed'
+                      : ''
+                  : ''
+              "
+            >
+              {{ lastRun ? runLabel(lastRun) : "—" }}
+            </strong>
+            <span class="stat__meta truncate">
+              {{ lastRun ? startText(lastRun) : "暂无运行记录" }}
+            </span>
           </article>
 
-          <article class="stat">
-            <div class="stat__head">
+          <article class="stat stat--neutral">
+            <div class="stat__top">
+              <span class="stat__icon"><el-icon><Timer /></el-icon></span>
               <span class="stat__label">已运行</span>
-              <span class="stat__icon stat__icon--amber"><el-icon><Timer /></el-icon></span>
             </div>
             <strong class="stat__value">{{ uptime }}</strong>
+            <span class="stat__meta truncate">{{ uptimeMeta }}</span>
           </article>
         </div>
 
@@ -285,7 +334,7 @@ onMounted(load);
         </p>
       </section>
 
-      <!-- 2. 计划详情 + 推送情况：各合并为一张卡，横向排列 -->
+      <!-- 2. 计划详情 + 推送情况 -->
       <div class="overview-split">
         <section class="block">
           <header class="block__head">
@@ -297,8 +346,18 @@ onMounted(load);
               <strong class="info-value">{{ describeCron(cronExpression) }}</strong>
             </div>
             <div class="info-row">
-              <span class="info-label">下一次运行时间</span>
+              <span class="info-label">下一次运行</span>
               <strong class="info-value mono">{{ formatTime(overview.next_runs[0]) }}</strong>
+            </div>
+            <div class="info-row">
+              <span class="info-label">时区</span>
+              <strong class="info-value mono">{{ timezone || "—" }}</strong>
+            </div>
+            <div class="info-row">
+              <span class="info-label">计划状态</span>
+              <strong class="info-value" :class="cronExpression ? 'is-on' : 'is-off'">
+                {{ cronExpression ? "已启用" : "未配置" }}
+              </strong>
             </div>
           </div>
         </section>
@@ -316,7 +375,9 @@ onMounted(load);
             </div>
             <div class="info-row">
               <span class="info-label">目标仓库</span>
-              <strong class="info-value mono">{{ paramValue("GIT_REPO_URL") || "—" }}</strong>
+              <strong class="info-value mono info-value--wrap">
+                {{ paramValue("GIT_REPO_URL") || "—" }}
+              </strong>
             </div>
             <div class="info-row">
               <span class="info-label">分支与目录</span>
@@ -339,9 +400,10 @@ onMounted(load);
       <section class="block">
         <header class="block__head">
           <el-icon><FolderOpened /></el-icon><span>优选 IP 列表</span>
+          <span class="block__meta">{{ files.length }} 个文件</span>
           <button
             type="button"
-            class="block__meta block__meta--link"
+            class="link-action"
             :disabled="!detailFile"
             :title="detailFile ? '查看明细统计' : '暂无明细表'"
             @click="openDetail"
@@ -356,22 +418,22 @@ onMounted(load);
             v-if="files.length"
             :data="files"
             size="small"
-            max-height="280"
+            max-height="360"
             class="scroll-table"
             @header-dragend="onFilesDragEnd"
           >
             <el-table-column label="文件" :width="filesWidth('文件')" min-width="220" show-overflow-tooltip>
               <template #default="{ row }"><span class="mono">{{ row.name }}</span></template>
             </el-table-column>
-            <el-table-column label="数量" :width="filesWidth('数量')" min-width="110" align="center">
-              <template #default="{ row }">{{ formatCount(row.count) }}</template>
+            <el-table-column label="数量" :width="filesWidth('数量')" min-width="110" align="right">
+              <template #default="{ row }"><span class="num">{{ formatCount(row.count) }}</span></template>
             </el-table-column>
             <el-table-column label="修改时间" :width="filesWidth('修改时间')" min-width="210">
-              <template #default="{ row }">{{ formatTime(row.mtime) }}</template>
+              <template #default="{ row }"><span class="mono">{{ formatTime(row.mtime) }}</span></template>
             </el-table-column>
-            <el-table-column label="预览" :width="filesWidth('预览')" min-width="110" >
+            <el-table-column label="预览" :width="filesWidth('预览')" min-width="110" align="center">
               <template #default="{ row }">
-                <el-button size="small" @click="openPreview(row)">查看</el-button>
+                <el-button text size="small" @click="openPreview(row)">查看</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -383,6 +445,7 @@ onMounted(load);
       <section class="block">
         <header class="block__head">
           <el-icon><VideoPlay /></el-icon><span>近期扫描情况</span>
+          <span class="block__meta">最近 10 次</span>
         </header>
         <div class="panel block__card">
           <el-table
@@ -399,19 +462,19 @@ onMounted(load);
                 <span class="mono">{{ startText(row) }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="触发器" :width="runsWidth('触发器')" min-width="90">
+            <el-table-column label="触发器" :width="runsWidth('触发器')" min-width="90" align="center">
               <template #default="{ row }">{{ triggerLabel(row.trigger) }}</template>
             </el-table-column>
-            <el-table-column label="状态" :width="runsWidth('状态')" min-width="102">
+            <el-table-column label="状态" :width="runsWidth('状态')" min-width="102" align="center">
               <template #default="{ row }">
                 <StatusPill :tone="runTone(row)" :label="runLabel(row)" />
               </template>
             </el-table-column>
-            <el-table-column label="扫描" :width="runsWidth('扫描')" min-width="115">
+            <el-table-column label="扫描" :width="runsWidth('扫描')" min-width="115" align="center">
               <template #default="{ row }">{{ exitLabel(row.scan_exit) }}</template>
             </el-table-column>
-            <el-table-column label="耗时" :width="runsWidth('耗时')" min-width="115">
-              <template #default="{ row }">{{ formatDuration(row.duration_s) }}</template>
+            <el-table-column label="耗时" :width="runsWidth('耗时')" min-width="115" align="right">
+              <template #default="{ row }"><span class="num">{{ formatDuration(row.duration_s) }}</span></template>
             </el-table-column>
           </el-table>
           <EmptyState v-else title="尚无扫描记录" description="计划任务或手动触发完成后显示在这里" />
@@ -422,7 +485,7 @@ onMounted(load);
     <el-dialog
       v-model="previewVisible"
       :title="currentPreview?.name ?? '产物预览'"
-      width="min(640px, 92vw)"
+      width="min(860px, 94vw)"
       align-center
       destroy-on-close
     >
@@ -436,7 +499,7 @@ onMounted(load);
           v-if="currentPreview.kind === 'csv'"
           :data="currentPreview.rows ?? []"
           size="small"
-          height="420"
+          max-height="420"
           @header-dragend="onPreviewDragEnd"
         >
           <el-table-column
@@ -444,7 +507,7 @@ onMounted(load);
             :key="index"
             :label="header"
             :width="previewWidth(header)"
-            min-width="120"
+            min-width="140"
           >
             <template #default="{ row }">{{ row[index] }}</template>
           </el-table-column>
@@ -462,198 +525,108 @@ onMounted(load);
 .overview {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: var(--space-6);
 }
 
-.block__meta {
+/* 区块标题右侧的轻量操作 */
+.link-action {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 0;
-  border: none;
+  padding: 2px 6px;
+  margin-left: 4px;
+  border: 0;
+  border-radius: var(--radius-xs);
   background: none;
   color: var(--text-faint);
   font-family: inherit;
-  font-size: 12px;
-  font-weight: 400;
-}
-
-.block__meta .el-icon {
-  font-size: 13px;
-}
-
-.block__meta--link {
+  font-size: var(--fs-meta);
+  line-height: 18px;
   cursor: pointer;
+  transition: color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
 }
 
-.block__meta--link:hover:not(:disabled) {
+.link-action:hover:not(:disabled) {
   color: var(--text);
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  background: var(--surface-2);
 }
 
-.block__meta--link:disabled {
+.link-action:disabled {
   cursor: default;
-  opacity: 0.7;
+  opacity: 0.55;
 }
 
-/* 容器状态：四个等宽统计块 */
+/* 容器状态：四个等宽指标卡，中性底 + 语义色只用于图标与状态值 */
 .stat-row {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-3);
-}
-
-.overview-split {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-5);
-  align-items: stretch;
-}
-
-.overview-split .block {
-  min-width: 0;
-}
-
-.info-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  height: 100%;
-}
-
-.info-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
   gap: var(--space-4);
-  padding: 12px 0;
-}
-
-.info-row:first-child {
-  padding-top: 0;
-}
-
-.info-row:last-child {
-  padding-bottom: 0;
-}
-
-.info-row + .info-row {
-  border-top: 1px solid var(--border-soft);
-}
-
-.info-label {
-  flex: 0 0 auto;
-  color: var(--text-muted);
-  font-size: 13px;
-  line-height: 20px;
-}
-
-.info-value {
-  min-width: 0;
-  color: var(--text);
-  font-size: 15px;
-  line-height: 22px;
-  font-weight: 650;
-  text-align: right;
-  overflow-wrap: anywhere;
-}
-
-.info-value.is-on {
-  color: var(--success);
-}
-
-.info-value.is-off {
-  color: var(--text-muted);
-}
-
-@media (max-width: 1023px) {
-  .overview-split {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 .stat {
-  padding: 18px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 136px;
+  padding: 18px 20px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
 }
 
-.stat:nth-child(1) {
-  background: #eaf4ff;
-}
-
-.stat:nth-child(2) {
-  background: #eef0f3;
-}
-
-.stat:nth-child(3) {
-  background: #f0edff;
-}
-
-.stat:nth-child(4) {
-  background: #e9f7f0;
-}
-
-html[data-theme="dark"] .stat:nth-child(1) {
-  background: #16283c;
-}
-
-html[data-theme="dark"] .stat:nth-child(2) {
-  background: #1e222a;
-}
-
-html[data-theme="dark"] .stat:nth-child(3) {
-  background: #221f38;
-}
-
-html[data-theme="dark"] .stat:nth-child(4) {
-  background: #12291f;
-}
-
-.stat__head {
+.stat__top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 9px;
 }
 
 .stat__icon {
   display: inline-grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  font-size: 18px;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--tone-neutral-soft);
+  color: var(--text-muted);
+  font-size: 15px;
 }
 
-.stat__icon {
-  background: rgb(255 255 255 / 70%);
-  color: var(--text);
+.stat--success .stat__icon {
+  background: var(--tone-success-soft);
+  color: var(--success);
 }
 
-html[data-theme="dark"] .stat__icon {
-  background: rgb(255 255 255 / 8%);
+.stat--danger .stat__icon {
+  background: var(--tone-danger-soft);
+  color: var(--danger);
+}
+
+.stat--warning .stat__icon {
+  background: var(--tone-warning-soft);
+  color: var(--warning);
+}
+
+.stat--info .stat__icon {
+  background: var(--tone-info-soft);
+  color: var(--info);
 }
 
 .stat__label {
-  display: block;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--fs-meta);
+  font-weight: 500;
   line-height: 18px;
 }
 
 .stat__value {
-  display: block;
-  margin-top: 8px;
+  margin-top: 6px;
   color: var(--text);
-  font-size: 26px;
-  line-height: 32px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: 24px;
+  line-height: 30px;
+  font-weight: 650;
+  letter-spacing: -0.022em;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .stat__value.is-on {
@@ -668,76 +641,87 @@ html[data-theme="dark"] .stat__icon {
   color: var(--info);
 }
 
+.stat__value.is-failed {
+  color: var(--warning);
+}
+
+.stat__meta {
+  margin-top: auto;
+  padding-top: 10px;
+  color: var(--text-faint);
+  font-size: var(--fs-meta);
+  line-height: 18px;
+}
+
 .stat-alert {
-  margin: var(--space-3) 0 0;
+  margin: 0;
   color: var(--danger);
-  font-size: 12.5px;
+  font-size: var(--fs-meta);
+  line-height: 18px;
 }
 
-@media (max-width: 1023px) {
-  .stat-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+/* 计划 / 推送：两张等宽信息卡，四行对齐 */
+.overview-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+  align-items: start;
 }
 
-@media (max-width: 639px) {
-  .stat-row {
-    grid-template-columns: minmax(0, 1fr);
-  }
+.overview-split .block {
+  min-width: 0;
+}
+
+.info-card {
+  padding: 8px 24px 10px;
+}
+
+.info-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: 11px 0;
+}
+
+.info-row + .info-row {
+  border-top: 1px solid var(--border-soft);
+}
+
+.info-label {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  line-height: 20px;
+}
+
+.info-value {
+  min-width: 0;
+  color: var(--text);
+  font-size: var(--fs-body);
+  line-height: 20px;
+  font-weight: 600;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.info-value--wrap {
+  max-width: 64%;
+}
+
+.info-value.is-on {
+  color: var(--success);
+}
+
+.info-value.is-off {
+  color: var(--text-muted);
 }
 
 .section-note {
   margin: 0 0 var(--space-3);
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 18px;
-}
-
-.status-line {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: var(--space-3);
-  flex-wrap: wrap;
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex: 0 0 auto;
-}
-
-.status-dot--on {
-  background: var(--success);
-  animation: pulse-ok 2.2s ease-out infinite;
-}
-
-.status-dot--off {
-  background: var(--danger);
-  animation: pulse-bad 1.6s ease-out infinite;
-}
-
-.kv {
-  display: grid;
-  grid-template-columns: 132px 1fr;
-  gap: 10px 16px;
-  margin: 0;
-}
-
-.kv--four {
-  grid-template-columns: 132px minmax(140px, 1fr) 132px 1fr;
-}
-
-.kv dt {
-  color: var(--text-muted);
-  font-size: 13.5px;
-  line-height: 21px;
-}
-
-.kv dd {
-  margin: 0;
-  overflow-wrap: anywhere;
 }
 
 .dialog-preview {
@@ -747,46 +731,42 @@ html[data-theme="dark"] .stat__icon {
   padding: var(--space-3);
   border-radius: var(--radius-sm);
   background: var(--surface-2);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 18px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
-@keyframes pulse-ok {
-  0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--success) 55%, transparent);
+@media (max-width: 1023px) {
+  .stat-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  70% {
-    box-shadow: 0 0 0 7px transparent;
-  }
-  100% {
-    box-shadow: 0 0 0 0 transparent;
+
+  .overview-split {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
-@keyframes pulse-bad {
-  0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger) 55%, transparent);
+@media (max-width: 639px) {
+  .stat-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
   }
-  70% {
-    box-shadow: 0 0 0 7px transparent;
+
+  .stat {
+    min-height: 122px;
+    padding: 14px 16px 12px;
   }
-  100% {
-    box-shadow: 0 0 0 0 transparent;
+
+  .stat__value {
+    font-size: 21px;
+    line-height: 28px;
   }
 }
 
-@media (max-width: 767px) {
-  .kv,
-  .kv--four {
-    grid-template-columns: 110px 1fr;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .status-dot {
-    animation: none !important;
+@media (max-width: 359px) {
+  .stat-row {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>

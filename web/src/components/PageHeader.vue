@@ -7,32 +7,40 @@ defineProps<{
 
 <template>
   <header class="page-head">
-    <h1 class="page-title">{{ title }}</h1>
-    <p v-if="subtitle" class="page-sub">{{ subtitle }}</p>
+    <div class="page-head__text">
+      <h1 class="page-title">{{ title }}</h1>
+      <p v-if="subtitle" class="page-sub">{{ subtitle }}</p>
+    </div>
+    <div v-if="$slots.actions" class="page-head__actions">
+      <slot name="actions" />
+    </div>
   </header>
 </template>
 
 <style scoped>
 .page-head {
-  display: block;
-  width: 100%;
-  margin-bottom: var(--space-4);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-5);
 }
 
-.page-title {
-  margin: 0;
-  font-size: 20px;
-  line-height: 28px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  text-align: left;
+.page-head__text {
+  min-width: 0;
 }
 
-.page-sub {
-  margin: 6px 0 0;
-  color: var(--text-muted);
-  font-size: 13px;
-  line-height: 20px;
-  text-align: left;
+.page-head__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-bottom: 2px;
+}
+
+@media (max-width: 767px) {
+  .page-head {
+    align-items: flex-start;
+  }
 }
 </style>

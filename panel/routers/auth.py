@@ -41,10 +41,10 @@ def _now() -> str:
 
 
 def _admin(conn):
-    return conn.execute(
+    return conn.fetchone(
         "SELECT id, username, password_hash, session_epoch"
         " FROM users ORDER BY id LIMIT 1"
-    ).fetchone()
+    )
 
 
 def _security(request: Request) -> Security:
@@ -141,9 +141,9 @@ def logout(request: Request, response: Response) -> dict[str, object]:
     session = _security(request).read_session(request.cookies.get("panel_session"))
     if session is not None:
         user_id, epoch = session
-        row = conn.execute(
+        row = conn.fetchone(
             "SELECT session_epoch FROM users WHERE id = ?", (user_id,)
-        ).fetchone()
+        )
         if row is not None and int(row["session_epoch"]) == epoch:
             with conn:
                 conn.execute(

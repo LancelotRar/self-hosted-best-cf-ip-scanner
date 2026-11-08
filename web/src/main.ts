@@ -1,6 +1,8 @@
 import { createApp } from "vue";
 import { createPinia } from "pinia";
 
+// 先加载组件库基础样式，再加载项目样式；顺序决定 --el-* 桥接是否生效。
+import "element-plus/dist/index.css";
 import "./styles.css";
 
 import App from "./App.vue";
@@ -26,4 +28,11 @@ setUnauthorizedHandler(() => {
   void router.push({ name: "login" });
 });
 
-app.mount("#app");
+// 等首个路由（含登录校验）就绪后再挂载：期间保留 index.html 的静态启动占位，
+// 避免跨网访问时出现整页空白。
+router
+  .isReady()
+  .catch(() => {
+    /* 导航失败时仍然挂载，由页面自身展示错误 */
+  })
+  .then(() => app.mount("#app"));

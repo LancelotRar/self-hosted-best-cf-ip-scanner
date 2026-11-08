@@ -41,6 +41,17 @@ function normalizeLogfmt(message: string): { message: string; level?: string } {
   return { message: (match[2] ?? "") + message.slice(match[0].length), level: match[1] };
 }
 
+/** supercronic 会在每行末尾追加调度元数据；面板已单独展示计划与命令，这里只留正文。 */
+function stripJobMetadata(message: string): string {
+  // 元数据可能以 `channel=stdout`、`iteration=0` 或 `job.command=` 开头，
+  // 且与正文之间不一定有空格（超长日志被拼接时）。
+  const match = / ?(?:channel=(?:stdout|stderr)|iteration=\d+ job\.)/.exec(message);
+  if (!match) return message;
+  const tail = message.slice(match.index);
+  if (!/job\.(command|schedule|position)=/.test(tail)) return message;
+  return message.slice(0, match.index).replace(/^msg=/, "").trimEnd();
+}
+
 /** docker 日志行首的 RFC3339（UTC）时间戳 → `[YYYY-MM-DD HH:MM:SS][等级]：消息`。无时间戳前缀的行原样返回。 */
 export function formatLogLine(line: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?Z ?/.exec(line);
@@ -55,7 +66,7 @@ export function formatLogLine(line: string): string {
     date.getHours(),
   )}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
   const { message, level } = normalizeLogfmt(line.slice(match[0].length));
-  return `[${stamp}][${logLevel(message, level)}]：${message}`;
+  return `[${stamp}][${logLevel(message, level)}]：${stripJobMetadata(message)}`;
 }
 
 export function formatClock(value: Date | null | undefined): string {
@@ -89,11 +100,11 @@ export function exitLabel(code: number | null | undefined): string {
   return code === 0 ? "成功" : `失败（${code}）`;
 }
 
-/** 运行触发方式：对用户只暴露「计划任务 / 面板」，不出现内部标识。 */
+/** 运行触发方式：对用户只暴露「计划任务 / 手动触发」，不出现内部标识。 */
 export function triggerLabel(trigger: string | null | undefined): string {
   if (!trigger) return "—";
-  if (trigger === "cron") return "计划任务";
-  if (trigger === "panel") return "手动触发";
+  if (trigger === "cron" || trigger === "schedule" || trigger === "scheduler") return "计划任务";
+  if (trigger === "panel" || trigger === "manual") return "手动触发";
   return trigger;
 }
 

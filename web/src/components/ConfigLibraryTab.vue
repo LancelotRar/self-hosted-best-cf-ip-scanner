@@ -210,7 +210,7 @@ onBeforeRouteLeave(async () => {
           <el-input
             v-model="draft"
             type="textarea"
-            :rows="12"
+            :rows="10"
             class="library-editor__input mono"
             spellcheck="false"
             placeholder="每行一条：104.16.0.0/13 或 104.17.3.3"
@@ -263,7 +263,7 @@ onBeforeRouteLeave(async () => {
           <el-input
             v-model="pinnedDraft"
             type="textarea"
-            :rows="8"
+            :rows="10"
             class="library-editor__input mono"
             spellcheck="false"
             placeholder="示例：1.2.3.4:443#手动添加"
@@ -312,11 +312,17 @@ onBeforeRouteLeave(async () => {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-5);
-  align-items: start;
+  align-items: stretch;
 }
 
 .library-grid .block {
   min-width: 0;
+}
+
+.library-grid .panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
 }
 
 @media (max-width: 1099px) {
@@ -327,7 +333,7 @@ onBeforeRouteLeave(async () => {
 
 .library-meta {
   margin: 0 0 var(--space-2);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   color: var(--text-muted);
 }
 
@@ -364,14 +370,16 @@ onBeforeRouteLeave(async () => {
   font-size: 12.5px;
   line-height: 1.7;
   background: var(--surface-2);
-  min-height: 220px;
+  min-height: 240px;
 }
 
 .library-actions {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin-top: var(--space-3);
+  margin-top: auto;
+  padding-top: var(--space-3);
+  font-size: var(--fs-meta);
 }
 
 .field-errors {

@@ -177,7 +177,7 @@ function setListName(target: Target, value: string) {
 .names__title {
   margin: 0;
   color: var(--text);
-  font-size: 13px;
+  font-size: var(--fs-label);
   font-weight: 600;
   line-height: 20px;
 }
@@ -198,20 +198,20 @@ function setListName(target: Target, value: string) {
 
 .name-label {
   color: var(--text);
-  font-size: 13px;
+  font-size: var(--fs-label);
   font-weight: 600;
   line-height: 20px;
 }
 
 .name-hint {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 18px;
 }
 
 .names__empty {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--fs-meta);
 }
 
 @media (max-width: 1023px) {

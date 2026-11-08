@@ -1,28 +1,35 @@
-/* 设计 token：深色默认，浅色覆盖。Element Plus 通过 --el-* 桥接复用。 */
+/* 设计 token：深色默认，浅色覆盖。Element Plus 通过 --el-* 桥接复用。
+ *
+ * 视觉基调：中性灰底 + 近黑主色 + 低饱和语义色。
+ * 层级靠字号/字重/留白建立，不靠大面积色块，保证长时段盯屏不疲劳。
+ */
 
 :root {
   --font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   /* 左侧主导航宽度：页面内容与对话框居中都以此为界 */
-  --sidebar-w: 208px;
+  --sidebar-w: 224px;
 
   --radius-xs: 6px;
-  --radius-sm: 10px;
-  --radius-md: 16px;
-  --radius-lg: 20px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
 
-  /* 排版尺度：页面标题 / 区块标题 / 正文 / 标签 */
-  --fs-display: 24px;
-  --fs-title: 13.5px;
+  /* 排版尺度：页面标题 / 区块标题 / 正文 / 标签 / 说明 */
+  --fs-display: 26px;
+  --lh-display: 34px;
+  --fs-h2: 18px;
+  --fs-title: 15px;
   --fs-body: 13.5px;
-  --fs-label: 12px;
-  --lh-display: 32px;
-  --lh-title: 20px;
+  --fs-label: 13px;
+  --fs-meta: 12px;
+  --fs-micro: 11px;
+  --lh-title: 22px;
 
   /* 控件尺寸 */
   --control-h: 36px;
-  --control-radius: 10px;
+  --control-radius: 9px;
 
   --space-1: 4px;
   --space-2: 8px;
@@ -30,70 +37,84 @@
   --space-4: 16px;
   --space-5: 24px;
   --space-6: 32px;
+  --space-7: 40px;
+  --space-8: 48px;
 
   --dur-fast: 120ms;
-  --dur-base: 160ms;
+  --dur-base: 180ms;
   --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
 
   --header-h: 56px;
   --tabs-h: 44px;
-  --content-max: 1180px;
+  --content-max: 1240px;
 }
 
 html[data-theme="dark"] {
-  --bg: #0d0f13;
-  --surface: #15181e;
-  --surface-2: #1b1f26;
-  --surface-3: #232830;
-  --border: #262b34;
-  --border-soft: #1e222a;
-  --border-strong: #5b6474;
-  --text: #f2f3f5;
-  --text-muted: #9aa1ac;
-  --text-faint: #6b7280;
-  --primary: #f2f3f5;
+  --bg: #0b0d10;
+  --surface: #14171c;
+  --surface-2: #1a1e24;
+  --surface-3: #242932;
+  --border: #272c34;
+  --border-soft: #1d2127;
+  --border-strong: #5a6371;
+  --text: #eef0f3;
+  --text-muted: #a2a9b4;
+  --text-faint: #7c8492;
+  --primary: #eef0f3;
   --primary-hover: #ffffff;
-  --primary-text: #f2f3f5;
-  --on-primary: #14161a;
-  --primary-soft: #232830;
-  --focus: #f2f3f5;
-  --success: #3ddc97;
+  --primary-text: #eef0f3;
+  --on-primary: #14171c;
+  --primary-soft: #22262d;
+  --focus: #eef0f3;
+  --success: #4bd39b;
   --warning: #f0b64a;
-  --danger: #f0655f;
-  --info: #7fa2ff;
-  --log-bg: #0a0c11;
-  --shadow: 0 2px 6px rgb(0 0 0 / 35%), 0 16px 40px -20px rgb(0 0 0 / 60%);
-  --shadow-pop: 0 18px 48px -16px rgb(0 0 0 / 65%), 0 2px 8px rgb(0 0 0 / 40%);
-  --ring: 0 0 0 3px color-mix(in srgb, var(--focus) 24%, transparent);
+  --danger: #f2736c;
+  --info: #86a8ff;
+  --log-bg: #08090c;
+  --shadow: 0 1px 2px rgb(0 0 0 / 45%), 0 1px 0 rgb(255 255 255 / 3%) inset;
+  --shadow-pop: 0 24px 56px -20px rgb(0 0 0 / 70%), 0 4px 12px rgb(0 0 0 / 45%);
+  --shadow-overlay: 0 32px 80px -28px rgb(0 0 0 / 80%), 0 8px 24px rgb(0 0 0 / 50%);
+  --ring: 0 0 0 3px color-mix(in srgb, var(--focus) 26%, transparent);
+  --tone-success-soft: color-mix(in srgb, var(--success) 14%, var(--surface));
+  --tone-warning-soft: color-mix(in srgb, var(--warning) 14%, var(--surface));
+  --tone-danger-soft: color-mix(in srgb, var(--danger) 14%, var(--surface));
+  --tone-info-soft: color-mix(in srgb, var(--info) 14%, var(--surface));
+  --tone-neutral-soft: var(--surface-2);
   color-scheme: dark;
 }
 
 html[data-theme="light"] {
-  --bg: #f6f7f9;
+  --bg: #f5f6f8;
   --surface: #ffffff;
-  --surface-2: #f2f4f7;
-  --surface-3: #e8eaee;
-  --border: #ecedf1;
-  --border-soft: #f3f4f7;
-  --border-strong: #767e91;
-  --text: #14161a;
-  /* SnowUI 的浅灰在 12–13px 下不满足 AA，这里压深到 ≥4.5:1 */
-  --text-muted: #6b7280;
-  --text-faint: #757b86;
-  --primary: #16181d;
-  --primary-hover: #2a2d34;
-  --primary-text: #16181d;
+  --surface-2: #f4f5f7;
+  --surface-3: #e9ebef;
+  --border: #e4e6eb;
+  --border-soft: #eef0f3;
+  --border-strong: #848c9a;
+  --text: #17191d;
+  /* 正文次要色在 12–13px 下满足 AA */
+  --text-muted: #5f6673;
+  --text-faint: #666d79;
+  --primary: #17191d;
+  --primary-hover: #2c2f36;
+  --primary-text: #17191d;
   --on-primary: #ffffff;
-  --primary-soft: #eef0f3;
-  --focus: #16181d;
-  --success: #17835f;
-  --warning: #9a6a12;
-  --danger: #c33a31;
-  --info: #2f6fed;
+  --primary-soft: #eceef1;
+  --focus: #17191d;
+  --success: #137a55;
+  --warning: #8a5a06;
+  --danger: #bf3a32;
+  --info: #2f6fe4;
   --log-bg: #0f1116;
-  --shadow: 0 1px 2px rgb(16 24 40 / 4%);
-  --shadow-pop: 0 16px 40px -16px rgb(16 24 40 / 16%), 0 2px 6px rgb(16 24 40 / 5%);
-  --ring: 0 0 0 3px color-mix(in srgb, var(--focus) 18%, transparent);
+  --shadow: 0 1px 2px rgb(17 24 39 / 5%), 0 1px 3px rgb(17 24 39 / 6%);
+  --shadow-pop: 0 20px 48px -20px rgb(17 24 39 / 22%), 0 4px 12px rgb(17 24 39 / 8%);
+  --shadow-overlay: 0 28px 72px -28px rgb(17 24 39 / 26%), 0 8px 24px rgb(17 24 39 / 9%);
+  --ring: 0 0 0 3px color-mix(in srgb, var(--focus) 16%, transparent);
+  --tone-success-soft: color-mix(in srgb, var(--success) 10%, var(--surface));
+  --tone-warning-soft: color-mix(in srgb, var(--warning) 12%, var(--surface));
+  --tone-danger-soft: color-mix(in srgb, var(--danger) 9%, var(--surface));
+  --tone-info-soft: color-mix(in srgb, var(--info) 9%, var(--surface));
+  --tone-neutral-soft: var(--surface-2);
   color-scheme: light;
 }
 
@@ -112,18 +133,18 @@ html[data-theme="light"] {
   --el-text-color-primary: var(--text);
   --el-text-color-regular: var(--text);
   --el-text-color-secondary: var(--text-muted);
-  --el-text-color-placeholder: var(--text-muted);
-  --el-text-color-disabled: var(--text-muted);
+  --el-text-color-placeholder: var(--text-faint);
+  --el-text-color-disabled: var(--text-faint);
   --el-border-color: var(--border);
   --el-border-color-light: var(--border);
   --el-border-color-lighter: var(--border);
-  --el-border-color-extra-light: var(--border);
+  --el-border-color-extra-light: var(--border-soft);
   --el-border-color-dark: var(--border-strong);
   --el-border-color-darker: var(--border-strong);
   --el-border-radius-base: var(--control-radius);
-  --el-border-radius-small: 4px;
-  --el-mask-color: rgb(2 6 23 / 62%);
-  --el-box-shadow-light: var(--shadow-overlay);
+  --el-border-radius-small: var(--radius-xs);
+  --el-mask-color: rgb(2 6 23 / 58%);
+  --el-box-shadow-light: var(--shadow-pop);
   --el-color-primary: var(--primary);
   --el-color-primary-light-3: color-mix(in srgb, var(--primary) 65%, var(--surface));
   --el-color-primary-light-5: color-mix(in srgb, var(--primary) 45%, var(--surface));
@@ -152,4 +173,12 @@ html[data-theme="light"] {
   --el-color-info-light-5: color-mix(in srgb, var(--info) 45%, var(--surface));
   --el-color-info-light-8: color-mix(in srgb, var(--info) 20%, var(--surface));
   --el-color-info-light-9: color-mix(in srgb, var(--info) 12%, var(--surface));
+}
+
+html[data-theme="light"] {
+  --el-color-primary-rgb: 23, 25, 29;
+}
+
+html[data-theme="dark"] {
+  --el-color-primary-rgb: 238, 240, 243;
 }

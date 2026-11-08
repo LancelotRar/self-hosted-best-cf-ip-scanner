@@ -88,7 +88,15 @@ async function saveSchedule() {
   }
 }
 
-watch(cronValue, () => void loadPreview(), { immediate: true });
+// 直接打开 `?tab=schedule` 时，组件可能先于配置加载完成挂载；
+// 同时观察 loading，确保配置到位后再计算一次预览。
+watch(
+  () => [cronValue.value, store.loading] as const,
+  ([cron, loading]) => {
+    if (!loading && cron.trim()) void loadPreview();
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -126,6 +134,13 @@ watch(cronValue, () => void loadPreview(), { immediate: true });
 
         <p v-if="saveError" class="preview-error" role="alert">{{ saveError }}</p>
 
+        <div class="schedule-summary">
+          <span class="muted">下一次运行</span>
+          <strong class="mono">
+            {{ previewRows[0] ? `${previewRows[0].date} ${previewRows[0].time}` : "—" }}
+          </strong>
+        </div>
+
         <footer class="schedule-actions">
           <span class="muted">
             {{ store.dirty ? `未保存 ${store.dirtyCount} 项` : "没有未保存的修改" }}
@@ -150,7 +165,10 @@ watch(cronValue, () => void loadPreview(), { immediate: true });
       </header>
       <div class="panel block__card preview-card">
         <p class="preview-meta">
-          <span v-if="timezone">{{ timezone }}</span>
+          <span v-if="timezone">
+            <span class="muted">时区</span>
+            <span class="mono preview-meta__value">{{ timezone }}</span>
+          </span>
           <span class="muted">保存后自动应用</span>
         </p>
 
@@ -164,7 +182,7 @@ watch(cronValue, () => void loadPreview(), { immediate: true });
           <el-table-column label="日期" min-width="150">
             <template #default="{ row }"><span class="mono">{{ row.date }}</span></template>
           </el-table-column>
-          <el-table-column label="时间" width="110" align="center">
+          <el-table-column label="时间" width="110" align="right">
             <template #default="{ row }"><span class="mono">{{ row.time }}</span></template>
           </el-table-column>
         </el-table>
@@ -178,9 +196,9 @@ watch(cronValue, () => void loadPreview(), { immediate: true });
 <style scoped>
 .schedule-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-5);
-  align-items: start;
+  align-items: stretch;
 }
 
 .schedule-grid .block {
@@ -190,13 +208,14 @@ watch(cronValue, () => void loadPreview(), { immediate: true });
 .schedule-card,
 .preview-card {
   display: flex;
+  flex: 1;
   flex-direction: column;
 }
 
 .schedule-help {
   margin: 0;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 18px;
 }
 
@@ -208,7 +227,7 @@ watch(cronValue, () => void loadPreview(), { immediate: true });
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-  margin: var(--space-3) 0;
+  margin: var(--space-4) 0;
 }
 
 .preset-button {
@@ -219,9 +238,9 @@ watch(cronValue, () => void loadPreview(), { immediate: true });
 }
 
 .preset-button--active {
-  color: var(--primary-text);
+  color: var(--on-primary);
   border-color: var(--primary);
-  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+  background: var(--primary);
 }
 
 .schedule-input {
@@ -229,12 +248,29 @@ watch(cronValue, () => void loadPreview(), { immediate: true });
   margin-bottom: var(--space-2);
 }
 
+.schedule-summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: auto;
+  padding-top: var(--space-5);
+  font-size: var(--fs-meta);
+}
+
+.schedule-summary strong {
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+
 .schedule-actions {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin-top: auto;
-  padding-top: var(--space-5);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-soft);
+  font-size: var(--fs-meta);
 }
 
 .preview-card {
@@ -247,7 +283,12 @@ watch(cronValue, () => void loadPreview(), { immediate: true });
   justify-content: space-between;
   gap: var(--space-3);
   margin: 0;
-  font-size: 12px;
+  font-size: var(--fs-meta);
+}
+
+.preview-meta__value {
+  margin-left: 4px;
+  color: var(--text);
 }
 
 .preview-table {

@@ -128,7 +128,9 @@ class Security:
         if not isinstance(data, dict):
             return None
         user_id = data.get("uid")
-        epoch = data.get("epoch")
+        # v5 及更早的会话只有 uid；升级到带 epoch 的版本时按 0 处理，
+        # 避免所有已登录用户被强制登出。改密后 epoch 自增，旧会话仍会失效。
+        epoch = data.get("epoch", 0)
         if not isinstance(user_id, int) or not isinstance(epoch, int):
             return None
         return user_id, epoch
@@ -186,9 +188,9 @@ def require_user(request: Request) -> int:
     if session is None:
         raise HTTPException(status_code=401, detail="未登录")
     user_id, epoch = session
-    row = request.app.state.conn.execute(
+    row = request.app.state.conn.fetchone(
         "SELECT session_epoch FROM users WHERE id = ?", (user_id,)
-    ).fetchone()
+    )
     if row is None or int(row["session_epoch"]) != epoch:
         raise HTTPException(status_code=401, detail="未登录")
     return user_id

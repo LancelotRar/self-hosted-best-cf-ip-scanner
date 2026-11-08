@@ -135,8 +135,8 @@ const canRestart = computed(
 
 <style scoped>
 .result {
-  margin-top: var(--space-4);
-  padding: var(--space-4);
+  margin-top: var(--space-5);
+  padding: var(--space-5);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -162,12 +162,12 @@ const canRestart = computed(
 
 .result__facts dt {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--fs-meta);
 }
 
 .result__facts dd {
   margin: 2px 0 0;
-  font-size: 13px;
+  font-size: var(--fs-body);
   overflow-wrap: anywhere;
 }
 
@@ -180,7 +180,7 @@ const canRestart = computed(
   padding: var(--space-3);
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
-  font-size: 13px;
+  font-size: var(--fs-body);
 }
 
 .result__alert ul {

@@ -141,6 +141,44 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+class MaterializedRows:
+    """SELECT 结果的只读物化视图。
+
+    共享连接下，`execute()` 返回的游标会在另一个线程执行语句时被重置；
+    把结果在锁内一次性取完，后续的迭代/取行就与连接状态无关。
+    """
+
+    __slots__ = ("_rows", "_index")
+
+    def __init__(self, rows: list[sqlite3.Row]) -> None:
+        self._rows = rows
+        self._index = 0
+
+    def fetchone(self) -> sqlite3.Row | None:
+        if self._index >= len(self._rows):
+            return None
+        row = self._rows[self._index]
+        self._index += 1
+        return row
+
+    def fetchmany(self, size: int = 1) -> list[sqlite3.Row]:
+        end = min(self._index + size, len(self._rows))
+        rows = self._rows[self._index:end]
+        self._index = end
+        return rows
+
+    def fetchall(self) -> list[sqlite3.Row]:
+        rows = self._rows[self._index:]
+        self._index = len(self._rows)
+        return rows
+
+    def __iter__(self):
+        return iter(self._rows)
+
+    def __len__(self) -> int:
+        return len(self._rows)
+
+
 class LockedConnection:
     """把单个 SQLite 连接的访问串行化。
 
@@ -155,7 +193,20 @@ class LockedConnection:
 
     def execute(self, *args, **kwargs):
         with self._lock:
-            return self._conn.execute(*args, **kwargs)
+            cursor = self._conn.execute(*args, **kwargs)
+            # 写语句没有结果集，保留游标以取 lastrowid；读语句直接物化。
+            if cursor.description is None:
+                return cursor
+            return MaterializedRows(cursor.fetchall())
+
+    def fetchone(self, sql: str, params: tuple = ()):
+        """执行并立即取一行；整个过程持锁。
+
+        共享连接下 `execute(...).fetchone()` 分两步，若另一线程在中间执行语句，
+        游标结果会被重置并返回 None——认证检查会因此误判为未登录。
+        """
+        with self._lock:
+            return self._conn.execute(sql, params).fetchone()
 
     def executemany(self, *args, **kwargs):
         with self._lock:

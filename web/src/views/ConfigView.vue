@@ -80,15 +80,19 @@ const groupedFor = (tab: string): Array<{ name: string; params: Param[] }> =>
     }))
     .filter((group) => group.params.length > 0);
 
-/** 两列卡片：偶数索引进左列、奇数索引进右列，各列独立堆叠，高度互不影响。 */
-const scannerColumns = computed(() => {
-  const groups = groupedFor("scanner");
-  return [groups.filter((_, index) => index % 2 === 0), groups.filter((_, index) => index % 2 === 1)];
-});
+const scannerGroups = computed(() => groupedFor("scanner"));
 
 /** 产物与发布里的分组参数，供自定义卡片直接渲染。 */
 const paramsFor = (group: string): Param[] =>
   store.params.filter((param) => param.group === group && !param.hidden);
+
+/** 订阅列表：总开关/档位与各国条数分开展示，避免同一句说明重复六次。 */
+const listSwitches = computed(() =>
+  paramsFor("订阅列表").filter((param) => !param.name.startsWith("TOP_")),
+);
+const countryTops = computed(() =>
+  paramsFor("订阅列表").filter((param) => param.name.startsWith("TOP_")),
+);
 
 /** 每个参数组一张卡片，标题在卡片外；图标按组名固定映射。 */
 const GROUP_ICONS: Record<string, Component> = {
@@ -210,16 +214,16 @@ onBeforeRouteLeave(async () => {
 
 <template>
   <section class="page page--flush">
-    <PageHeader title="参数调整" />
-
-    <div v-if="activeTab !== 'schedule'" class="config-toolbar">
-      <span class="config-toolbar__hint muted">修改后保存生效</span>
-      <span class="spacer" />
-      <el-button text @click="openVersions"><el-icon><Clock /></el-icon>版本历史</el-button>
-      <el-button text :loading="store.loading" @click="load">
-        <el-icon><RefreshRight /></el-icon>重新加载
-      </el-button>
-    </div>
+    <PageHeader title="参数调整" subtitle="扫描、计划、IP 库与发布设置；修改后保存生效">
+      <template #actions>
+        <template v-if="!['schedule', 'library', 'locations'].includes(activeTab)">
+          <el-button text @click="openVersions"><el-icon><Clock /></el-icon>版本历史</el-button>
+          <el-button text :loading="store.loading" @click="load">
+            <el-icon><RefreshRight /></el-icon>重新加载
+          </el-button>
+        </template>
+      </template>
+    </PageHeader>
 
     <ErrorState v-if="loadError" :message="loadError" @retry="load" />
     <ErrorState v-else-if="saveError" title="保存失败" :message="saveError" action-label="关闭" @retry="saveError = ''" />
@@ -245,35 +249,29 @@ onBeforeRouteLeave(async () => {
     <template v-else-if="store.params.length">
       <el-tabs v-model="activeTab" class="config-tabs">
         <el-tab-pane label="扫描参数" name="scanner" lazy>
-          <div class="card-columns">
-            <div
-              v-for="(column, columnIndex) in scannerColumns"
-              :key="columnIndex"
-              class="card-column"
-            >
-              <section
-                v-for="group in column"
-                :key="group.name"
-                class="block"
-              >
-                <header class="block__head">
-                  <el-icon><component :is="iconFor(group.name)" /></el-icon>
-                  <span>{{ group.name }}</span>
-                </header>
-                <div class="panel block__card">
-                  <div class="field-grid">
-                    <ParamField
-                      v-for="param in group.params"
-                      :key="param.name"
-                      :param="param"
-                      :model-value="store.values[param.name]"
-                      @update:model-value="update(param, $event)"
-                    />
-                  </div>
+          <section class="block">
+            <header class="block__head">
+              <el-icon><Setting /></el-icon><span>扫描参数</span>
+              <span class="block__meta">保存后下一轮扫描生效</span>
+            </header>
+            <div class="panel block__card">
+              <div v-for="group in scannerGroups" :key="group.name" class="config-group">
+                <h3 class="config-group__title">
+                  <el-icon aria-hidden="true"><component :is="iconFor(group.name)" /></el-icon>
+                  {{ group.name }}
+                </h3>
+                <div class="field-grid">
+                  <ParamField
+                    v-for="param in group.params"
+                    :key="param.name"
+                    :param="param"
+                    :model-value="store.values[param.name]"
+                    @update:model-value="update(param, $event)"
+                  />
                 </div>
-              </section>
+              </div>
             </div>
-          </div>
+          </section>
         </el-tab-pane>
 
         <el-tab-pane label="计划任务" name="schedule" lazy>
@@ -289,7 +287,7 @@ onBeforeRouteLeave(async () => {
         </el-tab-pane>
 
         <el-tab-pane label="产物定制" name="artifacts" lazy>
-          <div class="card-columns">
+          <div class="config-sections">
             <section class="block">
               <header class="block__head">
                 <el-icon><SetUp /></el-icon><span>列表档位</span>
@@ -297,7 +295,7 @@ onBeforeRouteLeave(async () => {
               <div class="panel block__card">
                 <div class="field-grid">
                   <ParamField
-                    v-for="param in paramsFor('订阅列表')"
+                    v-for="param in listSwitches"
                     :key="param.name"
                     :param="param"
                     :model-value="store.values[param.name]"
@@ -308,12 +306,30 @@ onBeforeRouteLeave(async () => {
                     @update:model-value="update(param, $event)"
                   />
                 </div>
+
+                <div class="country-block">
+                  <p class="group-note">
+                    各国列表条数：仅开启「生成国家列表」时生效，0 表示该国不生成。
+                  </p>
+                  <div class="field-grid">
+                    <ParamField
+                      v-for="param in countryTops"
+                      :key="param.name"
+                      :param="param"
+                      hide-help
+                      :model-value="store.values[param.name]"
+                      :disabled="!store.values.COUNTRY_FILTERS"
+                      @update:model-value="update(param, $event)"
+                    />
+                  </div>
+                </div>
               </div>
             </section>
 
             <section class="block">
               <header class="block__head">
                 <el-icon><EditPen /></el-icon><span>文件名调整</span>
+                <span class="block__meta">留空或使用默认名时自动沿用默认值</span>
               </header>
               <div class="panel block__card">
                 <ArtifactNamesEditor />
@@ -323,7 +339,7 @@ onBeforeRouteLeave(async () => {
         </el-tab-pane>
 
         <el-tab-pane label="仓库设置" name="publish" lazy>
-          <div class="card-columns">
+          <div class="config-sections">
             <section class="block">
               <header class="block__head">
                 <el-icon><Upload /></el-icon><span>仓库设置</span>
@@ -344,6 +360,7 @@ onBeforeRouteLeave(async () => {
             <section class="block">
               <header class="block__head">
                 <el-icon><Files /></el-icon><span>推送列表</span>
+                <span class="block__meta">关闭的列表仍会生成产物，只是不推送到仓库</span>
               </header>
               <div class="panel block__card">
                 <PushListsEditor />
@@ -358,7 +375,7 @@ onBeforeRouteLeave(async () => {
               <el-icon><Share /></el-icon><span>代理设置</span>
             </header>
             <div class="panel block__card">
-              <div class="field-grid field-grid--two">
+              <div class="field-grid">
                 <ParamField
                   v-for="param in paramsFor('网络代理')"
                   :key="param.name"
@@ -400,17 +417,17 @@ onBeforeRouteLeave(async () => {
 
     <el-drawer v-model="versionsVisible" title="配置版本" size="60%">
       <el-table border v-if="store.versions.length" :data="store.versions" size="small" @header-dragend="onVersionDragEnd">
-        <el-table-column prop="id" label="版本" :width="versionWidth('版本') ?? 70" />
+        <el-table-column prop="id" label="版本" :width="versionWidth('版本') ?? 70" align="center" />
         <el-table-column label="时间" :width="versionWidth('时间') ?? 180">
-          <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
+          <template #default="{ row }"><span class="mono">{{ formatTime(row.created_at) }}</span></template>
         </el-table-column>
-        <el-table-column prop="actor" label="操作者" :width="versionWidth('操作者') ?? 90" />
+        <el-table-column prop="actor" label="操作者" :width="versionWidth('操作者') ?? 90" align="center" />
         <el-table-column prop="diff" label="变更（已脱敏）" :width="versionWidth('变更（已脱敏）')" min-width="240">
           <template #default="{ row }">
             <span class="mono diff">{{ row.diff }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" :width="versionWidth('操作') ?? 90">
+        <el-table-column label="操作" :width="versionWidth('操作') ?? 90" align="center">
           <template #default="{ row }">
             <el-button size="small" @click="rollback(row.id)">回滚</el-button>
           </template>
@@ -429,25 +446,19 @@ onBeforeRouteLeave(async () => {
 </template>
 
 <style scoped>
-.config-toolbar {
+.config-sections {
   display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-wrap: wrap;
-  margin: -4px 0 10px;
-}
-
-.config-toolbar__hint {
-  font-size: 12px;
+  flex-direction: column;
+  gap: var(--space-6);
 }
 
 .field-errors {
   margin-bottom: var(--space-3);
-  padding: var(--space-3);
+  padding: var(--space-3) var(--space-4);
   border: 1px solid color-mix(in srgb, var(--danger) 45%, var(--border));
   background: color-mix(in srgb, var(--danger) 8%, var(--surface));
   border-radius: var(--radius-md);
-  font-size: 13px;
+  font-size: var(--fs-body);
 }
 
 .field-errors ul {
@@ -456,53 +467,70 @@ onBeforeRouteLeave(async () => {
 }
 
 .config-tabs :deep(.el-tabs__content) {
-  padding-top: var(--space-4);
+  padding-top: 0;
 }
 
-/* 双列卡片：两列各自堆叠，卡片高度只由自身内容决定 */
-.card-columns {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-5);
-  align-items: start;
+/* 同一张卡片内按「探测端点 / 探测参数 / 采样」分段，标题 + 分隔线建立层次 */
+.config-group + .config-group {
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border-soft);
 }
 
-.card-column {
+.config-group__title {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 var(--space-4);
+  color: var(--text);
+  font-size: var(--fs-label);
+  font-weight: 600;
+  line-height: 20px;
 }
 
-@media (max-width: 1199px) {
-  .card-columns {
-    grid-template-columns: minmax(0, 1fr);
-  }
+.config-group__title .el-icon {
+  color: var(--text-faint);
+  font-size: 14px;
 }
 
+/* 每个分组一张全宽卡片，卡片内按字段宽度自适应列数，避免双列高度参差 */
 .field-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  row-gap: 24px;
-}
-
-.field-grid--two {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 32px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 22px 28px;
+  align-items: start;
 }
 
 .field-grid :deep(.field--wide) {
   grid-column: 1 / -1;
 }
 
-@media (max-width: 1199px) {
-  .field-grid--two {
+/* 开关类字段横跨整行，形成「设置项」式的一行一项 */
+.field-grid :deep(.field--switch) {
+  grid-column: 1 / -1;
+}
+
+.country-block {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-soft);
+}
+
+.group-note {
+  margin: 0 0 var(--space-4);
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  line-height: 18px;
+}
+
+@media (max-width: 719px) {
+  .field-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
 .diff {
-  font-size: 11px;
+  font-size: var(--fs-micro);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }

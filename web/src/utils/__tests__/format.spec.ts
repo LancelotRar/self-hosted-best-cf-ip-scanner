@@ -34,6 +34,33 @@ describe("formatLogLine", () => {
   it("没有时间戳前缀的行原样返回", () => {
     expect(formatLogLine("plain line")).toBe("plain line");
   });
+
+  it("去掉 supercronic 追加的调度元数据，只留正文", () => {
+    const text = formatLogLine(
+      '2026-11-09T00:33:28Z [job] 本轮完成 channel=stdout iteration=0 job.command=/usr/local/bin/scan.sh job.position=0 job.schedule="30 */6 * * *"',
+    );
+    expect(text.endsWith("[信息]：[job] 本轮完成")).toBe(true);
+  });
+
+  it("正文与元数据之间没有空格时也能去掉", () => {
+    const text = formatLogLine(
+      '2026-11-09T00:33:28Z [job] 新一轮开始channel=stdout iteration=0 job.command=/usr/local/bin/scan.sh job.position=0',
+    );
+    expect(text.endsWith("[信息]：[job] 新一轮开始")).toBe(true);
+  });
+
+  it("没有 channel 字段时按 iteration/job 元数据截断", () => {
+    expect(
+      formatLogLine(
+        '2026-11-09T00:30:00Z msg=starting iteration=0 job.command=/usr/local/bin/scan.sh job.position=0',
+      ).endsWith("[信息]：starting"),
+    ).toBe(true);
+    expect(
+      formatLogLine(
+        '2026-11-09T00:33:28Z job succeedediteration=0 job.command=/usr/local/bin/scan.sh job.position=0',
+      ).endsWith("[信息]：job succeeded"),
+    ).toBe(true);
+  });
 });
 
 describe("formatMinute", () => {
@@ -50,6 +77,7 @@ describe("formatMinute", () => {
 describe("triggerLabel", () => {
   it("只向用户展示两类触发器", () => {
     expect(triggerLabel("cron")).toBe("计划任务");
+    expect(triggerLabel("schedule")).toBe("计划任务");
     expect(triggerLabel("panel")).toBe("手动触发");
     expect(triggerLabel(null)).toBe("—");
   });

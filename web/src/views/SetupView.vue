@@ -54,16 +54,16 @@ async function submit() {
       </div>
 
       <h1 class="auth__title">首次设置</h1>
-      <p class="auth__sub muted">设置管理员密码；之后可在「系统 → 账号」修改。</p>
+      <p class="auth__sub muted">设置管理员密码；之后可在「设置 · 账号」修改。</p>
 
       <form class="auth__form" @submit.prevent="submit">
         <template v-if="auth.setupTokenRequired">
-          <label class="auth__label" for="setup-token">Setup Token</label>
+          <label class="auth__label" for="setup-token">设置口令</label>
           <el-input
             id="setup-token"
             v-model="setupToken"
             autocomplete="off"
-            placeholder="部署时设置的 PANEL_SETUP_TOKEN"
+            placeholder="部署时设置的口令"
             :prefix-icon="Key"
           />
           <p class="auth__hint">该部署启用了首次设置口令，请从部署环境获取。</p>
@@ -108,8 +108,8 @@ async function submit() {
 <style scoped>
 .auth-actions {
   position: fixed;
-  top: var(--space-3);
-  right: var(--space-3);
+  top: var(--space-4);
+  right: var(--space-4);
   z-index: 20;
 }
 
@@ -119,13 +119,13 @@ async function submit() {
   place-items: center;
   padding: var(--space-5);
   background:
-    radial-gradient(900px 420px at 50% -10%, color-mix(in srgb, var(--primary) 14%, transparent), transparent 70%),
+    radial-gradient(720px 360px at 50% -8%, color-mix(in srgb, var(--primary) 8%, transparent), transparent 72%),
     var(--bg);
 }
 
 .auth__panel {
-  width: min(460px, 100%);
-  padding: var(--space-5);
+  width: min(420px, 100%);
+  padding: 28px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -135,59 +135,69 @@ async function submit() {
 .auth__brand {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-5);
+  gap: 10px;
+  margin-bottom: var(--space-6);
 }
 
 .auth__brand strong {
   display: block;
-  font-size: 13px;
+  font-size: var(--fs-body);
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .auth__brand p {
-  margin: 0;
-  font-size: 11px;
+  margin: 1px 0 0;
+  font-size: var(--fs-micro);
 }
 
 .auth__mark {
   display: inline-grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: var(--radius-sm);
   background: var(--primary);
   color: var(--on-primary);
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .auth__title {
   margin: 0;
-  font-size: 20px;
-  line-height: 28px;
+  font-size: 22px;
+  line-height: 30px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
 }
 
 .auth__sub {
   margin: 4px 0 var(--space-5);
-  font-size: 12px;
+  font-size: var(--fs-meta);
 }
 
 .auth__form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: 8px;
 }
 
 .auth__label {
-  margin-top: var(--space-2);
-  font-size: 12px;
+  margin-top: 8px;
+  font-size: var(--fs-meta);
   color: var(--text-muted);
+}
+
+.auth__label:first-child {
+  margin-top: 0;
 }
 
 .auth__hint {
   margin: 0;
   color: var(--warning);
-  font-size: 12px;
+  font-size: var(--fs-micro);
+  line-height: 16px;
 }
 
 .auth__error {
@@ -197,7 +207,7 @@ async function submit() {
   border: 1px solid color-mix(in srgb, var(--danger) 45%, var(--border));
   background: color-mix(in srgb, var(--danger) 8%, var(--surface));
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--fs-meta);
 }
 
 .auth__submit {
@@ -207,6 +217,7 @@ async function submit() {
 
 .auth__foot {
   margin: var(--space-5) 0 0;
-  font-size: 11px;
+  font-size: var(--fs-micro);
+  line-height: 18px;
 }
 </style>

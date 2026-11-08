@@ -30,6 +30,10 @@ const statusText = computed(() => {
   if (!online.value) return "扫描器离线";
   return running.value ? "扫描器在线 · 运行中" : "扫描器在线 · 空闲";
 });
+const stateTone = computed(() => {
+  if (scanner.value === "unknown") return "idle";
+  return online.value ? "on" : "off";
+});
 
 async function refresh() {
   try {
@@ -80,8 +84,8 @@ onBeforeUnmount(() => {
       <RouterLink :to="{ name: 'overview' }" class="brand" aria-label="回到总览">
         <span class="brand__mark" aria-hidden="true">CF</span>
         <span class="brand__text">
-          <strong>优选IP扫描器</strong>
-          <small>基于容器化方案的优选ip扫描器，提供多种配置</small>
+          <strong>优选 IP 扫描器</strong>
+          <small>Cloudflare 运维面板</small>
         </span>
       </RouterLink>
 
@@ -105,7 +109,7 @@ onBeforeUnmount(() => {
       <footer class="sidebar__foot">
         <div
           class="scanner-state"
-          :class="scanner === 'unknown' ? 'scanner-state--idle' : online ? 'scanner-state--on' : 'scanner-state--off'"
+          :class="`scanner-state--${stateTone}`"
           :title="scannerReason || statusText"
           role="status"
           aria-live="polite"
@@ -114,18 +118,24 @@ onBeforeUnmount(() => {
           <span class="scanner-state__text">{{ statusText }}</span>
         </div>
 
-        <TopActions class="footer-actions" />
-
-        <div class="footer-user">
-          <span class="footer-user__name">ADMIN</span>
-          <button type="button" class="footer-logout" @click="logout">退出登录</button>
+        <div class="footer-row">
+          <TopActions class="footer-actions" />
+          <span class="footer-user__name">admin</span>
+          <button type="button" class="footer-logout" @click="logout">退出</button>
         </div>
       </footer>
     </aside>
 
     <div class="content">
       <main class="main">
-        <RouterView />
+        <Suspense>
+          <RouterView />
+          <template #fallback>
+            <div class="route-fallback">
+              <el-skeleton :rows="8" animated />
+            </div>
+          </template>
+        </Suspense>
       </main>
     </div>
   </div>
@@ -153,12 +163,9 @@ onBeforeUnmount(() => {
 
 .brand {
   display: flex;
-  /* 图标在上、文字在下，整块居中 */
-  flex-direction: column;
   align-items: center;
-  text-align: center;
   gap: 10px;
-  padding: 16px 14px 14px;
+  padding: 18px 16px 16px;
   border-bottom: 1px solid var(--border-soft);
 }
 
@@ -166,12 +173,12 @@ onBeforeUnmount(() => {
   display: inline-grid;
   place-items: center;
   flex: 0 0 auto;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
   background: var(--primary);
   color: var(--on-primary);
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 700;
   letter-spacing: 0.04em;
 }
@@ -179,24 +186,22 @@ onBeforeUnmount(() => {
 .brand__text {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
-  line-height: 1.22;
   min-width: 0;
+  line-height: 1.3;
 }
 
 .brand__text strong {
-  font-size: 16px;
+  font-size: 14.5px;
   font-weight: 650;
   letter-spacing: -0.01em;
-  overflow-wrap: break-word;
+  white-space: nowrap;
 }
 
 .brand__text small {
+  margin-top: 2px;
   color: var(--text-faint);
-  font-size: 11.5px;
-  line-height: 1.45;
-  margin-top: 3px;
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .nav {
@@ -204,21 +209,22 @@ onBeforeUnmount(() => {
   flex-direction: column;
   overflow-y: auto;
   flex: 1;
-  padding: 12px 8px;
+  padding: 14px 10px;
   gap: 2px;
 }
 
 .nav__item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 40px;
-  padding: 0 12px;
-  border-radius: var(--control-radius);
+  min-height: 38px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
   color: var(--text-muted);
   font-size: var(--fs-body);
   font-weight: 500;
-  transition-property: background-color, color, box-shadow;
+  transition-property: background-color, color;
   transition-duration: var(--dur-fast);
   transition-timing-function: var(--ease);
 }
@@ -231,7 +237,7 @@ onBeforeUnmount(() => {
 .nav__icon {
   flex: 0 0 16px;
   color: currentColor;
-  opacity: 0.82;
+  opacity: 0.8;
 }
 
 .nav__item--active,
@@ -249,20 +255,18 @@ onBeforeUnmount(() => {
 .sidebar__foot {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 10px 16px;
+  gap: 12px;
+  padding: 14px 14px 16px;
   border-top: 1px solid var(--border-soft);
-  text-align: center;
 }
 
 .scanner-state {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 7px;
   width: 100%;
-  font-size: 12px;
+  font-size: var(--fs-meta);
+  color: var(--text-muted);
 }
 
 .scanner-state__dot {
@@ -282,10 +286,6 @@ onBeforeUnmount(() => {
   animation: breathe-ok 2.2s ease-out infinite;
 }
 
-.scanner-state--on .scanner-state__text {
-  color: var(--text-muted);
-}
-
 .scanner-state--off .scanner-state__dot {
   background: var(--danger);
   box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger) 55%, transparent);
@@ -296,24 +296,22 @@ onBeforeUnmount(() => {
   color: var(--danger);
 }
 
-.footer-actions {
-  justify-content: center;
-  width: 100%;
-  gap: 8px;
-}
-
-.footer-user {
+.footer-row {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 100%;
-  gap: 10px;
-  font-size: 11.5px;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+  font-size: var(--fs-micro);
+}
+
+.footer-actions {
+  margin-right: auto;
 }
 
 .footer-user__name {
   font-family: var(--font-mono);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   color: var(--text-faint);
 }
 
@@ -324,12 +322,12 @@ onBeforeUnmount(() => {
   color: var(--text-muted);
   font: inherit;
   cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 2px;
 }
 
 .footer-logout:hover {
   color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 @keyframes breathe-ok {
@@ -367,6 +365,25 @@ onBeforeUnmount(() => {
   flex: 1;
 }
 
+/* 懒加载路由首次进入时的占位，避免内容区出现空白闪烁 */
+.route-fallback {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 32px 36px;
+}
+
+@media (max-width: 1023px) {
+  .route-fallback {
+    padding: 24px;
+  }
+}
+
+@media (max-width: 767px) {
+  .route-fallback {
+    padding: var(--space-4);
+  }
+}
+
 @media (max-width: 959px) {
   .shell {
     display: block;
@@ -380,10 +397,21 @@ onBeforeUnmount(() => {
     flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-2) var(--space-3) 0;
+    gap: 8px;
+    padding: 8px 16px 0;
     border-right: 0;
     border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    backdrop-filter: blur(12px);
+  }
+
+  .brand {
+    padding: 0;
+    border-bottom: 0;
+  }
+
+  .brand__text small {
+    display: none;
   }
 
   .nav {
@@ -394,23 +422,23 @@ onBeforeUnmount(() => {
     padding: 0;
     overflow-x: auto;
     overflow-y: hidden;
-    gap: 2px;
-  }
-
-  .brand__text {
-    display: none;
+    gap: 0;
   }
 
   .nav__item {
-    padding: 9px var(--space-3);
+    flex: 1 0 auto;
+    justify-content: center;
+    min-height: 42px;
+    padding: 0 9px;
     border-bottom: 2px solid transparent;
     border-radius: 0;
+    font-size: 12.5px;
     white-space: nowrap;
   }
 
   .nav__item--active {
     background: none;
-    border-bottom-color: var(--primary);
+    border-bottom-color: var(--text);
   }
 
   .nav__icon {
@@ -421,13 +449,27 @@ onBeforeUnmount(() => {
     order: 2;
     margin-left: auto;
     flex-direction: row;
+    align-items: center;
     gap: 10px;
     padding: 0;
     border-top: 0;
   }
 
   .scanner-state__text {
-    display: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .footer-row {
+    padding-top: 0;
+    border-top: 0;
   }
 
   .footer-user__name {

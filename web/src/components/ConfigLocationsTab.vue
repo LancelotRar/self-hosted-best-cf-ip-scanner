@@ -296,7 +296,7 @@ onBeforeRouteLeave(async () => {
 .loc-table,
 .loc-actions {
   width: 100%;
-  max-width: 760px;
+  max-width: 900px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -313,11 +313,11 @@ onBeforeRouteLeave(async () => {
 }
 
 .loc-card__sub {
-  font-size: 12px;
+  font-size: var(--fs-meta);
 }
 
 .loc-card__count {
-  font-size: 12px;
+  font-size: var(--fs-meta);
   white-space: nowrap;
 }
 
@@ -368,7 +368,7 @@ onBeforeRouteLeave(async () => {
 }
 
 .loc-table__head {
-  font-size: 12px;
+  font-size: var(--fs-meta);
   color: var(--text-muted);
   border-bottom: 1px solid var(--border);
 }

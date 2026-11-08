@@ -128,7 +128,7 @@ function toggle(key: string, on: boolean) {
 .push-list__meta {
   margin: 0;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--fs-meta);
 }
 
 .push-list__rows {
@@ -156,20 +156,20 @@ function toggle(key: string, on: boolean) {
 
 .push-row__label {
   color: var(--text);
-  font-size: 13px;
+  font-size: var(--fs-label);
   font-weight: 600;
   line-height: 20px;
 }
 
 .push-row__file {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 18px;
   overflow-wrap: anywhere;
 }
 
 .push-list__empty {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--fs-meta);
 }
 </style>

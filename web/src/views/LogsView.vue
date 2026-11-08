@@ -71,7 +71,18 @@ onMounted(connect);
             <el-button><el-icon><Download /></el-icon>下载</el-button>
           </a>
         </div>
-        <LogConsole :lines="visible" :status="status" :last-received="lastReceived" height="480px" />
+        <LogConsole
+          v-if="lines.length || status !== 'disconnected'"
+          :lines="visible"
+          :status="status"
+          :last-received="lastReceived"
+          height="480px"
+        />
+        <EmptyState
+          v-else
+          title="暂无日志连接"
+          description="扫描容器不可用或连接被拒绝；恢复后会自动重连"
+        />
       </el-tab-pane>
 
       <el-tab-pane label="下载" name="download">
@@ -88,12 +99,6 @@ onMounted(connect);
         </section>
       </el-tab-pane>
     </el-tabs>
-
-    <EmptyState
-      v-if="status === 'disconnected' && !lines.length"
-      title="暂无日志连接"
-      description="扫描容器不可用或连接被拒绝；恢复后会自动重连"
-    />
   </section>
 </template>
 

@@ -37,9 +37,9 @@ const emit = defineEmits<{ retry: [] }>();
   flex-direction: column;
   align-items: flex-start;
   gap: 8px;
-  padding: var(--space-4);
-  border: 1px solid color-mix(in srgb, var(--danger) 45%, var(--border));
-  background: color-mix(in srgb, var(--danger) 8%, var(--surface));
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid color-mix(in srgb, var(--danger) 40%, var(--border));
+  background: var(--tone-danger-soft);
   border-radius: var(--radius-md);
   color: var(--text);
 }
@@ -49,6 +49,7 @@ const emit = defineEmits<{ retry: [] }>();
   align-items: center;
   gap: 8px;
   color: var(--danger);
+  font-size: var(--fs-body);
 }
 
 .error__icon {
@@ -58,7 +59,8 @@ const emit = defineEmits<{ retry: [] }>();
 
 .error__message {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--fs-body);
+  line-height: 20px;
   color: var(--text);
   overflow-wrap: anywhere;
 }

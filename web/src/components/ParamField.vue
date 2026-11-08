@@ -7,6 +7,8 @@ const props = defineProps<{
   param: Param;
   modelValue: unknown;
   disabled?: boolean;
+  /** 同组字段共用一句说明时，隐藏单字段说明，避免重复。 */
+  hideHelp?: boolean;
 }>();
 
 const emit = defineEmits<{ "update:modelValue": [value: unknown] }>();
@@ -85,13 +87,19 @@ const listValue = computed<number[]>(() => {
 
 const defaultText = computed(() => {
   const value = props.param.default;
-  if (Array.isArray(value)) return value.length ? value.join(",") : "空";
-  if (typeof value === "boolean") return value ? "true" : "false";
+  if (Array.isArray(value)) return value.length ? value.join(", ") : "空";
+  if (typeof value === "boolean") return value ? "开启" : "关闭";
   const text = String(value ?? "");
   // 没有默认值时不要留下一行孤零零的「默认」
   return text === "" ? "空" : text;
 });
 
+/** 说明里已经写了默认值时不再重复展示，避免同一行出现两次「默认」。 */
+const showDefault = computed(
+  () => props.param.kind !== "bool" && !props.param.help.includes("默认"),
+);
+
+/** 默认生效方式占绝大多数，重复展示只会制造噪音；只在需要额外动作时提示。 */
 const effectTag = computed(() => {
   switch (props.param.effect) {
     case "restart_required":
@@ -99,7 +107,7 @@ const effectTag = computed(() => {
     case "schedule_reload":
       return { label: "保存后立即生效", tone: "info" };
     default:
-      return { label: "下一轮生效", tone: "neutral" };
+      return null;
   }
 });
 
@@ -131,17 +139,19 @@ function onBool(value: string | number | boolean) {
     :class="{
       'field--readonly': disabled,
       'field--wide': param.kind === 'cron' || param.kind === 'ports' || param.kind === 'csv_int',
+      'field--switch': param.kind === 'bool',
     }"
   >
     <div class="field__head">
       <label class="field__label" :for="`param-${param.name}`">{{ param.label }}</label>
       <div class="field__tags">
-        <span class="tag" :class="`tag--${effectTag.tone}`">{{ effectTag.label }}</span>
+        <span v-if="effectTag" class="tag" :class="`tag--${effectTag.tone}`">{{ effectTag.label }}</span>
         <span v-if="param.read_only" class="tag">只读</span>
         <span v-else-if="param.secret" class="tag">
           {{ param.configured ? "已配置" : "未配置" }}
         </span>
       </div>
+      <span v-if="showDefault" class="field__default">默认 {{ defaultText }}</span>
     </div>
 
     <div class="field__control">
@@ -150,6 +160,7 @@ function onBool(value: string | number | boolean) {
         :id="`param-${param.name}`"
         :model-value="Boolean(modelValue)"
         :disabled="disabled"
+        :aria-describedby="`param-${param.name}-help`"
         @change="onBool"
       />
 
@@ -303,9 +314,8 @@ function onBool(value: string | number | boolean) {
       />
     </div>
 
-    <p :id="`param-${param.name}-help`" class="field__help">
-      <span class="field__desc">{{ param.help }}</span>
-      <span class="field__default">默认 {{ defaultText }}</span>
+    <p v-show="!hideHelp" :id="`param-${param.name}-help`" class="field__help">
+      {{ param.help }}
     </p>
   </div>
 </template>
@@ -324,14 +334,15 @@ function onBool(value: string | number | boolean) {
 .field__head {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  margin-bottom: 8px;
+  gap: 6px;
+  margin-bottom: 7px;
   flex-wrap: wrap;
+  min-height: 20px;
 }
 
 .field__label {
-  font-weight: 600;
-  font-size: 13px;
+  font-weight: 550;
+  font-size: var(--fs-label);
   line-height: 20px;
 }
 
@@ -351,29 +362,27 @@ function onBool(value: string | number | boolean) {
   border: 1px solid transparent;
   background: var(--surface-2);
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: var(--fs-micro);
   line-height: 1;
   white-space: nowrap;
-}
-
-.tag--neutral {
-  color: var(--text-muted);
 }
 
 .tag--warning {
   color: var(--warning);
   border-color: color-mix(in srgb, var(--warning) 32%, transparent);
+  background: var(--tone-warning-soft);
 }
 
 .tag--info {
   color: var(--info);
   border-color: color-mix(in srgb, var(--info) 32%, transparent);
+  background: var(--tone-info-soft);
 }
 
 .field__control {
   display: flex;
   align-items: center;
-  min-height: 32px;
+  min-height: 36px;
   min-width: 0;
 }
 
@@ -390,21 +399,22 @@ function onBool(value: string | number | boolean) {
 .preset-value {
   margin-left: var(--space-2);
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: var(--fs-micro);
 }
 
 .field__help {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 18px;
 }
 
 .field__default {
+  margin-left: auto;
   color: var(--text-faint);
+  font-size: var(--fs-micro);
+  line-height: 20px;
+  white-space: nowrap;
 }
 
 .field__control :deep(.el-input),
@@ -416,11 +426,11 @@ function onBool(value: string | number | boolean) {
 /* 数字输入统一为窄控件，避免逐字段计算宽度导致参差 */
 .field__control :deep(.el-input-number) {
   width: 100%;
-  max-width: 220px;
+  max-width: 200px;
 }
 
 .field__control :deep(.el-select.control--short) {
-  max-width: 220px;
+  max-width: 240px;
 }
 
 /* 数字内容居中，配合右侧步进按钮 */
@@ -429,5 +439,30 @@ function onBool(value: string | number | boolean) {
   padding-left: 4px;
   padding-right: 4px;
   font-variant-numeric: tabular-nums;
+}
+
+/* 开关类字段：标签与控件同一行，压缩高度 */
+.field--switch .field__head {
+  margin-bottom: 0;
+  flex: 1 1 auto;
+}
+
+.field--switch {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-4);
+}
+
+.field--switch .field__control {
+  order: 2;
+  margin-left: auto;
+  min-height: 24px;
+}
+
+.field--switch .field__help {
+  order: 3;
+  flex: 0 0 100%;
+  margin-top: 4px;
 }
 </style>

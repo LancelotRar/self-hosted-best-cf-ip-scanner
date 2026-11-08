@@ -8,7 +8,9 @@ export default defineConfig({
   plugins: [
     vue(),
     Components({
-      resolvers: [ElementPlusResolver()],
+      // 样式由 main.ts 显式引入：保证 Element Plus 基础样式先于项目样式加载，
+      // 否则按需注入的样式会覆盖设计 token（主色、圆角、控件高度全部失效）。
+      resolvers: [ElementPlusResolver({ importStyle: false })],
       dts: false,
     }),
   ],

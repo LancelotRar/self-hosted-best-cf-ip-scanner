@@ -112,7 +112,7 @@ watch(
   padding: var(--space-2) var(--space-3);
   border-bottom: 1px solid var(--border);
   background: var(--surface-2);
-  font-size: 12px;
+  font-size: var(--fs-meta);
 }
 
 .console__meta {
@@ -129,8 +129,8 @@ watch(
   padding: var(--space-3);
   overflow: auto;
   font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 18px;
+  font-size: var(--fs-meta);
+  line-height: 19px;
   color: #c9d1d9;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -145,7 +145,7 @@ watch(
   border: 1px solid var(--primary);
   background: var(--primary);
   color: var(--on-primary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   cursor: pointer;
 }
 

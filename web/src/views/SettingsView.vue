@@ -177,19 +177,21 @@ onMounted(async () => {
 
     <el-tabs v-model="activeTab">
       <el-tab-pane label="常规" name="general">
-        <section class="block">
+        <section class="block settings-block">
           <header class="block__head"><el-icon><Timer /></el-icon><span>时区</span></header>
           <div class="panel block__card">
             <p class="muted settings-hint">
               影响计划任务、运行记录与日志时间；保存后需重启扫描容器生效。
             </p>
             <ErrorState v-if="!tzParam && config.lastError" :message="config.lastError.message" />
-            <ParamField
-              v-if="tzParam"
-              :param="tzParam"
-              :model-value="config.values.TZ"
-              @update:model-value="updateTz"
-            />
+            <div class="field-grid">
+              <ParamField
+                v-if="tzParam"
+                :param="tzParam"
+                :model-value="config.values.TZ"
+                @update:model-value="updateTz"
+              />
+            </div>
             <div class="settings-actions">
               <span class="muted">
                 {{ config.dirty ? `未保存 ${config.dirtyCount} 项` : "没有未保存的修改" }}
@@ -210,104 +212,121 @@ onMounted(async () => {
       </el-tab-pane>
 
       <el-tab-pane label="外观" name="appearance">
-        <section class="block">
-          <header class="block__head">
-            <el-icon><Brush /></el-icon><span>外观</span>
-            <span class="spacer" />
-            <el-button size="small" @click="reset">
-              <el-icon><RefreshLeft /></el-icon>
-              恢复默认
-            </el-button>
-          </header>
-          <div class="panel block__card stack">
-            <div class="setting-row">
-              <div class="setting-label">
-                <strong>主题模式</strong>
-                <p class="muted">深色适合长时间盯屏；浅色适合明亮环境。</p>
+        <div class="appearance-grid">
+          <section class="block">
+            <header class="block__head">
+              <el-icon><Brush /></el-icon><span>外观</span>
+              <span class="spacer" />
+              <el-button text size="small" @click="reset">
+                <el-icon><RefreshLeft /></el-icon>
+                恢复默认
+              </el-button>
+            </header>
+            <div class="panel block__card stack">
+              <div class="setting-row">
+                <div class="setting-label">
+                  <strong>主题模式</strong>
+                  <p class="muted">深色适合长时间盯屏；浅色适合明亮环境。</p>
+                </div>
+                <el-radio-group v-model="themeValue" aria-label="主题模式">
+                  <el-radio-button value="dark">深色</el-radio-button>
+                  <el-radio-button value="light">浅色</el-radio-button>
+                </el-radio-group>
               </div>
-              <el-radio-group v-model="themeValue">
-                <el-radio-button value="dark">深色</el-radio-button>
-                <el-radio-button value="light">浅色</el-radio-button>
-              </el-radio-group>
-            </div>
 
-            <div class="setting-row">
-              <div class="setting-label">
-                <strong>字号</strong>
-                <p class="muted">影响正文、表格、按钮与表单标签，仅保存在本浏览器。</p>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <strong>字号</strong>
+                  <p class="muted">影响正文、表格、按钮与表单标签，仅保存在本浏览器。</p>
+                </div>
+                <el-radio-group v-model="fontValue" aria-label="字号">
+                  <el-radio-button value="sm">小</el-radio-button>
+                  <el-radio-button value="md">标准</el-radio-button>
+                  <el-radio-button value="lg">大</el-radio-button>
+                </el-radio-group>
               </div>
-              <el-radio-group v-model="fontValue">
-                <el-radio-button value="sm">小</el-radio-button>
-                <el-radio-button value="md">标准</el-radio-button>
-                <el-radio-button value="lg">大</el-radio-button>
-              </el-radio-group>
             </div>
+          </section>
 
-            <div class="preview">
-              <span class="preview__eyebrow muted">预览</span>
-              <h2 class="preview__title">扫描器在线 · 核对通过</h2>
-              <p class="preview__text">
-                每轮扫描都会读取最新配置；保存后下一轮生效，计划任务变更立即生效。
-              </p>
-              <p class="preview__meta mono">2026/11/03 15:20:00 · 采样步长 256</p>
+          <section class="block">
+            <header class="block__head">
+              <el-icon><Monitor /></el-icon><span>预览</span>
+            </header>
+            <div class="panel block__card">
+              <div class="preview">
+                <span class="preview__eyebrow muted">预览</span>
+                <h2 class="preview__title">扫描器在线 · 核对通过</h2>
+                <p class="preview__text">
+                  每轮扫描都会读取最新配置；保存后下一轮生效，计划任务变更立即生效。
+                </p>
+                <p class="preview__meta mono">2026/11/03 15:20:00 · 采样步长 256</p>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
 
-        <section class="block">
+        <section class="block settings-block">
           <header class="block__head"><el-icon><Link /></el-icon><span>项目</span></header>
-          <div class="panel block__card stack">
-            <p class="muted">面板与扫描器同源；问题反馈、版本说明与部署文档都在项目主页。</p>
-            <div>
+          <div class="panel block__card">
+            <div class="project-row">
+              <div>
+                <p class="project-row__title">面板与扫描器同源</p>
+                <p class="muted project-row__desc">
+                  问题反馈、版本说明与部署文档都在项目主页。
+                </p>
+                <p class="muted mono repo-url">
+                  github.com/LancelotRar/self-hosted-best-cf-ip-scanner
+                </p>
+              </div>
               <a :href="PROJECT_URL" target="_blank" rel="noopener noreferrer">
-                <el-button>GitHub 项目主页</el-button>
+                <el-button>打开 GitHub 项目主页</el-button>
               </a>
             </div>
-            <p class="muted mono repo-url">
-              github.com/LancelotRar/self-hosted-best-cf-ip-scanner
-            </p>
           </div>
         </section>
       </el-tab-pane>
 
       <el-tab-pane label="账号" name="account">
-        <section class="block">
+        <section class="block settings-block settings-block--narrow">
           <header class="block__head"><el-icon><Lock /></el-icon><span>修改密码</span></header>
-          <div class="panel block__card stack">
-            <label class="field-label" for="current-password">当前密码</label>
-            <el-input
-              id="current-password"
-              v-model="currentPassword"
-              type="password"
-              show-password
-              autocomplete="current-password"
-            />
+          <div class="panel block__card">
+            <div class="password-form">
+              <label class="field-label" for="current-password">当前密码</label>
+              <el-input
+                id="current-password"
+                v-model="currentPassword"
+                type="password"
+                show-password
+                autocomplete="current-password"
+              />
 
-            <label class="field-label" for="new-password">新密码</label>
-            <el-input
-              id="new-password"
-              v-model="newPassword"
-              type="password"
-              show-password
-              autocomplete="new-password"
-            />
+              <label class="field-label" for="new-password">新密码</label>
+              <el-input
+                id="new-password"
+                v-model="newPassword"
+                type="password"
+                show-password
+                autocomplete="new-password"
+              />
+              <p class="field-hint">至少 8 个字符。</p>
 
-            <label class="field-label" for="confirm-password">确认新密码</label>
-            <el-input
-              id="confirm-password"
-              v-model="confirmPassword"
-              type="password"
-              show-password
-              autocomplete="new-password"
-            />
+              <label class="field-label" for="confirm-password">确认新密码</label>
+              <el-input
+                id="confirm-password"
+                v-model="confirmPassword"
+                type="password"
+                show-password
+                autocomplete="new-password"
+              />
 
-            <p v-if="passwordError" class="form-error" role="alert">{{ passwordError }}</p>
-            <p v-if="passwordOk" class="form-ok" role="status">{{ passwordOk }}</p>
+              <p v-if="passwordError" class="form-error" role="alert">{{ passwordError }}</p>
+              <p v-if="passwordOk" class="form-ok" role="status">{{ passwordOk }}</p>
 
-            <div>
-              <el-button type="primary" :loading="savingPassword" @click="changePassword">
-                <el-icon><Lock /></el-icon>修改密码
-              </el-button>
+              <div class="password-form__actions">
+                <el-button type="primary" :loading="savingPassword" @click="changePassword">
+                  <el-icon><Lock /></el-icon>修改密码
+                </el-button>
+              </div>
             </div>
           </div>
         </section>
@@ -321,15 +340,15 @@ onMounted(async () => {
             <div class="panel block__card">
               <el-table border v-if="audits.length" :data="audits" size="small" @header-dragend="onColumnDragEnd">
                 <el-table-column label="时间" :width="colWidth('时间') ?? 180">
-                  <template #default="{ row }">{{ formatTime(row.at) }}</template>
+                  <template #default="{ row }"><span class="mono">{{ formatTime(row.at) }}</span></template>
                 </el-table-column>
-                <el-table-column prop="actor" label="操作者" :width="colWidth('操作者') ?? 90" />
+                <el-table-column prop="actor" label="操作者" :width="colWidth('操作者') ?? 90" align="center" />
                 <el-table-column prop="action" label="动作" :width="colWidth('动作') ?? 170">
                   <template #default="{ row }"><span class="mono">{{ row.action }}</span></template>
                 </el-table-column>
                 <el-table-column prop="detail" label="详情" :width="colWidth('详情')" min-width="220" />
-                <el-table-column prop="ip" label="来源" :width="colWidth('来源') ?? 110">
-                  <template #default="{ row }"><span class="mono">{{ row.ip }}</span></template>
+                <el-table-column prop="ip" label="来源" :width="colWidth('来源') ?? 120" align="center">
+                  <template #default="{ row }"><span class="mono nowrap">{{ row.ip }}</span></template>
                 </el-table-column>
               </el-table>
               <EmptyState
@@ -353,10 +372,10 @@ onMounted(async () => {
       </el-tab-pane>
 
       <el-tab-pane label="容器" name="container">
-        <section class="block">
+        <section class="block settings-block">
           <header class="block__head"><el-icon><Monitor /></el-icon><span>扫描容器</span></header>
-          <div class="panel block__card stack">
-            <p class="muted">
+          <div class="panel block__card">
+            <p class="muted settings-hint">
               只操作本项目的扫描容器；重启/停止会中断当前这一轮，产物保留上一轮。
             </p>
             <div class="row">
@@ -376,21 +395,29 @@ onMounted(async () => {
 
       <el-tab-pane label="关于" name="about">
         <ErrorState v-if="infoError" :message="infoError" @retry="loadInfo" />
-        <section v-else class="block">
+        <section v-else class="block settings-block">
           <header class="block__head"><el-icon><InfoFilled /></el-icon><span>版本信息</span></header>
           <div class="panel block__card">
             <dl v-if="info" class="kv">
-              <dt>面板版本</dt>
-              <dd class="mono">{{ info.panel_version }}</dd>
-              <dt>镜像</dt>
-              <dd class="mono">{{ info.image }}</dd>
-              <dt>Python</dt>
-              <dd class="mono">{{ info.python }}</dd>
-              <dt>Docker SDK</dt>
-              <dd class="mono">{{ info.docker }}</dd>
+              <div class="kv__row">
+                <dt>面板版本</dt>
+                <dd class="mono">{{ info.panel_version }}</dd>
+              </div>
+              <div class="kv__row">
+                <dt>镜像</dt>
+                <dd class="mono">{{ info.image }}</dd>
+              </div>
+              <div class="kv__row">
+                <dt>Python</dt>
+                <dd class="mono">{{ info.python }}</dd>
+              </div>
+              <div class="kv__row">
+                <dt>Docker SDK</dt>
+                <dd class="mono">{{ info.docker }}</dd>
+              </div>
             </dl>
             <p class="muted about-hint">忘记密码请联系部署管理员。</p>
-            <p class="muted">配置版本与审计记录都会保留，可在面板内完成回滚与核查。</p>
+            <p class="muted about-hint">配置版本与审计记录都会保留，可在面板内完成回滚与核查。</p>
           </div>
         </section>
       </el-tab-pane>
@@ -399,96 +426,163 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+/* 表单类页面收窄到易读宽度，避免输入框横跨整个屏幕 */
+.settings-block {
+  max-width: 880px;
+}
+
+.settings-block--narrow {
+  max-width: 460px;
+}
+
 .settings-hint {
-  margin: 0 0 var(--space-3);
-  font-size: 12px;
+  margin: 0 0 var(--space-4);
+  font-size: var(--fs-meta);
+  line-height: 18px;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px 28px;
 }
 
 .settings-actions {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin-top: var(--space-3);
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-soft);
+  font-size: var(--fs-meta);
 }
 
-.settings-panel {
-  margin-bottom: var(--space-4);
-}
-
-.settings-panel:last-child {
-  margin-bottom: 0;
+.appearance-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+  max-width: 880px;
+  margin-bottom: var(--space-6);
 }
 
 .setting-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-4);
+  gap: var(--space-5);
   flex-wrap: wrap;
-  padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--border);
+  padding: 4px 0 var(--space-4);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.setting-row:last-child {
+  padding-bottom: 4px;
+  border-bottom: 0;
 }
 
 .setting-label strong {
-  font-size: 13px;
+  font-size: var(--fs-label);
+  font-weight: 600;
 }
 
 .setting-label p {
   margin: 2px 0 0;
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 18px;
 }
 
 .preview {
-  padding: var(--space-4);
+  padding: 20px;
   border: 1px dashed var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: var(--surface-2);
 }
 
 .preview__eyebrow {
-  font-size: 11px;
+  font-size: var(--fs-micro);
   letter-spacing: 0.08em;
 }
 
 .preview__title {
-  margin: 4px 0 0;
-  font-size: 18px;
+  margin: 6px 0 0;
+  font-size: var(--fs-h2);
   line-height: 26px;
+  letter-spacing: -0.01em;
 }
 
 .preview__text {
   margin: 6px 0 0;
-  font-size: 13px;
+  font-size: var(--fs-body);
   line-height: 20px;
 }
 
 .preview__meta {
-  margin: 8px 0 0;
+  margin: 10px 0 0;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--fs-meta);
+}
+
+.project-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+}
+
+.project-row__title {
+  margin: 0;
+  font-size: var(--fs-label);
+  font-weight: 600;
+}
+
+.project-row__desc {
+  margin: 2px 0 0;
+  font-size: var(--fs-meta);
+  line-height: 18px;
 }
 
 .repo-url {
-  font-size: 12px;
+  margin: 8px 0 0;
+  font-size: var(--fs-meta);
   overflow-wrap: anywhere;
 }
 
-.form-panel .el-input {
-  max-width: 520px;
+.password-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 380px;
 }
 
 .field-label {
-  font-size: 12px;
+  margin-top: 8px;
+  font-size: var(--fs-meta);
   color: var(--text-muted);
+}
+
+.field-label:first-child {
+  margin-top: 0;
+}
+
+.field-hint {
+  margin: 0;
+  color: var(--text-faint);
+  font-size: var(--fs-micro);
+  line-height: 16px;
+}
+
+.password-form__actions {
+  margin-top: var(--space-4);
 }
 
 .form-error,
 .form-ok {
-  margin: 0;
+  margin: 8px 0 0;
   padding: 8px 10px;
   border-radius: var(--radius-sm);
-  font-size: 12px;
+  font-size: var(--fs-meta);
 }
 
 .form-error {
@@ -502,24 +596,47 @@ onMounted(async () => {
 }
 
 .kv {
-  display: grid;
-  grid-template-columns: 120px 1fr;
-  gap: 8px 16px;
+  display: flex;
+  flex-direction: column;
   margin: 0;
+}
+
+.kv__row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: var(--space-4);
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.kv__row:last-child {
+  border-bottom: 0;
 }
 
 .kv dt {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--fs-meta);
 }
 
 .kv dd {
   margin: 0;
+  font-size: var(--fs-body);
   overflow-wrap: anywhere;
 }
 
 .about-hint {
-  margin-top: var(--space-4);
-  line-height: 1.8;
+  margin: var(--space-3) 0 0;
+  font-size: var(--fs-meta);
+  line-height: 1.7;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+@media (max-width: 1023px) {
+  .appearance-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 </style>
