@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = ROOT / "docker" / "push-filter.py"
+SCRIPT = ROOT / "scanner" / "docker" / "push-filter.py"
 
 
 def _run(tmp_path, files, env_extra):

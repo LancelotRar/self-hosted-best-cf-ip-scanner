@@ -49,15 +49,17 @@ def test_scanner_and_panel_have_resource_limits():
     assert panel["mem_limit"] == "256m"
 
 
-def test_control_overlay_uses_sidecar_not_panel_socket():
-    overlay = _compose("compose.control.yaml")
-    panel = overlay["services"]["panel"]
-    sidecar = overlay["services"]["scanner-control"]
+def test_control_profile_uses_sidecar_not_panel_socket():
+    compose = _compose()
+    panel = compose["services"]["panel"]
+    sidecar = compose["services"]["scanner-control"]
 
+    assert sidecar["profiles"] == ["control"]
     assert not any(
         "/var/run/docker.sock" in str(volume) for volume in panel.get("volumes", [])
     )
     assert any(
         "/var/run/docker.sock" in str(volume) for volume in sidecar["volumes"]
     )
-    assert panel["environment"]["SCANNER_CONTROL_URL"] == "http://scanner-control:8090"
+    assert panel["environment"]["SCANNER_CONTROL_URL"] == "${SCANNER_CONTROL_URL:-}"
+    assert "control" in panel["networks"]

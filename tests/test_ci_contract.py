@@ -30,8 +30,8 @@ def _step(job: dict, name: str) -> dict:
 def test_publish_paths_include_panel_and_web():
     paths = _on(_workflow("docker.yml"))["push"]["paths"]
     assert "panel/**" in paths
-    assert "web/**" in paths
-    assert "requirements-panel.txt" in paths
+    assert "scanner/**" in paths
+    assert "panel/requirements.txt" in paths
 
 
 def test_publish_enables_sbom_and_max_provenance():
@@ -76,13 +76,13 @@ def test_trivyignore_exists():
 def test_frontend_lint_runs_in_ci():
     job = _workflow("ci.yml")["jobs"]["frontend"]
     runs = "\n".join(step.get("run", "") for step in job["steps"])
-    assert "npm --prefix web run lint" in runs
+    assert "npm --prefix panel/web run lint" in runs
 
 
 def test_contract_checks_control_overlay():
     job = _workflow("ci.yml")["jobs"]["contract"]
     step = _step(job, "Compose config")
-    assert "compose.control.yaml" in step["run"]
+    assert "--profile control" in step["run"]
 
 
 def test_smoke_checks_default_security_posture():
@@ -95,7 +95,7 @@ def test_smoke_checks_default_security_posture():
 def test_e2e_uses_control_overlay_for_container_control():
     job = _workflow("ci.yml")["jobs"]["e2e"]
     step = _step(job, "Start clean stack")
-    assert "compose.control.yaml" in step["run"]
+    assert "--profile control" in step["run"]
 
 
 def test_third_party_actions_are_sha_pinned():

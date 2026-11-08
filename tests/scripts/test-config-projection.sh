@@ -8,7 +8,7 @@
 # 任一步失败都会 trap 恢复，避免污染测试栈。
 set -eu
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
 panel_set() {

@@ -1,22 +1,7 @@
 # syntax=docker/dockerfile:1
 
-# ---------------------------------------------------------------- 前端构建 --
-# 只在 panel target 需要；构建 scanner 时 BuildKit 不会执行该 stage。
-FROM node:24-alpine AS web
-
-# 镜像加速（可选）：中国网络下 npm 很慢时可指向 npmmirror。
-ARG NPM_CONFIG_REGISTRY=https://registry.npmjs.org
-ENV NPM_CONFIG_REGISTRY=${NPM_CONFIG_REGISTRY}
-
-WORKDIR /web
-COPY --link web/package.json web/package-lock.json ./
-RUN npm ci --no-audit --no-fund
-COPY --link web/ ./
-RUN npm run build
-
-
 # ------------------------------------------------------------- Python 公共层 --
-# 两个运行镜像共享的解释器、时区库与证书；不包含 git/supercronic/业务依赖。
+# 解释器、时区库与证书；不包含 git/supercronic/业务依赖。
 FROM python:3.13-alpine3.23 AS python-base
 
 ARG APK_MIRROR=
@@ -52,20 +37,9 @@ FROM python-base AS scanner-builder
 ARG PIP_INDEX_URL=https://pypi.org/simple
 ENV PIP_INDEX_URL=${PIP_INDEX_URL}
 
-RUN --mount=type=bind,source=requirements.txt,target=requirements.txt \
+RUN --mount=type=bind,source=scanner/requirements.txt,target=requirements.txt \
     --mount=type=cache,target=/root/.cache/pip \
     pip install --prefix=/install-scanner -r requirements.txt
-
-
-# ----------------------------------------------------------- panel 依赖层 --
-FROM python-base AS panel-builder
-
-ARG PIP_INDEX_URL=https://pypi.org/simple
-ENV PIP_INDEX_URL=${PIP_INDEX_URL}
-
-RUN --mount=type=bind,source=requirements-panel.txt,target=requirements-panel.txt \
-    --mount=type=cache,target=/root/.cache/pip \
-    pip install --prefix=/install-panel -r requirements-panel.txt
 
 
 # ------------------------------------------------------------- scanner 运行 --
@@ -128,12 +102,11 @@ ENV OUTPUT_DIR=/output \
 
 COPY --from=scanner-builder /install-scanner /usr/local
 
-COPY --link best_cf_ip_scanner.py ./
-COPY --link scanner ./scanner
-COPY --link docker/entrypoint.sh docker/scan-and-publish.sh docker/publish.sh docker/doctor.sh /usr/local/bin/
-COPY --link docker/export-runtime.py docker/print-config.py docker/startup-report.py \
-      docker/check-config.py docker/apply-config.sh docker/push-filter.py /usr/local/bin/
-COPY --link docker/crontab.template /etc/supercronic/crontab.template
+COPY --link scanner/*.py ./scanner/
+COPY --link scanner/docker/entrypoint.sh scanner/docker/scan-and-publish.sh scanner/docker/publish.sh scanner/docker/doctor.sh /usr/local/bin/
+COPY --link scanner/docker/export-runtime.py docker/print-config.py scanner/docker/startup-report.py \
+      docker/check-config.py scanner/docker/apply-config.sh scanner/docker/push-filter.py /usr/local/bin/
+COPY --link scanner/docker/crontab.template /etc/supercronic/crontab.template
 
 RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/scan-and-publish.sh \
       /usr/local/bin/publish.sh /usr/local/bin/doctor.sh /usr/local/bin/check-config.py \
@@ -146,28 +119,3 @@ RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/scan-and-publish.sh \
 
 # 入口以 root 启动，把挂载目录对齐到 PUID/PGID 后立刻 su-exec 降权。
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-
-
-# --------------------------------------------------------------- panel 运行 --
-FROM python-base AS panel
-
-COPY --from=panel-builder /install-panel /usr/local
-
-# 面板需要 scanner 包里的 schema/validation/ippool/pinned；包 __init__ 已改为
-# 按需导入，因此不会把 probe/curl_cffi 带进 panel 镜像。
-COPY --link scanner ./scanner
-COPY --link panel ./panel
-COPY --from=web /web/dist ./panel/static
-COPY --link docker/panel-entrypoint.sh /usr/local/bin/
-COPY --link docker/check-config.py docker/print-config.py /usr/local/bin/
-# 内置候选地址库与机房映射作为"出厂默认值"：面板首次启动时播种到 /data。
-COPY --link data /opt/default-data
-
-RUN chmod +x /usr/local/bin/panel-entrypoint.sh \
-      /usr/local/bin/check-config.py /usr/local/bin/print-config.py \
-  && mkdir -p /data /output /cache /scanner-config /panel-data \
-  && chown -R 1000:1000 /opt/default-data /data /output /cache /scanner-config /panel-data
-
-EXPOSE 8080
-
-ENTRYPOINT ["/usr/local/bin/panel-entrypoint.sh"]

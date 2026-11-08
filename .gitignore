@@ -8,10 +8,10 @@
 /.superpowers/
 
 # 前端依赖与构建产物
-/web/node_modules/
-/web/dist/
-/web/test-results/
-/web/playwright-report/
+/panel/web/node_modules/
+/panel/web/dist/
+/panel/web/test-results/
+/panel/web/playwright-report/
 
 # 迁移前的历史素材（原仓库快照，仅本地保留）
 /.legacy/

@@ -33,7 +33,7 @@ def test_export_skips_existing_and_empty(tmp_path):
     path = _runtime(tmp_path, {"SAMPLE_STRIDE": "128", "PROBE_HOST": ""})
     env = dict(os.environ, RUNTIME_CONFIG_PATH=str(path), SAMPLE_STRIDE="512")
     out = subprocess.check_output(
-        [sys.executable, str(ROOT / "docker/export-runtime.py")], env=env, text=True
+        [sys.executable, str(ROOT / "scanner/docker/export-runtime.py")], env=env, text=True
     )
     assert "SAMPLE_STRIDE" not in out
     assert "PROBE_HOST" not in out
@@ -44,7 +44,7 @@ def test_export_plain_omits_shell_export(tmp_path):
     env = {key: value for key, value in os.environ.items() if key != "CRON_SCHEDULE"}
     env["RUNTIME_CONFIG_PATH"] = str(path)
     out = subprocess.check_output(
-        [sys.executable, str(ROOT / "docker/export-runtime.py"), "--plain"],
+        [sys.executable, str(ROOT / "scanner/docker/export-runtime.py"), "--plain"],
         env=env,
         text=True,
     )
@@ -57,6 +57,6 @@ def test_export_quotes_shell_metacharacters(tmp_path):
     env = {key: value for key, value in os.environ.items() if key != "PROBE_USER_AGENT"}
     env["RUNTIME_CONFIG_PATH"] = str(path)
     out = subprocess.check_output(
-        [sys.executable, str(ROOT / "docker/export-runtime.py")], env=env, text=True
+        [sys.executable, str(ROOT / "scanner/docker/export-runtime.py")], env=env, text=True
     )
     assert "export PROBE_USER_AGENT='a $(danger) b'" in out

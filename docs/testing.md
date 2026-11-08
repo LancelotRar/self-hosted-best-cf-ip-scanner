@@ -11,12 +11,12 @@
 | 单元 | `python -m pytest -q` | schema 默认值落库、配置事务与加密落库、JSON 投影解析、cron 5/6/7 段（supercronic 语义）、脱敏、轮次解析、路径安全、认证与限速 |
 | API 集成 | 同上（`tests/test_*_api.py`） | 认证/CSRF、配置保存事务与核对、409 冲突、回滚、调度、运行/SSE、日志、产物、IP 库、发布、系统 |
 | 脚本/配置契约 | `pytest tests/test_scripts.py -q` | `sh -n` 全部脚本、Python 脚本可编译、仓库无配置文件模板、compose 拓扑、无 `shell=True` |
-| 前端单元 | `npm --prefix web run test` | auth/config store、`ParamField` 值转换 |
-| 前端静态检查 | `npm --prefix web run lint` | ESLint + Vue/TS 规则 |
-| 前端类型/构建 | `npm --prefix web run typecheck && npm --prefix web run build` | Vue + TS 严格模式与生产构建、路由拆分 |
+| 前端单元 | `npm --prefix panel/web run test` | auth/config store、`ParamField` 值转换 |
+| 前端静态检查 | `npm --prefix panel/web run lint` | ESLint + Vue/TS 规则 |
+| 前端类型/构建 | `npm --prefix panel/web run typecheck && npm --prefix panel/web run build` | Vue + TS 严格模式与生产构建、路由拆分 |
 | 镜像/Compose 冒烟 | CI `smoke` job | scanner/panel 双镜像、scanner healthy、`/healthz`、首次设置页、运行配置投影生成与每轮重读、`run -e` 优先级 |
 | 依赖/镜像扫描 | CI `security` + `build` job | pip-audit、npm audit、Trivy HIGH/CRITICAL |
-| E2E | `npm --prefix web run e2e` | 首次设置/登录、保存结果面板、取消/非法值、409 冲突、日志连接状态、空产物、IP 库行错误、发布空态 |
+| E2E | `npm --prefix panel/web run e2e` | 首次设置/登录、保存结果面板、取消/非法值、409 冲突、日志连接状态、空产物、IP 库行错误、发布空态 |
 | 人工上线 | 见 §5 | 真实域名、真实发布、Windows Docker Desktop、反代、备份恢复 |
 
 后端覆盖率门禁：
@@ -45,14 +45,14 @@ python -m pytest -q \
 python -m pytest -q --cov=panel --cov=scanner --cov-fail-under=80
 
 # 契约
-sh -n docker/*.sh scripts/*.sh
+for f in scanner/docker/*.sh panel/docker/*.sh tests/scripts/*.sh; do sh -n "$f"; done
 python -m pytest tests/test_scripts.py -q
 
 # 前端
-npm --prefix web run lint
-npm --prefix web run typecheck
-npm --prefix web run build
-npm --prefix web run test
+npm --prefix panel/web run lint
+npm --prefix panel/web run typecheck
+npm --prefix panel/web run build
+npm --prefix panel/web run test
 ```
 
 ## 4. E2E 环境准备
@@ -62,11 +62,13 @@ E2E 需要一套**干净**的真实栈（CI 由 `e2e` job 自动准备）：
 ```bash
 rm -rf panel-data
 docker compose down -v            # 数据与产物在命名卷里，清空才算干净栈
+docker build -f scanner/Dockerfile -t ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner:latest .
+docker build -f panel/Dockerfile -t ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner-panel:latest .
 cp compose.example.yaml compose.yaml
-docker compose -f compose.yaml -f compose.build.yaml -f compose.control.yaml up -d --build
+SCANNER_CONTROL_URL=http://scanner-control:8090 docker compose --profile control up -d
 
-npm --prefix web exec playwright install --with-deps chromium
-PANEL_URL=http://127.0.0.1:8080 E2E_PASSWORD=e2e-correct-horse npm --prefix web run e2e
+npm --prefix panel/web exec playwright install --with-deps chromium
+PANEL_URL=http://127.0.0.1:8080 E2E_PASSWORD=e2e-correct-horse npm --prefix panel/web run e2e
 ```
 
 E2E 不依赖真实扫描成功：只验证运行流、错误与空态提示。应用参数使用数据库默认值；
@@ -79,8 +81,8 @@ E2E 不依赖真实扫描成功：只验证运行流、错误与空态提示。�
 | --- | --- |
 | `backend` | `pip check` 无冲突；pytest + 覆盖率 ≥ 80% |
 | `frontend` | `npm ci` → `lint` → `typecheck` → `build` → `test` |
-| `contract` | `sh -n docker/*.sh scripts/*.sh`；默认/构建/控制三种 compose 配置校验 |
-| `build` | scanner 与 panel 两个 target 构建成功；Trivy 扫描 HIGH/CRITICAL |
+| `contract` | `for f in scanner/docker/*.sh panel/docker/*.sh tests/scripts/*.sh; do sh -n "$f"; done`；默认与 control profile 两种 compose 配置校验 |
+| `build` | scanner 与 panel 两个 Dockerfile 构建成功；Trivy 扫描 HIGH/CRITICAL |
 | `security` | pip-audit（两个 requirements）+ npm audit（high） |
 | `smoke` | 启动默认栈；scanner healthy；面板 `/healthz` 200；默认无 socket/cap_drop/本机端口；运行配置投影生成且每轮重读；`run -e` 优先 |
 | `e2e` | 干净 `panel-data` 启动真实栈 + 控制 sidecar，Playwright 串行执行关键流程 |

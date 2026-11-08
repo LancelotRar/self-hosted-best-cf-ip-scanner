@@ -10,15 +10,11 @@ on:
     tags: ["v*"]
     # 只在这些路径变化时构建镜像：文档、compose 等改动不影响镜像内容。
     paths:
-      - "Dockerfile"
-      - "requirements.txt"
-      - "requirements-panel.txt"
-      - "best_cf_ip_scanner.py"
+      - "scanner/requirements.txt"
+      - "panel/requirements.txt"
       - "scanner/**"
       - "panel/**"
-      - "web/**"
       - "docker/**"
-      - "data/**"
       - ".github/workflows/docker.yml"
   workflow_dispatch:
 
@@ -80,7 +76,7 @@ jobs:
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
-          target: scanner
+          file: scanner/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta-scanner.outputs.tags }}
@@ -95,7 +91,7 @@ jobs:
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
-          target: panel
+          file: panel/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta-panel.outputs.tags }}

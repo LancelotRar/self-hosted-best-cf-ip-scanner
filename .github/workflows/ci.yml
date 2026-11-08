@@ -33,13 +33,13 @@ jobs:
           python-version: "3.13"
           cache: pip
           cache-dependency-path: |
-            requirements.txt
-            requirements-panel.txt
+            scanner/requirements.txt
+            panel/requirements.txt
             requirements-dev.txt
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt -r requirements-panel.txt -r requirements-dev.txt
+          pip install -r scanner/requirements.txt -r panel/requirements.txt -r requirements-dev.txt
       - name: Dependency conflicts
         run: pip check
       - name: Unit and API tests with coverage
@@ -58,12 +58,12 @@ jobs:
         with:
           node-version: "24"
           cache: npm
-          cache-dependency-path: web/package-lock.json
-      - run: npm ci --prefix web
-      - run: npm --prefix web run lint
-      - run: npm --prefix web run typecheck
-      - run: npm --prefix web run build
-      - run: npm --prefix web run test
+          cache-dependency-path: panel/web/package-lock.json
+      - run: npm ci --prefix panel/web
+      - run: npm --prefix panel/web run lint
+      - run: npm --prefix panel/web run typecheck
+      - run: npm --prefix panel/web run build
+      - run: npm --prefix panel/web run test
 
   contract:
     name: script and compose contract
@@ -71,13 +71,12 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Shell syntax
-        run: sh -n docker/*.sh scripts/*.sh
+        run: for f in scanner/docker/*.sh panel/docker/*.sh tests/scripts/*.sh; do sh -n "$f"; done
       - name: Compose config
         run: |
           cp compose.example.yaml compose.yaml
           docker compose config --quiet
-          docker compose -f compose.yaml -f compose.build.yaml config --quiet
-          docker compose -f compose.yaml -f compose.control.yaml config --quiet
+          SCANNER_CONTROL_URL=http://scanner-control:8090 docker compose --profile control config --quiet
 
   build:
     name: docker build
@@ -89,7 +88,7 @@ jobs:
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
-          target: scanner
+          file: scanner/Dockerfile
           platforms: linux/amd64
           push: false
           load: true
@@ -101,7 +100,7 @@ jobs:
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
-          target: panel
+          file: panel/Dockerfile
           platforms: linux/amd64
           push: false
           load: true
@@ -137,15 +136,15 @@ jobs:
       - name: pip-audit
         uses: pypa/gh-action-pip-audit@1220774d901786e6f652ae159f7b6bc8fea6d266 # v1.1.0
         with:
-          inputs: requirements.txt requirements-panel.txt
+          inputs: scanner/requirements.txt panel/requirements.txt
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
           cache: npm
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: panel/web/package-lock.json
       - name: npm audit
         run: |
-          npm ci --prefix web
+          npm ci --prefix panel/web
           npm audit --omit=dev --audit-level=high
 
   smoke:
@@ -157,10 +156,14 @@ jobs:
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       # 真正把镜像跑起来：入口脚本、crontab 渲染、面板启动、目录可写性都在启动路径上，
       # 只"构建成功"不足以证明镜像可用。
-      - name: Build and start
+      - name: Build images
+        run: |
+          docker build -f scanner/Dockerfile -t ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner:latest .
+          docker build -f panel/Dockerfile -t ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner-panel:latest .
+      - name: Start stack
         run: |
           cp compose.example.yaml compose.yaml
-          docker compose -f compose.yaml -f compose.build.yaml up -d --build
+          docker compose up -d
           docker compose ps
       - name: Wait for scanner healthy
         run: |
@@ -190,7 +193,7 @@ jobs:
           docker inspect best-cf-ip-scanner-panel --format '{{json .HostConfig.SecurityOpt}}' | grep -q no-new-privileges
           docker compose port panel 8080 | grep -q '^127.0.0.1:'
       - name: Verify config projection is re-read every round
-        run: sh scripts/test-config-projection.sh
+        run: sh tests/scripts/test-config-projection.sh
       - name: Verify explicit env beats projection
         run: |
           docker compose run --rm -T -e SAMPLE_STRIDE=512 \
@@ -207,7 +210,7 @@ jobs:
         run: docker compose logs --no-color
       - name: Tear down
         if: always()
-        run: docker compose -f compose.yaml -f compose.build.yaml down -v
+        run: docker compose down -v
 
   e2e:
     name: playwright e2e
@@ -220,17 +223,21 @@ jobs:
         with:
           node-version: "24"
           cache: npm
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: panel/web/package-lock.json
       - name: Install frontend deps and browser
         run: |
-          npm ci --prefix web
-          npm --prefix web exec playwright install --with-deps chromium
+          npm ci --prefix panel/web
+          npm --prefix panel/web exec playwright install --with-deps chromium
       - name: Start clean stack
+        env:
+          SCANNER_CONTROL_URL: http://scanner-control:8090
         run: |
           rm -rf panel-data
+          docker build -f scanner/Dockerfile -t ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner:latest .
+          docker build -f panel/Dockerfile -t ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner-panel:latest .
           cp compose.example.yaml compose.yaml
-          # e2e 需要日志页/运行页的真实容器控制，显式追加控制覆盖层。
-          docker compose -f compose.yaml -f compose.build.yaml -f compose.control.yaml up -d --build
+          # e2e 需要日志页/运行页的真实容器控制，显式启用 control profile。
+          docker compose --profile control up -d
           for _ in $(seq 1 45); do
             curl -fsS http://127.0.0.1:8080/healthz && exit 0
             sleep 2
@@ -239,7 +246,7 @@ jobs:
           docker compose logs --no-color panel
           exit 1
       - name: Run Playwright
-        run: npm --prefix web run e2e
+        run: npm --prefix panel/web run e2e
         env:
           PANEL_URL: http://127.0.0.1:8080
           E2E_PASSWORD: e2e-correct-horse
@@ -248,11 +255,11 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: playwright-traces
-          path: web/test-results
+          path: panel/web/test-results
           retention-days: 7
       - name: Show logs
         if: always()
-        run: docker compose -f compose.yaml -f compose.build.yaml -f compose.control.yaml logs --no-color
+        run: docker compose --profile control logs --no-color
       - name: Tear down
         if: always()
-        run: docker compose -f compose.yaml -f compose.build.yaml -f compose.control.yaml down -v
+        run: docker compose --profile control down -v

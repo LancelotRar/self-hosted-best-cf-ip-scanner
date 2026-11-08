@@ -66,7 +66,7 @@ record_start
 log "生效参数: ${summary:-<不可用>}"
 log "开始扫描"
 
-if python "$APP_DIR/best_cf_ip_scanner.py"; then
+if PYTHONPATH="$APP_DIR" python -m scanner; then
   log "扫描成功，耗时 $(( $(date +%s) - start ))s"
 else
   rc=$?

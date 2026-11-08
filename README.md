@@ -176,13 +176,13 @@ TCP 握手测量：合格 2673，淘汰 1488（每候选 3 次，至少成功 2 
 
 > [!IMPORTANT]
 > 默认 compose 不挂载 `docker.sock`，因此「立即执行 / 实时日志 / 启停扫描容器」默认不可用。
-> 需要这些能力时显式追加控制覆盖层：
+> 需要这些能力时启用 control profile，并传入控制地址：
 >
 > ```bash
-> docker compose -f compose.yaml -f compose.control.yaml up -d
+> SCANNER_CONTROL_URL=http://scanner-control:8090 docker compose --profile control up -d
 > ```
 >
-> 覆盖层会启动一个固定操作 sidecar：只有 sidecar 挂载 `docker.sock`，面板通过内部
+> control profile 会启动一个固定操作 sidecar：只有 sidecar 挂载 `docker.sock`，面板通过内部
 > `control` 网络调用它，不再直接持有 Engine API。sidecar 仍等价于宿主机 root 权限，
 > 只在可信网络、已启用 TLS 反向代理的环境中使用；可设置 `SCANNER_CONTROL_TOKEN`
 > 增加一层共享口令。

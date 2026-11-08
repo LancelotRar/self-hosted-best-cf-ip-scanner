@@ -9,7 +9,7 @@
     locations 边缘机房代码 -> 国家代码 的本地映射读取
     outputs   合格候选 -> 明细表（CSV）+ 订阅列表（TXT）
 
-编排入口见仓库根目录的 best_cf_ip_scanner.py。
+编排入口见 `scanner/__main__.py`，在容器内以 `python -m scanner` 运行。
 """
 
 import importlib

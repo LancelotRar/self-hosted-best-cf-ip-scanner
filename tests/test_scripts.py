@@ -8,23 +8,27 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_all_shell_scripts_parse():
-    scripts = sorted((ROOT / "docker").glob("*.sh"))
+    scripts = sorted([*(ROOT / "scanner/docker").glob("*.sh"), *(ROOT / "panel/docker").glob("*.sh"), *(ROOT / "docker").glob("*.sh"), *(ROOT / "tests" / "scripts").glob("*.sh")])
     assert scripts
     for path in scripts:
         subprocess.run(["sh", "-n", str(path)], check=True)
 
 
 def test_all_python_scripts_compile():
-    for path in sorted((ROOT / "docker").glob("*.py")):
+    for path in sorted([*(ROOT / "scanner/docker").glob("*.py"), *(ROOT / "docker").glob("*.py")]):
         py_compile.compile(str(path), doraise=True)
 
 
 def test_repository_has_no_env_template():
     """项目不再提供配置文件模板；部署参数只写在 compose.yaml。"""
+    import re
+
     assert not (ROOT / ".env.example").exists()
     compose = (ROOT / "compose.example.yaml").read_text(encoding="utf-8")
-    assert "${" not in compose
     assert "env_file" not in compose
+    # 只允许可选的容器控制变量通过环境注入，其余部署参数必须直接写在 compose 里。
+    interpolated = set(re.findall(r"\$\{([A-Z_]+)", compose))
+    assert interpolated <= {"SCANNER_CONTROL_URL", "SCANNER_CONTROL_TOKEN"}
 
 
 def test_compose_example_wires_panel_and_config_projection():
@@ -45,7 +49,7 @@ def test_compose_example_wires_panel_and_config_projection():
 
 
 def test_entrypoint_reads_projection_and_keeps_params_out_of_long_running_env():
-    text = (ROOT / "docker/entrypoint.sh").read_text(encoding="utf-8")
+    text = (ROOT / "scanner/docker/entrypoint.sh").read_text(encoding="utf-8")
     # 只取调度相关键；PUID/PGID 属于部署参数，不再出现在配置文件里。
     assert "--plain --keys TZ,CRON_SCHEDULE,RUN_ON_START" in text
     assert "PUID,PGID,TZ" not in text
@@ -55,11 +59,11 @@ def test_entrypoint_reads_projection_and_keeps_params_out_of_long_running_env():
     assert "DEFAULT_DATA_DIR" not in text
     # 旧的手工编辑监听已删除
     assert "config-watcher" not in text
-    assert not (ROOT / "docker/config-watcher.sh").exists()
+    assert not (ROOT / "scanner/docker/config-watcher.sh").exists()
 
 
 def test_apply_config_uses_supercronic_reload_signal():
-    text = (ROOT / "docker/apply-config.sh").read_text(encoding="utf-8")
+    text = (ROOT / "scanner/docker/apply-config.sh").read_text(encoding="utf-8")
     # supercronic 用 SIGUSR2 重载；SIGHUP 会终止 PID 1 导致容器重启。
     assert "kill -USR2 1" in text
     assert "kill -HUP" not in text
@@ -68,8 +72,8 @@ def test_apply_config_uses_supercronic_reload_signal():
 
 
 def test_shell_boolean_defaults_match_schema():
-    entrypoint = (ROOT / "docker/entrypoint.sh").read_text(encoding="utf-8")
-    publish = (ROOT / "docker/publish.sh").read_text(encoding="utf-8")
+    entrypoint = (ROOT / "scanner/docker/entrypoint.sh").read_text(encoding="utf-8")
+    publish = (ROOT / "scanner/docker/publish.sh").read_text(encoding="utf-8")
     # 空值 = 未设置 = schema 默认值；shell 默认值必须一致。
     assert 'RUN_ON_START="${RUN_ON_START:-true}"' in entrypoint
     assert 'GIT_PUSH_ENABLED="${GIT_PUSH_ENABLED:-false}"' in publish
@@ -92,7 +96,7 @@ def test_cli_reset_password_keeps_audit(tmp_path, monkeypatch):
 
 
 def test_project_source_files_avoid_shell_true():
-    for path in [*(ROOT / "panel").rglob("*.py"), *ROOT.glob("docker/*.py")]:
+    for path in [*(ROOT / "panel").rglob("*.py"), *ROOT.glob("scanner/docker/*.py"), *ROOT.glob("docker/*.py")]:
         text = path.read_text(encoding="utf-8")
         assert "shell=True" not in text, path
 

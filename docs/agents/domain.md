@@ -20,9 +20,10 @@
 ├── docs/adr/
 │   ├── 0001-....md
 │   └── 0002-....md
-├── panel/          ← 面板后端（FastAPI）
+├── panel/          ← 面板后端（FastAPI）+ panel/web/ 前端（Vue 3 + TS）
 ├── scanner/        ← 扫描核心库（参数 schema 唯一真源）
-└── web/            ← 面板前端（Vue 3 + TS）
+├── panel/Dockerfile
+└── scanner/Dockerfile
 ```
 
 多上下文仓库（根目录存在 `GLOSSARY-MAP.md` 时）才使用根 `GLOSSARY-MAP.md` + 各上下文自己的 `GLOSSARY.md` 与 `docs/adr/`；本仓库不适用。

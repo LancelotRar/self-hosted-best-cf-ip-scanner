@@ -298,13 +298,13 @@ volumes:
 ### 6.1 容器控制（可选）
 
 默认栈不挂载 `docker.sock`，面板的「立即执行 / 实时日志 / 启停扫描容器」不可用。
-需要时追加控制覆盖层：
+需要时启用 control profile，并把面板的控制地址指向 sidecar：
 
 ```bash
-docker compose -f compose.yaml -f compose.control.yaml up -d
+SCANNER_CONTROL_URL=http://scanner-control:8090 docker compose --profile control up -d
 ```
 
-覆盖层新增 `scanner-control` sidecar：只有它挂载 `docker.sock`，面板通过内部
+control profile 新增 `scanner-control` sidecar：只有它挂载 `docker.sock`，面板通过内部
 `control` 网络调用固定端点（状态、日志、执行一轮、应用配置、启停），不再直接
 持有 Engine API。可设置 `SCANNER_CONTROL_TOKEN` 让 panel 与 sidecar 共享请求口令。
 
@@ -312,23 +312,28 @@ docker compose -f compose.yaml -f compose.control.yaml up -d
 
 ## 7. 本地构建镜像（可选）
 
+标准 `compose.yaml` 只拉取官方镜像，不包含构建上下文；改过代码或需要离线构建时，
+用两个 Dockerfile 分别构建，再启动 compose：
+
 ```bash
-docker compose -f compose.yaml -f compose.build.yaml up -d --build
+docker build -f scanner/Dockerfile -t ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner:latest .
+docker build -f panel/Dockerfile -t ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner-panel:latest .
+docker compose up -d
 ```
 
-构建产物直接打上 `compose.yaml` 里的镜像名，本地优先于拉取。构建参数直接写在
-`compose.build.yaml`；需要代理或镜像加速时修改该文件，或用 `--build-arg` 传入：
+需要代理或镜像加速时通过构建参数传入：
 
 ```bash
-docker compose -f compose.yaml -f compose.build.yaml build \
+docker build -f scanner/Dockerfile \
   --build-arg HTTP_PROXY=http://<代理>:7890 \
-  --build-arg HTTPS_PROXY=http://<代理>:7890
-```
+  --build-arg HTTPS_PROXY=http://<代理>:7890 \
+  -t ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner:latest .
 
-中国网络下还可以在 `compose.build.yaml` 里设置镜像站：
-
-```yaml
-APK_MIRROR: https://mirrors.aliyun.com/alpine
-PIP_INDEX_URL: https://pypi.tuna.tsinghua.edu.cn/simple
-NPM_CONFIG_REGISTRY: https://registry.npmmirror.com
+docker build -f panel/Dockerfile \
+  --build-arg HTTP_PROXY=http://<代理>:7890 \
+  --build-arg HTTPS_PROXY=http://<代理>:7890 \
+  --build-arg APK_MIRROR=https://mirrors.aliyun.com/alpine \
+  --build-arg PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple \
+  --build-arg NPM_CONFIG_REGISTRY=https://registry.npmmirror.com \
+  -t ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner-panel:latest .
 ```
