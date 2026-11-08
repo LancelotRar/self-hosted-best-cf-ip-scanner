@@ -21,14 +21,10 @@ def test_all_python_scripts_compile():
 
 def test_repository_has_no_env_template():
     """项目不再提供配置文件模板；部署参数只写在 compose.yaml。"""
-    import re
-
     assert not (ROOT / ".env.example").exists()
     compose = (ROOT / "compose.example.yaml").read_text(encoding="utf-8")
+    assert "${" not in compose
     assert "env_file" not in compose
-    # 只允许可选的容器控制变量通过环境注入，其余部署参数必须直接写在 compose 里。
-    interpolated = set(re.findall(r"\$\{([A-Z_]+)", compose))
-    assert interpolated <= {"SCANNER_CONTROL_URL", "SCANNER_CONTROL_TOKEN"}
 
 
 def test_compose_example_wires_panel_and_config_projection():

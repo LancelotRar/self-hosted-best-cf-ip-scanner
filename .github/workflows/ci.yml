@@ -76,7 +76,6 @@ jobs:
         run: |
           cp compose.example.yaml compose.yaml
           docker compose config --quiet
-          SCANNER_CONTROL_URL=http://scanner-control:8090 docker compose --profile control config --quiet
 
   build:
     name: docker build
@@ -188,7 +187,7 @@ jobs:
           curl -fsS http://127.0.0.1:8080/ | grep -q "运维面板"
       - name: Verify default security posture
         run: |
-          docker compose exec -T panel sh -c 'test ! -S /var/run/docker.sock'
+          docker compose exec -T panel sh -c 'test -S /var/run/docker.sock'
           docker inspect best-cf-ip-scanner-panel --format '{{json .HostConfig.CapDrop}}' | grep -q ALL
           docker inspect best-cf-ip-scanner-panel --format '{{json .HostConfig.SecurityOpt}}' | grep -q no-new-privileges
           docker compose port panel 8080 | grep -q '^127.0.0.1:'
@@ -229,15 +228,12 @@ jobs:
           npm ci --prefix panel/web
           npm --prefix panel/web exec playwright install --with-deps chromium
       - name: Start clean stack
-        env:
-          SCANNER_CONTROL_URL: http://scanner-control:8090
         run: |
           rm -rf panel-data
           docker build -f scanner/Dockerfile -t ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner:latest .
           docker build -f panel/Dockerfile -t ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner-panel:latest .
           cp compose.example.yaml compose.yaml
-          # e2e 需要日志页/运行页的真实容器控制，显式启用 control profile。
-          docker compose --profile control up -d
+          docker compose up -d
           for _ in $(seq 1 45); do
             curl -fsS http://127.0.0.1:8080/healthz && exit 0
             sleep 2
@@ -259,7 +255,7 @@ jobs:
           retention-days: 7
       - name: Show logs
         if: always()
-        run: docker compose --profile control logs --no-color
+        run: docker compose logs --no-color
       - name: Tear down
         if: always()
-        run: docker compose --profile control down -v
+        run: docker compose down -v

@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1
-
 # ------------------------------------------------------------- Python 公共层 --
 # 解释器、时区库与证书；不包含 git/supercronic/业务依赖。
 FROM python:3.13-alpine3.23 AS python-base

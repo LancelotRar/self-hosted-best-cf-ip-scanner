@@ -79,23 +79,18 @@ def test_frontend_lint_runs_in_ci():
     assert "npm --prefix panel/web run lint" in runs
 
 
-def test_contract_checks_control_overlay():
-    job = _workflow("ci.yml")["jobs"]["contract"]
-    step = _step(job, "Compose config")
-    assert "--profile control" in step["run"]
-
-
-def test_smoke_checks_default_security_posture():
+def test_smoke_checks_panel_has_docker_socket():
     job = _workflow("ci.yml")["jobs"]["smoke"]
     step = _step(job, "Verify default security posture")
-    assert "test ! -S /var/run/docker.sock" in step["run"]
+    assert "test -S /var/run/docker.sock" in step["run"]
     assert "CapDrop" in step["run"]
 
 
-def test_e2e_uses_control_overlay_for_container_control():
+def test_e2e_uses_standard_compose():
     job = _workflow("ci.yml")["jobs"]["e2e"]
     step = _step(job, "Start clean stack")
-    assert "--profile control" in step["run"]
+    assert "docker compose up -d" in step["run"]
+    assert "--profile control" not in step["run"]
 
 
 def test_third_party_actions_are_sha_pinned():

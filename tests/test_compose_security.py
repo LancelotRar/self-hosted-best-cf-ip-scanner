@@ -1,4 +1,4 @@
-"""Compose 安全契约：默认栈必须收紧，控制能力必须显式可选。"""
+"""Compose 契约：面板直接持有 docker.sock 换取完整控制，其余权限保持收紧。"""
 
 from __future__ import annotations
 
@@ -18,11 +18,13 @@ def test_default_panel_binds_loopback_only():
     assert panel["ports"] == ["127.0.0.1:8080:8080"]
 
 
-def test_default_panel_does_not_mount_docker_socket():
-    panel = _compose()["services"]["panel"]
-    assert not any(
+def test_panel_mounts_docker_socket_for_full_control():
+    compose = _compose()
+    panel = compose["services"]["panel"]
+    assert any(
         "/var/run/docker.sock" in str(volume) for volume in panel["volumes"]
     )
+    assert "scanner-control" not in compose["services"]
 
 
 def test_default_panel_drops_all_capabilities():
@@ -47,19 +49,3 @@ def test_scanner_and_panel_have_resource_limits():
     assert scanner["mem_limit"] == "1g"
     assert panel["pids_limit"] == 256
     assert panel["mem_limit"] == "256m"
-
-
-def test_control_profile_uses_sidecar_not_panel_socket():
-    compose = _compose()
-    panel = compose["services"]["panel"]
-    sidecar = compose["services"]["scanner-control"]
-
-    assert sidecar["profiles"] == ["control"]
-    assert not any(
-        "/var/run/docker.sock" in str(volume) for volume in panel.get("volumes", [])
-    )
-    assert any(
-        "/var/run/docker.sock" in str(volume) for volume in sidecar["volumes"]
-    )
-    assert panel["environment"]["SCANNER_CONTROL_URL"] == "${SCANNER_CONTROL_URL:-}"
-    assert "control" in panel["networks"]

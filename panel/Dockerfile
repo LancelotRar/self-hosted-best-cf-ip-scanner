@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1
-
 # ---------------------------------------------------------------- 前端构建 --
 FROM node:24-alpine AS web
 

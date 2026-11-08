@@ -12,10 +12,6 @@ def settings_of(request: Request):
 
 
 def _build_controller(settings):
-    if settings.control_url:
-        from .http_control import HttpController
-
-        return HttpController(settings.control_url, settings.control_token)
     return default_controller(settings)
 
 

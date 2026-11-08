@@ -65,7 +65,7 @@ docker compose down -v            # 数据与产物在命名卷里，清空才�
 docker build -f scanner/Dockerfile -t ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner:latest .
 docker build -f panel/Dockerfile -t ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner-panel:latest .
 cp compose.example.yaml compose.yaml
-SCANNER_CONTROL_URL=http://scanner-control:8090 docker compose --profile control up -d
+docker compose up -d
 
 npm --prefix panel/web exec playwright install --with-deps chromium
 PANEL_URL=http://127.0.0.1:8080 E2E_PASSWORD=e2e-correct-horse npm --prefix panel/web run e2e
@@ -81,11 +81,11 @@ E2E 不依赖真实扫描成功：只验证运行流、错误与空态提示。�
 | --- | --- |
 | `backend` | `pip check` 无冲突；pytest + 覆盖率 ≥ 80% |
 | `frontend` | `npm ci` → `lint` → `typecheck` → `build` → `test` |
-| `contract` | `for f in scanner/docker/*.sh panel/docker/*.sh tests/scripts/*.sh; do sh -n "$f"; done`；默认与 control profile 两种 compose 配置校验 |
+| `contract` | `for f in scanner/docker/*.sh panel/docker/*.sh tests/scripts/*.sh; do sh -n "$f"; done`；默认 compose 配置校验 |
 | `build` | scanner 与 panel 两个 Dockerfile 构建成功；Trivy 扫描 HIGH/CRITICAL |
 | `security` | pip-audit（两个 requirements）+ npm audit（high） |
 | `smoke` | 启动默认栈；scanner healthy；面板 `/healthz` 200；默认无 socket/cap_drop/本机端口；运行配置投影生成且每轮重读；`run -e` 优先 |
-| `e2e` | 干净 `panel-data` 启动真实栈 + 控制 sidecar，Playwright 串行执行关键流程 |
+| `e2e` | 干净 `panel-data` 启动真实栈（面板直连 docker.sock），Playwright 串行执行关键流程 |
 
 ### 5.1 安全扫描豁免
 

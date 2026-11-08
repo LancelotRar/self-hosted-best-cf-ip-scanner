@@ -26,7 +26,7 @@ Cloudflare 边缘、淘汰 EIV 受限子池、取回边缘机房代码），定�
 - **应用参数全在面板**：探测域名、采样、订阅档位、发布与代理都在面板里编辑，首次启动把默认值写入数据库，并自动生成扫描器读取的运行期投影。
 - **数据与产物集中在卷与面板数据库**：扫描产物在命名卷；候选地址库、机房映射、配置与审计在 `panel-data/panel.db`（绑定挂载，需要备份）。
 - **失败不覆盖**：任一筛选阶段全灭时进程返回非零、不写新产物，目标仓库保留上一轮结果。
-- **轻量且最小权限**：Alpine + Python 3.13 多阶段构建；扫描业务进程非 root、只读根文件系统；面板默认只监听本机且不挂载 docker.sock。
+- **轻量且权限清晰**：Alpine + Python 3.13 多阶段构建；扫描业务进程非 root、只读根文件系统；面板默认只监听本机，并直接挂载 docker.sock 以提供完整容器控制（等价宿主机 root，仅限可信环境）。
 - **日志面向排障**：启动打印生效配置，每轮打印阶段耗时与失败原因 top-5，另有 `doctor.sh` 一键自检。
 
 ## 文档导航
@@ -175,17 +175,9 @@ TCP 握手测量：合格 2673，淘汰 1488（每候选 3 次，至少成功 2 
 > 详见 [运维面板](docs/panel.md)。
 
 > [!IMPORTANT]
-> 默认 compose 不挂载 `docker.sock`，因此「立即执行 / 实时日志 / 启停扫描容器」默认不可用。
-> 需要这些能力时启用 control profile，并传入控制地址：
->
-> ```bash
-> SCANNER_CONTROL_URL=http://scanner-control:8090 docker compose --profile control up -d
-> ```
->
-> control profile 会启动一个固定操作 sidecar：只有 sidecar 挂载 `docker.sock`，面板通过内部
-> `control` 网络调用它，不再直接持有 Engine API。sidecar 仍等价于宿主机 root 权限，
-> 只在可信网络、已启用 TLS 反向代理的环境中使用；可设置 `SCANNER_CONTROL_TOKEN`
-> 增加一层共享口令。
+> 面板直接挂载 `docker.sock`，因此「立即执行 / 实时日志 / 启停扫描容器 / 生效核对」
+> 默认全部可用。`docker.sock` 等价于宿主机 root 权限，只应在可信网络、已启用 TLS
+> 反向代理、已设置强管理员密码的环境中使用。
 
 ### 5. 产物
 

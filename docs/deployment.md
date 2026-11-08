@@ -295,20 +295,20 @@ volumes:
 > [`compose.example.yaml`](../compose.example.yaml) 为准。
 > 面板说明见 [运维面板](panel.md)。
 
-### 6.1 容器控制（可选）
+### 6.1 容器控制
 
-默认栈不挂载 `docker.sock`，面板的「立即执行 / 实时日志 / 启停扫描容器」不可用。
-需要时启用 control profile，并把面板的控制地址指向 sidecar：
+面板直接挂载 `docker.sock`，因此「立即执行 / 实时日志 / 启停扫描容器 / 生效核对」
+默认全部可用：
 
-```bash
-SCANNER_CONTROL_URL=http://scanner-control:8090 docker compose --profile control up -d
+```yaml
+services:
+  panel:
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
 ```
 
-control profile 新增 `scanner-control` sidecar：只有它挂载 `docker.sock`，面板通过内部
-`control` 网络调用固定端点（状态、日志、执行一轮、应用配置、启停），不再直接
-持有 Engine API。可设置 `SCANNER_CONTROL_TOKEN` 让 panel 与 sidecar 共享请求口令。
-
-`docker.sock` 等价于宿主机 root；只在可信网络、已启用 TLS 反向代理的环境中使用。
+`docker.sock` 等价于宿主机 root 权限。只应在可信网络、已启用 TLS 反向代理、
+已设置强管理员密码的环境中使用；不要把面板直接暴露到公网。
 
 ## 7. 本地构建镜像（可选）
 

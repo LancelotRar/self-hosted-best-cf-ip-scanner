@@ -17,10 +17,9 @@
 #   docker compose up -d
 # 本地构建镜像（维护者 / 离线环境）：见 docs/deployment.md 的 docker build 命令。
 #
-# 默认不挂载 docker.sock：面板只做配置、产物与审计，容器控制（日志/立即执行/启停）
-# 默认不可用。需要这些能力时启用 control profile，并把控制地址指向 sidecar：
-#   SCANNER_CONTROL_URL=http://scanner-control:8090 docker compose --profile control up -d
-# 注意：sidecar 仍持有 docker.sock，等价于宿主机 root，仅在可信网络使用。
+# 面板直接挂载 docker.sock，以获得完整容器控制（状态/日志/立即执行/启停/生效核对）。
+# 安全提示：docker.sock 等价于宿主机 root，仅在可信网络、已启用 TLS 反向代理、
+# 已设置强管理员密码的环境中使用。
 name: best-cf-ip-scanner
 
 # 两个服务（常驻调度 / 一次性执行）共用同一份运行配置，避免参数漂移
@@ -111,8 +110,8 @@ services:
 
   # 运维面板：与扫描器同一镜像、同一 compose 项目。
   #   默认只监听 127.0.0.1:8080；远程访问请用 SSH 隧道或 TLS 反向代理。
-  # 以 root 运行只为把数据卷文件属主对齐到 PUID/PGID；不挂 docker.sock。
-  # 需要容器控制时启用 control profile（见文件头说明）。
+  # 以 root 运行：既用于对齐数据卷属主，也用于通过 docker.sock 控制扫描容器。
+  # 面板直接持有 Docker Engine API，安全边界等同于宿主机 root（见文件头说明）。
   # 面板是应用配置的唯一入口：配置存数据库，并生成扫描器读取的 /scanner-config/runtime.json。
   panel:
     image: ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner-panel:latest
@@ -134,8 +133,6 @@ services:
       CACHE_DIR: /cache
       PANEL_TRUST_PROXY: "false"
       PANEL_SESSION_DAYS: "7"
-      # 启用 control profile 时由部署者显式传入；默认空值表示不启用容器控制。
-      SCANNER_CONTROL_URL: "${SCANNER_CONTROL_URL:-}"
       # 首次设置口令（可选）：设置后首次设置页会要求输入同一个值。
       # PANEL_SETUP_TOKEN: "change-me"
       HOME: /tmp
@@ -147,6 +144,8 @@ services:
       - ./panel-data:/panel-data
       # 运行配置投影：面板唯一写入方，扫描器只读挂载
       - scanner-config:/scanner-config
+      # 直接控制扫描容器；等价于宿主机 root，务必限制面板访问来源
+      - /var/run/docker.sock:/var/run/docker.sock
     read_only: true
     tmpfs:
       - /tmp:size=64m
@@ -161,9 +160,6 @@ services:
       - SETGID
     security_opt:
       - no-new-privileges:true
-    networks:
-      - default
-      - control
     pids_limit: 256
     mem_limit: 256m
     restart: unless-stopped
@@ -183,58 +179,9 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # 可选控制 sidecar：只有它挂载 docker.sock，面板通过内部 control 网络调用。
-  # 启用方式：SCANNER_CONTROL_URL=http://scanner-control:8090 docker compose --profile control up -d
-  scanner-control:
-    profiles: ["control"]
-    image: ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner-panel:latest
-    container_name: best-cf-ip-scanner-control
-    entrypoint: ["python", "-m", "panel.control_sidecar"]
-    environment:
-      SCANNER_CONTAINER: best-cf-ip-scanner
-      CONTROL_PORT: "8090"
-      SCANNER_CONTROL_TOKEN: "${SCANNER_CONTROL_TOKEN:-}"
-      HOME: /tmp
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    read_only: true
-    tmpfs:
-      - /tmp:size=32m
-    cap_drop:
-      - ALL
-    cap_add:
-      - DAC_OVERRIDE
-    security_opt:
-      - no-new-privileges:true
-    pids_limit: 128
-    mem_limit: 256m
-    networks:
-      - control
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    healthcheck:
-      test:
-        - CMD
-        - python
-        - -c
-        - "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8090/healthz', timeout=3)"
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-
-
 # 命名卷：数据与产物都不再落宿主目录，只能在面板里查看/编辑
 volumes:
   ip-data:
   scan-output:
   publish-cache:
   scanner-config:
-
-networks:
-  control:
-    internal: true
