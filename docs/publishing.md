@@ -24,8 +24,8 @@
 </tbody>
 </table>
 
-改完在面板「仓库设置」页保存即可，下一轮生效；手工编辑 `.env` 同样在下一轮生效。
-只有 `PUID` / `PGID` / `TZ` / `RUN_ON_START` 需要重启扫描容器。
+改完在面板「仓库设置」页保存即可，下一轮生效。
+只有 `TZ` / `RUN_ON_START` 需要重启扫描容器。
 
 目标仓库不需要预先存在任何提交：新建的空仓库也能直接发布，首次会创建
 `GIT_BRANCH` 分支并提交产物。
@@ -50,7 +50,7 @@
 - 令牌只通过 `http.extraheader` 注入到本次 git 进程，**不写入 `.git/config`**，
   也不出现在 `git remote -v` 或日志中。
 - 建议使用细粒度令牌，仅授予目标仓库 `Contents: Read and write`。
-- 令牌泄露时直接在仓库侧吊销并覆盖 `.env`，无需改动镜像。
+- 令牌泄露时直接在仓库侧吊销，然后在面板「仓库设置」里更新访问令牌。
 
 ## 仓库侧效果
 
@@ -74,8 +74,9 @@ docker run --rm -v <compose项目名>_publish-cache:/cache alpine rm -rf /cache/
 
 ## 不推送远端时的验证方式
 
-目标仓库也可以填本地路径或 `file://`（此时不需要令牌），便于离线验证发布链路：
+目标仓库也可以填本地路径或 `file://`（此时不需要令牌），便于离线验证发布链路。
+在面板「仓库设置 → 目标仓库」里填：
 
-```dotenv
-GIT_REPO_URL=file:///path/to/your/repo.git
+```text
+file:///path/to/your/repo.git
 ```

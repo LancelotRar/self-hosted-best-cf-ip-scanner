@@ -1,8 +1,9 @@
 # best-cf-ip-scanner —— 运行配置（官方镜像）
 #
-#   1) 本文件复制为 compose.yaml；.env.example 复制为 .env
-#   2) 在 .env 里填写 PROBE_HOST
+#   1) 本文件复制为 compose.yaml
+#   2) 需要改运行身份、端口或镜像版本时，直接编辑本文件（部署参数只在这里）
 #   3) docker compose up -d && docker compose logs -f
+#   4) 浏览器打开面板，在「参数」页填写探测域名等应用参数
 #
 # 手动执行一轮：docker compose run --rm scan-once
 #
@@ -10,6 +11,7 @@
 #   ip-data        输入：候选地址库 + 机房映射（面板里编辑，数据库为唯一真源）
 #   scan-output    产物：明细表 detail.csv + 订阅列表 GLOBAL{N}.txt / {国家代码}{N}.txt
 #   publish-cache  发布缓存：目标仓库的浅克隆（可随时删除）
+#   scanner-config 运行配置投影：面板写入，扫描器只读
 #
 # 本地构建镜像见 compose.build.yaml：
 #   docker compose -f compose.yaml -f compose.build.yaml up -d --build
@@ -17,21 +19,26 @@ name: best-cf-ip-scanner
 
 # 两个服务（常驻调度 / 一次性执行）共用同一份运行配置，避免参数漂移
 x-scanner-common: &scanner-common
-  # 官方镜像（多架构 amd64/arm64）。锁定版本可把 IMAGE_TAG 改成 sha-xxxxxxx 或 1.2.3
-  image: ${IMAGE_NAME:-ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner}:${IMAGE_TAG:-latest}
-  # 不再用 env_file 注入：`.env` 是唯一配置源，扫描器每轮自己重新读取
-  # /project/.env（面板与手工编辑同源）。显式 environment 仍优先于 .env。
-  # 容器内路径固定；对应宿主目录见下方 volumes
+  # 官方镜像（多架构 amd64/arm64）。锁定版本时直接改这里的标签。
+  image: ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner:latest
+  # 应用参数由面板写入 /scanner-config/runtime.json，扫描器每轮自己重新读取。
+  # 这里只保留部署参数（运行身份）与容器内固定路径；显式 environment 仍优先。
   environment:
-    DOTENV_PATH: /project/.env
+    RUNTIME_CONFIG_PATH: /scanner-config/runtime.json
+    PUID: "1000"
+    PGID: "1000"
     OUTPUT_DIR: /output
     DATA_DIR: /data
     GIT_REPO_DIR: /cache/repo
+  # 面板先启动并生成运行配置投影；投影不存在时扫描器不进入调度。
+  depends_on:
+    panel:
+      condition: service_healthy
   # 最小权限：只读根文件系统
   read_only: true
   tmpfs:
     - /tmp:size=64m
-  # 入口以 root 只做「挂载目录 chown + 首启播种数据 + su-exec 降权」，
+  # 入口以 root 只做「挂载目录 chown + su-exec 降权」，
   # 因此只放这几步必需的五个能力；降权后业务进程不带任何 root 能力。
   cap_drop:
     - ALL
@@ -50,15 +57,14 @@ x-scanner-common: &scanner-common
     - scan-output:/output
     # 发布缓存：目标仓库的浅克隆，删掉卷即可让下一轮重新克隆
     - publish-cache:/cache
-    # 项目目录只读挂载：扫描器从这里每轮读取 .env
-    - ./:/project:ro
+    # 运行配置投影：只有面板写，扫描器只读
+    - scanner-config:/scanner-config:ro
 
 services:
   # 常驻服务：容器内按 CRON_SCHEDULE 调度
   scanner:
     <<: *scanner-common
-    # 固定容器名：CI 冒烟与文档命令按此名引用；不需要可删掉这行，Compose 会自动命名
-    container_name: ${CONTAINER_NAME:-best-cf-ip-scanner}
+    container_name: best-cf-ip-scanner
     # 单机常驻：随宿主机/守护进程重启自动恢复；每轮任务幂等
     restart: unless-stopped
     # 停止时给当前这一轮留出收尾时间（全量约 2 分钟），避免正在推送产物时被 SIGKILL。
@@ -91,41 +97,43 @@ services:
     entrypoint: ["/usr/local/bin/scan-and-publish.sh"]
 
   # 运维面板：与扫描器同一镜像、同一 compose 项目，通过 docker.sock 只操作本项目扫描容器。
-  #   浏览器访问 http://<宿主IP>:${PANEL_PORT}
-  # 以 root 运行：需要访问 docker.sock，并把写入 .env 的属主对齐到宿主机原文件。
+  #   浏览器访问 http://<宿主IP>:8080
+  # 以 root 运行：需要访问 docker.sock，并把写入数据卷的文件属主对齐到 PUID/PGID。
+  # 面板是应用配置的唯一入口：配置存数据库，并生成扫描器读取的 /scanner-config/runtime.json。
   panel:
-    image: ${IMAGE_NAME:-ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner}:${IMAGE_TAG:-latest}
-    container_name: ${PANEL_CONTAINER_NAME:-best-cf-ip-scanner-panel}
+    image: ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner:latest
+    container_name: best-cf-ip-scanner-panel
     entrypoint: ["/usr/local/bin/panel-entrypoint.sh"]
     ports:
-      - "${PANEL_BIND:-0.0.0.0}:${PANEL_PORT:-8080}:8080"
+      - "8080:8080"
     environment:
-      PROJECT_DIR: /project
-      DOTENV_PATH: /project/.env
+      CONFIG_DIR: /scanner-config
+      DEFAULT_DATA_DIR: /opt/default-data
       PANEL_DATA_DIR: /panel-data
-      PANEL_PORT: 8080
-      SCANNER_CONTAINER: ${CONTAINER_NAME:-best-cf-ip-scanner}
+      PANEL_PORT: "8080"
+      PUID: "1000"
+      PGID: "1000"
+      SCANNER_CONTAINER: best-cf-ip-scanner
+      SCANNER_IMAGE: ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner:latest
       DATA_DIR: /data
       OUTPUT_DIR: /output
       CACHE_DIR: /cache
-      PANEL_TRUST_PROXY: ${PANEL_TRUST_PROXY:-false}
-      PANEL_SESSION_DAYS: ${PANEL_SESSION_DAYS:-7}
+      PANEL_TRUST_PROXY: "false"
+      PANEL_SESSION_DAYS: "7"
       HOME: /tmp
     volumes:
       # 只读挂载 docker.sock：面板只能通过 Engine API 操作容器，不落任意命令执行
       - /var/run/docker.sock:/var/run/docker.sock
-      # 项目目录读写：面板原子改写 .env
-      - ./:/project
       - ip-data:/data
       - scan-output:/output
       - publish-cache:/cache
       - ./panel-data:/panel-data
+      # 运行配置投影：面板唯一写入方，扫描器只读挂载
+      - scanner-config:/scanner-config
     read_only: true
     tmpfs:
       - /tmp:size=64m
     restart: unless-stopped
-    depends_on:
-      - scanner
     healthcheck:
       test:
         - CMD
@@ -147,3 +155,4 @@ volumes:
   ip-data:
   scan-output:
   publish-cache:
+  scanner-config:

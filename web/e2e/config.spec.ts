@@ -28,7 +28,7 @@ test("保存结果面板显示写入/核对/生效方式/下次执行", async ({
   await expect(page.getByText("调度热重载")).toBeVisible();
   await expect(page.getByText("下次执行")).toBeVisible();
 
-  // 还原，避免污染测试栈的 .env
+  // 还原，避免污染测试栈的配置
   await field.fill(original);
   await saveButton(page).click();
   await expect(page.getByText("没有未保存的修改")).toBeVisible();

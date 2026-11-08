@@ -1,5 +1,10 @@
 def test_token_never_returned(client, settings):
-    settings.env_path.write_text("GIT_TOKEN=secret\n", encoding="utf-8")
+    document = client.get("/api/config").json()
+    response = client.put(
+        "/api/config",
+        json={"hash": document["hash"], "values": {"GIT_TOKEN": "secret"}},
+    )
+    assert response.status_code == 200
     body = client.get("/api/publish").json()
     token = next(param for param in body["params"] if param["name"] == "GIT_TOKEN")
     assert token["value"] is None and token["configured"] is True

@@ -128,7 +128,7 @@ def probe_host_problems(
     env = os.environ if environ is None else environ
     host = (probe_host or "").strip()
     if not host:
-        return ["未配置 PROBE_HOST（探测域名）：见 docs/deployment.md 与 .env.example"]
+        return ["未配置 PROBE_HOST（探测域名）：见 docs/deployment.md 与 docs/configuration.md"]
     if "://" in host or "/" in host or ":" in host:
         return [f"PROBE_HOST 只能填域名（不带协议/端口/路径），当前为 {host!r}"]
 

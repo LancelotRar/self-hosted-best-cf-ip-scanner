@@ -21,7 +21,7 @@ docker compose up -d                      # 启动（scanner + panel）
 docker compose run --rm scan-once         # 手动执行一轮（带锁，跑完即退出）
 docker compose logs -f --tail=200         # 跟踪日志
 docker compose pull && docker compose up -d   # 更新镜像
-docker compose restart scanner            # 仅重启扫描容器（PUID/TZ/RUN_ON_START 等）
+docker compose restart scanner            # 仅重启扫描容器（TZ / RUN_ON_START 等）
 docker compose stop                       # 暂停（等当前一轮收尾，最多 150s；数据保留）
 docker compose stop -t 5                  # 立即暂停（中断当前一轮，产物保留上一轮）
 docker compose down                       # 停止并移除容器（数据保留）
@@ -29,8 +29,9 @@ docker compose down                       # 停止并移除容器（数据保留
 
 ## 运行身份
 
-镜像以 root 启动，但入口脚本只做两件事：把三个命名卷对齐到 `PUID:PGID`、
-首次播种默认数据；随后用 `su-exec` 降权，**业务进程全程非 root**：
+扫描镜像以 root 启动，但入口脚本只做一件事：把三个命名卷对齐到 `PUID:PGID`；
+随后用 `su-exec` 降权，**业务进程全程非 root**。首次默认数据由面板播种，扫描器入口
+不再复制出厂文件：
 
 ```bash
 docker compose exec -T scanner sh -c 'grep ^Uid /proc/1/status'   # Uid: 1000
@@ -48,10 +49,10 @@ docker compose exec -T scanner ps                                  # 进程 USER
 docker compose run --rm scan-once
 ```
 
-- 复用同一份配置（镜像 / 环境变量 / 挂载），以非 root 身份运行，跑完即退出。
+- 复用同一份镜像、部署参数与挂载，以非 root 身份运行，跑完即退出。
 - 与定时任务共用一把锁：定时任务正在运行时，本轮会提示「已有一轮扫描在运行」并跳过，
   不会并发写产物。
-- 临时改参数而不动 `.env`：
+- 临时改应用参数而不动面板（显式环境变量优先于投影）：
 
 ```bash
 docker compose run --rm -e SAMPLE_STRIDE=512 scan-once
@@ -63,7 +64,7 @@ docker compose run --rm -e SAMPLE_STRIDE=512 scan-once
 docker compose pull && docker compose up -d
 ```
 
-版本标签在 `.env` 的 `IMAGE_TAG`：`latest` 跟随最新，也可锁定 `sha-xxxxxxx` 或 `1.2.3`。
+版本标签在 `compose.yaml` 的镜像坐标里：`latest` 跟随最新，也可锁定 `sha-xxxxxxx` 或 `1.2.3`。
 
 确认拉到的确实是新版本（镜像内置了源码提交号，便于核对）：
 
@@ -99,6 +100,7 @@ docker compose logs --no-color > scanner.log   # 导出
 <tr><td align="center"><code>ip-data</code>（卷）</td><td align="center">地址库、机房映射、轮次记录的投影</td><td align="center">由数据库重建；直接删卷不影响数据库</td></tr>
 <tr><td align="center"><code>scan-output</code>（卷）</td><td align="center">明细表与订阅列表</td><td align="center">可随时删除，下一轮重新生成</td></tr>
 <tr><td align="center"><code>publish-cache</code>（卷）</td><td align="center">目标仓库浅克隆</td><td align="center">可删除，下一轮重新克隆</td></tr>
+<tr><td align="center"><code>scanner-config</code>（卷）</td><td align="center">应用参数投影 <code>runtime.json</code></td><td align="center">由面板重建；不要手工编辑</td></tr>
 </tbody>
 </table>
 
@@ -109,9 +111,10 @@ docker run --rm -v <compose项目名>_publish-cache:/cache alpine rm -rf /cache/
 
 ## 备份
 
-真正需要备份的是 `./panel-data`（面板数据库：地址库、机房映射、产物快照、配置版本、
-审计与账号）和 `.env`（配置）。三个命名卷里的内容都能由数据库重建或由下一轮扫描重新生成。
+真正需要备份的是 `./panel-data`（面板数据库：应用参数、地址库、机房映射、产物元数据与
+有界预览、配置版本、审计与账号）。四个命名卷里的内容都能由数据库重建或由下一轮扫描
+重新生成；完整产物文件在 `scan-output` 卷里，按需另行备份。
 
 ```bash
-tar czf scanner-backup.tar.gz .env panel-data/
+tar czf scanner-backup.tar.gz panel-data/
 ```

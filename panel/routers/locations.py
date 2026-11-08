@@ -135,7 +135,7 @@ def put_locations(payload: LocationsPayload, request: Request) -> dict[str, obje
 
     content = _serialize(cleaned)
     library_store.save(conn, library_store.LOCATIONS, content)
-    library_store.project(settings, library_store.LOCATIONS, content)
+    library_store.project(conn, settings, library_store.LOCATIONS, content)
     audit_record(
         conn,
         "admin",

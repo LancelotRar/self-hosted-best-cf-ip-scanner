@@ -1,13 +1,12 @@
-"""`.env` 配置事务：读取、渲染、校验、写入、回读、生效核对、备份与回滚。
+"""配置事务：校验、落库、生成运行投影、调度应用、生效核对与版本回滚。
 
-保存不是"写文件就完事"：任何一步失败都要么不落盘，要么回滚到保存前的完整文件，
-并把失败阶段返回给前端。`written` 与 `verification.status` 是两个概念——
-写入成功不代表扫描器已经读到新值。
+数据库是唯一真源，`/scanner-config/runtime.json` 只是派生投影。保存不是"写库就
+完事"：投影要在同一事务提交后替换，调度失败要回滚数据库，`written` 与
+`verification.status` 也仍是两个概念——保存成功不代表扫描器已经读到新值。
 """
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
@@ -17,22 +16,18 @@ import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from pathlib import Path
 
 from zoneinfo import ZoneInfo
 
-from scanner.dotenv import DotenvError, parse_dotenv, quote_value
 from scanner.schema import BY_NAME, PARAMS, coerce, format_value
 
+from . import settings_store
 from .audit import record as audit_record
 from .cron import CronInvalid, validate as validate_cron
 from .docker_api import ScannerUnavailable
-from .files import atomic_write
 from .redact import redact_secrets
 from .settings import Settings
-
-MANAGED_BLOCK = "# --- panel managed ---"
-BACKUP_KEEP = 30
+from .settings_store import ConfigDocument
 
 # 面板不展示、也不允许在面板修改的底层参数：由内置策略或部署配置决定。
 # 用户只需要面向业务的概念（域名、端口、采样、发布），不需要看到文件名与运行身份。
@@ -51,15 +46,11 @@ PANEL_HIDDEN = frozenset(
         "no_proxy",
         "LIST_FILENAMES",
         "PUSH_LISTS",
-        "PUID",
-        "PGID",
     }
 )
 CHECK_CONFIG_SCRIPT = "/usr/local/bin/check-config.py"
 PRINT_CONFIG_SCRIPT = "/usr/local/bin/print-config.py"
 APPLY_CONFIG_SCRIPT = "/usr/local/bin/apply-config.sh"
-
-_ENTRY_RE = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*[=:]")
 
 
 class ConfigError(Exception):
@@ -67,7 +58,7 @@ class ConfigError(Exception):
 
 
 class ConfigConflict(ConfigError):
-    """`.env` 已被其他进程修改（哈希不匹配）。"""
+    """配置已被其他请求修改（修订哈希不匹配）。"""
 
 
 class ConfigInvalid(ConfigError):
@@ -83,20 +74,12 @@ class ConfigApplyFailed(ConfigError):
 
 
 class ConfigWriteUnverified(ConfigError):
-    """写入后回读不一致（已回滚）。"""
-
-
-@dataclass(frozen=True)
-class EnvDocument:
-    path: Path
-    text: str
-    values: dict[str, str]
-    sha256: str
+    """数据库已保存，但运行投影未能生成。"""
 
 
 @dataclass
 class SaveResult:
-    document: EnvDocument
+    document: ConfigDocument
     written: bool
     changed: list[dict]
     effects: dict
@@ -124,44 +107,9 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def _sha256(text: str) -> str:
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-
-def read_env(settings: Settings) -> EnvDocument:
-    """读取 `.env`；文件不存在视为空文件。语法不支持时抛 `DotenvError`。"""
-    path = settings.env_path
-    try:
-        text = path.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        text = ""
-    values = parse_dotenv(text) if text.strip() else {}
-    return EnvDocument(path=path, text=text, values=values, sha256=_sha256(text))
-
-
-def render_env(text: str, updates: Mapping[str, str]) -> str:
-    """原地替换已存在的键（保留注释/顺序），缺失键追加到文件末尾管理区块。"""
-    newline = "\r\n" if "\r\n" in text else "\n"
-    lines = text.splitlines()
-    seen: set[str] = set()
-    output: list[str] = []
-    for line in lines:
-        match = _ENTRY_RE.match(line)
-        if match and match.group(1) in updates:
-            name = match.group(1)
-            output.append(f"{name}={quote_value(str(updates[name]))}")
-            seen.add(name)
-        else:
-            output.append(line)
-
-    missing = [name for name in updates if name not in seen]
-    if missing:
-        if output and output[-1].strip():
-            output.append("")
-        output.append(MANAGED_BLOCK)
-        for name in missing:
-            output.append(f"{name}={quote_value(str(updates[name]))}")
-    return newline.join(output) + newline
+def read_config(conn, settings: Settings) -> ConfigDocument:
+    """读取当前生效配置（数据库覆盖 + schema 默认）。"""
+    return settings_store.document(conn, settings)
 
 
 def redact(text: str) -> str:
@@ -187,7 +135,7 @@ def _cross_field_errors(values: Mapping[str, str]) -> list[dict[str, object]]:
 
 
 def _semantic_errors(values: Mapping[str, str]) -> list[dict[str, object]]:
-    """跨字段与调度/时区/身份类校验：必须在写盘前拦截。"""
+    """跨字段与调度/时区类校验：必须在落库前拦截。"""
     errors = _cross_field_errors(values)
 
     expression = (values.get("CRON_SCHEDULE") or "").strip()
@@ -203,16 +151,6 @@ def _semantic_errors(values: Mapping[str, str]) -> list[dict[str, object]]:
             ZoneInfo(timezone_name)
         except Exception:  # noqa: BLE001 - 任何时区库问题都算非法
             errors.append({"name": "TZ", "message": f"未知时区：{timezone_name}"})
-
-    for name in ("PUID", "PGID"):
-        raw = (values.get(name) or "").strip()
-        if not raw:
-            continue
-        try:
-            if int(raw) < 0:
-                raise ValueError
-        except ValueError:
-            errors.append({"name": name, "message": "必须是非负整数"})
 
     raw_names = (values.get("LIST_FILENAMES") or "").strip()
     if raw_names:
@@ -282,18 +220,23 @@ def validate_candidate(
     if errors:
         raise ValueError(errors)
 
-    script = Path(CHECK_CONFIG_SCRIPT)
-    if not script.is_file():
+    script = os.environ.get("CHECK_CONFIG_SCRIPT", CHECK_CONFIG_SCRIPT)
+    if not os.path.isfile(script):
         return  # 本地/单元测试环境只做 schema 级校验
 
-    payload = "".join(
-        f"{name}={quote_value(str(value))}\n"
-        for name, value in values.items()
-        if name in BY_NAME
-    )
     with tempfile.TemporaryDirectory() as temporary:
-        candidate_path = Path(temporary) / ".env"
-        candidate_path.write_text(payload, encoding="utf-8")
+        candidate_path = os.path.join(temporary, "runtime.json")
+        with open(candidate_path, "w", encoding="utf-8") as handle:
+            handle.write(
+                json.dumps(
+                    {
+                        name: format_value(BY_NAME[name], coerce(BY_NAME[name], value))
+                        for name, value in values.items()
+                        if name in BY_NAME
+                    },
+                    ensure_ascii=False,
+                )
+            )
         # 干跑必须看到候选里的代理/探测变量，否则代理未豁免这类错误会被漏掉；
         # 显式非空环境变量仍然优先（与运行期一致）。
         explicit = {key: value for key, value in os.environ.items() if value.strip()}
@@ -301,14 +244,14 @@ def validate_candidate(
             name: str(value) for name, value in values.items() if name in BY_NAME
         }
         process = subprocess.run(
-            [sys.executable, str(script)],
+            [sys.executable, script],
             capture_output=True,
             text=True,
             timeout=60,
             env={
                 **candidate_env,
                 **explicit,
-                "DOTENV_PATH": str(candidate_path),
+                "RUNTIME_CONFIG_PATH": candidate_path,
             },
             check=False,
         )
@@ -322,7 +265,7 @@ def validate_candidate(
 
 
 def _canonical_updates(updates: Mapping[str, object]) -> dict[str, str]:
-    """类型校验 + 归一化（返回可直接写入 `.env` 的字符串值）。"""
+    """类型校验 + 归一化（返回可直接落库/投影的字符串值）。"""
     errors: list[dict[str, object]] = []
     clean: dict[str, str] = {}
     for name, raw in updates.items():
@@ -377,31 +320,6 @@ def _with_proxy_exemption(
     return warnings
 
 
-# ------------------------------------------------------------ 写入与备份 --
-def _backup_env(settings: Settings, document: EnvDocument) -> Path:
-    target_dir = settings.panel_data_dir / "backups" / "env"
-    target_dir.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")
-    target = target_dir / f"{stamp}.env"
-    target.write_bytes(document.text.encode("utf-8"))
-    try:
-        os.chmod(target, 0o600)
-    except OSError:
-        pass
-    for old in sorted(target_dir.glob("*.env"))[:-BACKUP_KEEP]:
-        old.unlink(missing_ok=True)
-    return target
-
-
-def _write_env(settings: Settings, text: str) -> None:
-    """原子替换 `.env`（实现见 `panel.files.atomic_write`）。"""
-    atomic_write(settings.env_path, text)
-
-
-def _restore(settings: Settings, backup: Path) -> None:
-    _write_env(settings, backup.read_text(encoding="utf-8"))
-
-
 # ------------------------------------------------------------ 生效核对 --
 def _expectation(spec, raw: str | None) -> object:
     if raw is None or not raw.strip():
@@ -428,9 +346,12 @@ def _print_config(controller) -> dict[str, dict[str, object]]:
 
 
 def verify_effective(
-    settings: Settings, controller, names: Sequence[str] | None = None
+    conn,
+    settings: Settings,
+    controller,
+    names: Sequence[str] | None = None,
 ) -> dict[str, object]:
-    """在扫描容器内读取生效值，与 `.env` 当前值逐项比对。"""
+    """在扫描容器内读取生效值，与数据库当前值逐项比对。"""
     checked_at = _now_iso()
     if controller is None:
         return {"status": "unavailable", "checked_at": checked_at, "details": []}
@@ -439,7 +360,7 @@ def verify_effective(
     except ScannerUnavailable:
         return {"status": "unavailable", "checked_at": checked_at, "details": []}
 
-    document = read_env(settings)
+    document = read_config(conn, settings)
     if names is None:
         names = [
             spec.name
@@ -497,15 +418,15 @@ def _effect(spec) -> str:
     return "next_round"
 
 
-def _next_run(document: EnvDocument) -> str | None:
-    try:
-        from . import cron
-    except ImportError:
-        return None  # cron 模块在后续任务落地
+def _next_run(document: ConfigDocument) -> str | None:
     expression = document.values.get("CRON_SCHEDULE") or str(
         BY_NAME["CRON_SCHEDULE"].default
     )
     timezone_name = document.values.get("TZ") or str(BY_NAME["TZ"].default)
+    try:
+        from . import cron
+    except ImportError:
+        return None  # cron 模块在后续任务落地
     try:
         runs = cron.next_runs(expression, timezone_name, count=1)
     except Exception:  # noqa: BLE001 - 非法 cron 由校验阶段拦截
@@ -514,22 +435,35 @@ def _next_run(document: EnvDocument) -> str | None:
 
 
 # ---------------------------------------------------------------- 保存 --
+def _no_op(document: ConfigDocument, warnings: list[str]) -> SaveResult:
+    return SaveResult(
+        document=document,
+        written=False,
+        changed=[],
+        effects={"next_round": [], "schedule_reloaded": False, "restart_required": []},
+        verification={"status": "verified", "checked_at": _now_iso(), "details": []},
+        next_run=_next_run(document),
+        warnings=warnings,
+    )
+
+
 def save(
+    conn,
     settings: Settings,
     expected_hash: str,
     updates: Mapping[str, object],
     actor: str,
     controller=None,
 ) -> SaveResult:
-    """保存事务：校验 -> 写入 -> 回读 -> 调度 -> 核对 -> 版本与审计。"""
-    document = read_env(settings)
+    """保存事务：校验 -> 落库 -> 替换投影 -> 调度 -> 核对 -> 版本与审计。"""
+    document = read_config(conn, settings)
     if expected_hash != document.sha256:
         raise ConfigConflict("设置已被修改，请刷新后重试")
 
     clean = _canonical_updates(updates)
     warnings = _with_proxy_exemption(clean, document.values)
 
-    merged = {name: value for name, value in document.values.items() if name in BY_NAME}
+    merged = dict(document.values)
     merged.update(clean)
     try:
         validate_candidate(merged)
@@ -539,29 +473,6 @@ def save(
             errors = [{"name": None, "message": str(errors)}]
         raise ConfigInvalid(errors) from exc
 
-    if not clean:
-        return SaveResult(
-            document=document,
-            written=False,
-            changed=[],
-            effects={"next_round": [], "schedule_reloaded": False, "restart_required": []},
-            verification={"status": "verified", "checked_at": _now_iso(), "details": []},
-            next_run=_next_run(document),
-            warnings=warnings,
-        )
-
-    candidate = render_env(document.text, clean)
-    backup = _backup_env(settings, document)
-    _write_env(settings, candidate)
-
-    try:
-        written_document = read_env(settings)
-    except DotenvError as exc:
-        _restore(settings, backup)
-        raise ConfigWriteUnverified(f"写入后无法重新解析，已回滚：{exc}") from exc
-    if written_document.text != candidate or written_document.sha256 != _sha256(candidate):
-        _restore(settings, backup)
-        raise ConfigWriteUnverified("写入后回读不一致，已回滚到保存前内容")
     changed: list[dict] = []
     for name, new_value in clean.items():
         if name == "no_proxy" and "NO_PROXY" in clean:
@@ -578,6 +489,52 @@ def save(
                 "effect": _effect(spec),
             }
         )
+    if not changed:
+        return _no_op(document, warnings)
+
+    staged = settings_store.stage_projection(settings, merged)
+    try:
+        with conn:
+            settings_store.apply_overrides(conn, settings, clean, actor=actor)
+            written_document = read_config(conn, settings)
+            stored = _stored_values(merged)
+            diff = redact(
+                "\n".join(
+                    f"- {BY_NAME[item['name']].label}={item['old']}\n"
+                    f"+ {BY_NAME[item['name']].label}={item['new']}"
+                    for item in changed
+                    if not BY_NAME[item["name"]].secret
+                )
+            )
+            conn.execute(
+                "INSERT INTO config_versions (created_at, actor, sha256, values_json, diff)"
+                " VALUES (?, ?, ?, ?, ?)",
+                (
+                    _now_iso(),
+                    actor,
+                    written_document.sha256,
+                    json.dumps(stored, ensure_ascii=False),
+                    diff,
+                ),
+            )
+            audit_record(
+                conn,
+                actor,
+                "config.save",
+                "settings",
+                diff or "无实际变更",
+                "panel",
+            )
+    except BaseException:
+        staged.unlink(missing_ok=True)
+        raise
+
+    try:
+        settings_store.commit_projection(settings, staged)
+    except OSError as exc:
+        raise ConfigWriteUnverified(
+            f"配置已保存，但运行配置生成失败：{exc}"
+        ) from exc
 
     next_round = [item["name"] for item in changed if item["effect"] == "next_round"]
     restart_required = [
@@ -600,7 +557,8 @@ def save(
                 code = 0
                 warnings.append("扫描容器暂不可用：已保存，容器恢复后会自动生效")
             if not offline and code != 0:
-                _restore(settings, backup)
+                settings_store.restore(conn, settings, document, actor=actor)
+                settings_store.project(conn, settings)
                 raise ConfigApplyFailed("计划任务应用失败，已回滚")
         schedule_reloaded = not offline
 
@@ -610,7 +568,7 @@ def save(
         if item["effect"] == "next_round"
         and BY_NAME[item["name"]].consumer in {"scanner", "shell", "publish", "proxy"}
     ]
-    verification = verify_effective(settings, controller, hot_names)
+    verification = verify_effective(conn, settings, controller, hot_names)
     status = verification["status"]
     if status != "mismatch" and restart_required:
         status = "restart_required"
@@ -624,83 +582,28 @@ def save(
         "restart_required": restart_required,
     }
 
-    stored = _stored_values(merged)
-    diff = redact(
-        "\n".join(
-            f"- {BY_NAME[item['name']].label}={item['old']}\n+ {BY_NAME[item['name']].label}={item['new']}"
-            for item in changed
-            if not BY_NAME[item["name"]].secret
-        )
-    )
-    try:
-        with settings_db(settings) as conn:
-            with conn:
-                conn.execute(
-                    "INSERT INTO config_versions (created_at, actor, sha256, values_json, diff)"
-                    " VALUES (?, ?, ?, ?, ?)",
-                    (
-                        _now_iso(),
-                        actor,
-                        written_document.sha256,
-                        json.dumps(stored, ensure_ascii=False),
-                        diff,
-                    ),
-                )
-            audit_record(
-                conn,
-                actor,
-                "config.save",
-                str(settings.env_path),
-                diff or "无实际变更",
-                "panel",
-            )
-    except Exception:
-        # 写入之后的任何失败都不能留下"没有版本记录的新配置"：回滚到保存前。
-        _restore(settings, backup)
-        raise
-
     return SaveResult(
-        document=written_document,
+        document=read_config(conn, settings),
         written=True,
         changed=changed,
         effects=effects,
         verification=verification,
-        next_run=_next_run(written_document),
+        next_run=_next_run(read_config(conn, settings)),
         warnings=warnings,
     )
 
 
-def settings_db(settings: Settings):
-    """打开面板数据库（配置版本与审计写入用）。"""
-    from .db import connect, migrate
-
-    conn = connect(settings.db_path)
-    migrate(conn)
-    return _Closing(conn)
-
-
-class _Closing:
-    def __init__(self, conn) -> None:
-        self._conn = conn
-
-    def __enter__(self):
-        return self._conn
-
-    def __exit__(self, *exc_info) -> None:
-        self._conn.close()
-
-
-def param_entries(document: EnvDocument) -> list[dict[str, object]]:
+def param_entries(document: ConfigDocument) -> list[dict[str, object]]:
     """GET /api/config 的参数列表（敏感值永不返回）。"""
     entries: list[dict[str, object]] = []
     for spec in PARAMS:
+        configured = spec.name in document.configured
         raw = document.values.get(spec.name)
-        configured = bool(raw and raw.strip())
         if spec.secret:
             value: object = None
         else:
             try:
-                value = coerce(spec, raw) if configured else spec.default
+                value = coerce(spec, raw) if raw is not None else spec.default
             except ValueError:
                 value = raw  # 非法值原样展示，便于用户发现并修正
         entries.append(
@@ -714,7 +617,7 @@ def param_entries(document: EnvDocument) -> list[dict[str, object]]:
                 "value": (
                     redact_secrets(value) if isinstance(value, str) else value
                 ),
-                "source": "dotenv" if configured else "default",
+                "source": "custom" if configured else "default",
                 "configured": configured,
                 "secret": spec.secret,
                 "read_only": spec.read_only,
@@ -728,8 +631,8 @@ def param_entries(document: EnvDocument) -> list[dict[str, object]]:
 
 
 def rollback(
-    settings: Settings,
     conn,
+    settings: Settings,
     version_id: int,
     expected_hash: str | None,
     actor: str,
@@ -749,8 +652,9 @@ def rollback(
         and not BY_NAME[name].read_only
         and not BY_NAME[name].secret
     }
-    document = read_env(settings)
+    document = read_config(conn, settings)
     result = save(
+        conn,
         settings,
         expected_hash or document.sha256,
         updates,
@@ -761,7 +665,7 @@ def rollback(
         conn,
         actor,
         "config.rollback",
-        str(settings.env_path),
+        "settings",
         f"回滚到配置版本 {version_id}",
         "panel",
     )
@@ -769,18 +673,16 @@ def rollback(
 
 
 __all__ = [
-    "BACKUP_KEEP",
     "ConfigApplyFailed",
     "ConfigConflict",
+    "ConfigDocument",
     "ConfigError",
     "ConfigInvalid",
     "ConfigWriteUnverified",
-    "EnvDocument",
     "SaveResult",
     "param_entries",
-    "read_env",
+    "read_config",
     "redact",
-    "render_env",
     "rollback",
     "save",
     "validate_candidate",

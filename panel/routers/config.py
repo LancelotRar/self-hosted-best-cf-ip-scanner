@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from .. import config_store
+from .. import config_store, settings_store
 from ..deps import controller_of as _controller, settings_of as _settings
 from ..security import require_user, verify_csrf
-from scanner.dotenv import DotenvError
 
 router = APIRouter(prefix="/api", tags=["config"])
 
@@ -24,14 +21,10 @@ class RollbackPayload(BaseModel):
     hash: str | None = None
 
 
-def _document(request: Request) -> config_store.EnvDocument:
-    try:
-        return config_store.read_env(_settings(request))
-    except DotenvError as exc:
-        raise HTTPException(
-            status_code=422,
-            detail={"code": "config_unparsable", "message": f"配置解析失败：{exc}"},
-        ) from exc
+def _document(request: Request) -> settings_store.ConfigDocument:
+    return config_store.read_config(
+        request.app.state.conn, _settings(request)
+    )
 
 
 def _raise_for(exc: config_store.ConfigError) -> None:
@@ -68,15 +61,10 @@ def _raise_for(exc: config_store.ConfigError) -> None:
 @router.get("/config", dependencies=[Depends(require_user)])
 def get_config(request: Request) -> dict[str, object]:
     document = _document(request)
-    stat = document.path.stat() if document.path.exists() else None
     return {
         "hash": document.sha256,
-        "mtime": (
-            datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat()
-            if stat
-            else None
-        ),
-        "file_size": stat.st_size if stat else 0,
+        "revision": document.revision,
+        "updated_at": document.updated_at,
         "params": config_store.param_entries(document),
     }
 
@@ -85,6 +73,7 @@ def get_config(request: Request) -> dict[str, object]:
 def put_config(payload: ConfigPayload, request: Request) -> dict[str, object]:
     try:
         result = config_store.save(
+            request.app.state.conn,
             _settings(request),
             payload.hash,
             payload.values,
@@ -103,7 +92,7 @@ def put_config(payload: ConfigPayload, request: Request) -> dict[str, object]:
 def verify_config(request: Request) -> dict[str, object]:
     document = _document(request)
     verification = config_store.verify_effective(
-        _settings(request), _controller(request)
+        request.app.state.conn, _settings(request), _controller(request)
     )
     return {"hash": document.sha256, "verification": verification}
 
@@ -126,8 +115,8 @@ def rollback_config(
 ) -> dict[str, object]:
     try:
         result = config_store.rollback(
-            _settings(request),
             request.app.state.conn,
+            _settings(request),
             version_id,
             payload.hash,
             actor="admin",

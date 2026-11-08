@@ -11,7 +11,6 @@ from importlib.metadata import PackageNotFoundError, version
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
-from .. import config_store
 from .. import __version__ as panel_version
 from ..audit import record as audit_record
 from ..deps import controller_of, settings_of
@@ -81,13 +80,9 @@ def _docker_version() -> str:
 
 @router.get("/info", dependencies=[Depends(require_user)])
 def system_info(request: Request) -> dict[str, object]:
-    document = config_store.read_env(settings_of(request))
-    entries = {param["name"]: param for param in config_store.param_entries(document)}
-    image_name = entries["IMAGE_NAME"]["value"] if "IMAGE_NAME" in entries else "未知"
-    image_tag = entries["IMAGE_TAG"]["value"] if "IMAGE_TAG" in entries else "未知"
     return {
         "panel_version": panel_version,
         "python": sys.version.split()[0],
         "docker": _docker_version(),
-        "image": f"{image_name}:{image_tag}",
+        "image": settings_of(request).scanner_image,
     }

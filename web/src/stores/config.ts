@@ -9,7 +9,7 @@ function sameValue(left: unknown, right: unknown): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
-/** 把界面上的值编码成 `.env` 可写的字符串（后端仍会按 schema 再校验一次）。 */
+/** 把界面上的值编码成配置字符串（后端仍会按 schema 再校验一次）。 */
 export function formatForEnv(param: Param, value: unknown): string {
   if (Array.isArray(value)) {
     return value.join(",");
@@ -26,8 +26,7 @@ export function formatForEnv(param: Param, value: unknown): string {
 export const useConfigStore = defineStore("config", {
   state: () => ({
     hash: "",
-    mtime: null as string | null,
-    fileSize: 0,
+    revision: 0,
     params: [] as Param[],
     serverValues: {} as Record<string, unknown>,
     values: {} as Record<string, unknown>,
@@ -61,8 +60,7 @@ export const useConfigStore = defineStore("config", {
       try {
         const data = await api.get<ConfigResponse>("/api/config");
         this.hash = data.hash;
-        this.mtime = data.mtime;
-        this.fileSize = data.file_size;
+        this.revision = data.revision;
         this.params = data.params;
         const snapshot: Record<string, unknown> = {};
         for (const param of data.params) {

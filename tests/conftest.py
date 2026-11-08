@@ -27,12 +27,21 @@ def clock() -> FakeClock:
 
 @pytest.fixture
 def settings(tmp_path: Path) -> Settings:
-    """临时目录下的完整设置，附带一份最小 `.env`。"""
-    resolved = Settings.for_tests(tmp_path)
-    resolved.env_path.write_text(
-        "PROBE_HOST=probe.example.com\nSAMPLE_STRIDE=128\n", encoding="utf-8"
-    )
-    return resolved
+    """临时目录下的完整设置。"""
+    return Settings.for_tests(tmp_path)
+
+
+@pytest.fixture
+def conn(settings: Settings):
+    """已建表并写入默认值的数据库连接（与面板进程共用同一个库文件）。"""
+    from panel import db, settings_store
+
+    connection = db.connect(settings.db_path)
+    db.migrate(connection)
+    settings_store.seed_schema_defaults(connection, settings)
+    settings_store.project(connection, settings)
+    yield connection
+    connection.close()
 
 
 @pytest.fixture
@@ -163,12 +172,16 @@ class FakeExecHandle:
         return self.code
 
 
-def _effective_from_env(settings) -> dict[str, object]:
-    """模拟扫描器按 `.env` 读到的生效值。"""
-    from panel.config_store import read_env
+def _effective_from_settings(settings) -> dict[str, object]:
+    """模拟扫描器按运行配置投影读到的生效值。"""
+    from panel import config_store, db
     from scanner.schema import PARAMS, coerce
 
-    document = read_env(settings)
+    connection = db.connect(settings.db_path)
+    try:
+        document = config_store.read_config(connection, settings)
+    finally:
+        connection.close()
     values: dict[str, object] = {}
     for spec in PARAMS:
         raw = document.values.get(spec.name)
@@ -245,9 +258,9 @@ class FakeController:
         if script.endswith("print-config.py"):
             import json
 
-            values = self.effective or _effective_from_env(self.settings)
+            values = self.effective or _effective_from_settings(self.settings)
             payload = {
-                name: {"value": value, "source": "dotenv"}
+                name: {"value": value, "source": "projection"}
                 for name, value in values.items()
             }
             return FakeExecHandle(json.dumps(payload).encode("utf-8"))

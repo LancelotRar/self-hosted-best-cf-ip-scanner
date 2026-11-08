@@ -60,7 +60,7 @@ cron 字段含义：
 ## 生效与观察
 
 ```bash
-# 面板「调度」页保存即热重载；手工编辑 .env 由 watcher 在 5 秒内自动重载
+# 面板「调度」页保存即热重载；参数来自面板生成的运行配置投影
 docker compose logs -f scanner            # 每轮开始与结束都会打印
 docker compose exec -T scanner /usr/local/bin/apply-config.sh   # 手动触发一次重渲染
 ```

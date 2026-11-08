@@ -43,16 +43,8 @@ def list_runs(request: Request, limit: int = 50) -> dict[str, object]:
 
 
 def _run_env(settings, run_id: str) -> dict[str, str]:
-    """面板触发的一轮需要带上容器内的运行身份与时区（它们只在 .env 里）。"""
-    from ..config_store import read_env
-
-    document = read_env(settings)
-    env = {"RUN_ID": run_id, "RUN_TRIGGER": "panel"}
-    for name in ("PUID", "PGID", "TZ"):
-        value = document.values.get(name)
-        if value and value.strip():
-            env[name] = value.strip()
-    return env
+    """面板触发的一轮只带轮次标识；参数由扫描器读取运行投影。"""
+    return {"RUN_ID": run_id, "RUN_TRIGGER": "panel"}
 
 
 @router.post(

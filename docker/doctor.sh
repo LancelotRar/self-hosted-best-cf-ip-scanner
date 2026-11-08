@@ -6,10 +6,9 @@
 # 不写产物、不改配置；输出可直接贴进 issue（先把令牌等敏感信息删掉）。
 set -u
 
-# 自检读取生效值：先把 `.env` 导入环境，保证 git/curl 等子进程也能看到。
-PROJECT_DIR="${PROJECT_DIR:-/project}"
-export DOTENV_PATH="${DOTENV_PATH:-$PROJECT_DIR/.env}"
-eval "$(python "${EXPORT_DOTENV:-/usr/local/bin/export-dotenv.py}" 2>/dev/null)" || true
+# 自检读取生效值：先把运行配置投影导入环境，保证 git/curl 等子进程也能看到。
+export RUNTIME_CONFIG_PATH="${RUNTIME_CONFIG_PATH:-/scanner-config/runtime.json}"
+eval "$(python "${EXPORT_RUNTIME:-/usr/local/bin/export-runtime.py}" 2>/dev/null)" || true
 
 section() { printf '\n===== %s =====\n' "$1"; }
 

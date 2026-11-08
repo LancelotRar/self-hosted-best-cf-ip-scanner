@@ -8,7 +8,7 @@ on:
   push:
     branches: ["main"]
     tags: ["v*"]
-    # 只在这些路径变化时构建镜像：文档、compose、.env 示例等改动不影响镜像内容。
+    # 只在这些路径变化时构建镜像：文档、compose 等改动不影响镜像内容。
     paths:
       - "Dockerfile"
       - "requirements.txt"

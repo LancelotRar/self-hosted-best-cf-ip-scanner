@@ -31,8 +31,8 @@ const intParam: Param = {
 
 const response: ConfigResponse = {
   hash: "hash-1",
-  mtime: "2026-11-03T00:00:00Z",
-  file_size: 20,
+  revision: 1,
+  updated_at: "2026-11-03T00:00:00Z",
   params: [intParam],
 };
 
@@ -89,7 +89,7 @@ describe("config store", () => {
     vi.mocked(api.get).mockResolvedValue({
       ...response,
       hash: "hash-2",
-      params: [{ ...intParam, value: 512, configured: true, source: "dotenv" }],
+      params: [{ ...intParam, value: 512, configured: true, source: "custom" }],
     } as never);
 
     store.applyLocal({ SAMPLE_STRIDE: 512 });

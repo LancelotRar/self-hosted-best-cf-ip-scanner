@@ -1,7 +1,7 @@
 """面板运行时设置。
 
-所有路径与开关都从环境变量读取，测试用 `Settings.for_tests` 注入临时目录——
-业务代码不直接读真实 `/panel-data` 或 `docker.from_env()`。
+路径与开关只来自部署环境（容器变量 / 测试注入），应用参数一律存数据库。
+测试用 `Settings.for_tests` 注入临时目录——业务代码不直接读真实 `/panel-data`。
 """
 
 from __future__ import annotations
@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 _TRUE_VALUES = {"1", "true", "yes", "on"}
+
+_DEFAULT_IMAGE = "ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner:latest"
 
 
 def _as_bool(raw: str | None) -> bool:
@@ -22,12 +24,16 @@ class Settings:
     """面板运行期路径与开关。"""
 
     project_dir: Path
-    env_path: Path
     data_dir: Path
     output_dir: Path
     cache_dir: Path
     panel_data_dir: Path
+    config_dir: Path
     scanner_container: str
+    default_data_dir: Path = Path("/opt/default-data")
+    scanner_image: str = _DEFAULT_IMAGE
+    puid: int = 1000
+    pgid: int = 1000
     trust_proxy: bool = False
     session_days: int = 7
     port: int = 8080
@@ -36,21 +42,28 @@ class Settings:
     def from_env(cls) -> "Settings":
         """从容器环境读取；所有项都有可本地运行的默认值。"""
         project_dir = Path(os.environ.get("PROJECT_DIR") or ".")
-        env_path = Path(os.environ.get("DOTENV_PATH") or project_dir / ".env")
         return cls(
             project_dir=project_dir,
-            env_path=env_path,
             data_dir=Path(os.environ.get("DATA_DIR") or project_dir / "data"),
             output_dir=Path(os.environ.get("OUTPUT_DIR") or project_dir / "output"),
             cache_dir=Path(os.environ.get("CACHE_DIR") or project_dir / "cache"),
             panel_data_dir=Path(
                 os.environ.get("PANEL_DATA_DIR") or project_dir / "panel-data"
             ),
+            config_dir=Path(
+                os.environ.get("CONFIG_DIR") or project_dir / "scanner-config"
+            ),
             scanner_container=(
                 os.environ.get("SCANNER_CONTAINER")
                 or os.environ.get("CONTAINER_NAME")
                 or "best-cf-ip-scanner"
             ),
+            default_data_dir=Path(
+                os.environ.get("DEFAULT_DATA_DIR") or "/opt/default-data"
+            ),
+            scanner_image=os.environ.get("SCANNER_IMAGE") or _DEFAULT_IMAGE,
+            puid=int(os.environ.get("PUID") or 1000),
+            pgid=int(os.environ.get("PGID") or 1000),
             trust_proxy=_as_bool(os.environ.get("PANEL_TRUST_PROXY")),
             session_days=int(os.environ.get("PANEL_SESSION_DAYS") or 7),
             port=int(os.environ.get("PANEL_PORT") or 8080),
@@ -58,26 +71,31 @@ class Settings:
 
     @classmethod
     def for_tests(cls, tmp_path: Path) -> "Settings":
-        """测试用设置：所有目录都在 `tmp_path` 下，并预建最小 `.env`。"""
+        """测试用设置：所有目录都在 `tmp_path` 下。"""
         settings = cls(
             project_dir=tmp_path,
-            env_path=tmp_path / ".env",
             data_dir=tmp_path / "data",
             output_dir=tmp_path / "output",
             cache_dir=tmp_path / "cache",
             panel_data_dir=tmp_path / "panel-data",
+            config_dir=tmp_path / "scanner-config",
             scanner_container="best-cf-ip-scanner",
+            default_data_dir=tmp_path / "default-data",
         )
         for directory in (
             settings.data_dir,
             settings.output_dir,
             settings.cache_dir,
             settings.panel_data_dir,
+            settings.config_dir,
         ):
             directory.mkdir(parents=True, exist_ok=True)
-        if not settings.env_path.exists():
-            settings.env_path.write_text("", encoding="utf-8")
         return settings
+
+    @property
+    def runtime_config_path(self) -> Path:
+        """面板生成、扫描器读取的运行配置投影。"""
+        return self.config_dir / "runtime.json"
 
     @property
     def backups_dir(self) -> Path:
@@ -89,4 +107,10 @@ class Settings:
 
     @property
     def secret_path(self) -> Path:
+        """会话签名密钥（与配置加密密钥分开）。"""
         return self.panel_data_dir / "secret.key"
+
+    @property
+    def settings_key_path(self) -> Path:
+        """配置加密密钥；不随数据库一起导出。"""
+        return self.panel_data_dir / "settings.key"

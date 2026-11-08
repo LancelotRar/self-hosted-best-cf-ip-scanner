@@ -51,7 +51,7 @@ def _next_runs(document) -> list[str]:
 @router.get("", dependencies=[Depends(require_user)])
 def overview(request: Request) -> dict[str, object]:
     settings = settings_of(request)
-    document = config_store.read_env(settings)
+    document = config_store.read_config(request.app.state.conn, settings)
     entries = {param["name"]: param for param in config_store.param_entries(document)}
 
     finished = [

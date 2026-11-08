@@ -1,7 +1,7 @@
-"""产物路由：列表、预览与下载，全部读数据库快照。
+"""产物路由：列表与预览读数据库元数据/有界快照，下载读文件卷。
 
-扫描器把文件写在容器卷里（发布用），面板每次列表时按 (size, mtime) 同步入库，
-之后一律从库里读——宿主机上看不到任何产物文件。
+扫描器把完整文件写在容器卷里（发布用），面板每次列表时按 (size, mtime) 同步
+元数据与有界预览；数据库不保存整文件，下载时再从卷内读取。
 """
 
 from __future__ import annotations
@@ -40,8 +40,14 @@ def inspect_output(name: str, request: Request, download: bool = False):
             detail={"code": "invalid_filename", "message": "文件不存在"},
         )
     if download:
+        content = artifacts_store.download(settings_of(request), row)
+        if content is None:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "file_missing", "message": "产物文件已不在卷内"},
+            )
         return Response(
-            content=artifacts_store.content_of(row),
+            content=content,
             media_type="application/octet-stream",
             headers={"Content-Disposition": f'attachment; filename="{row["name"]}"'},
         )

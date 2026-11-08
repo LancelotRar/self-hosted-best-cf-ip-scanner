@@ -20,10 +20,35 @@ def test_migrate_creates_document_and_artifact_tables(tmp_path):
     assert {"library", "library_versions", "locations", "artifacts"} <= names
 
 
+def test_migrate_artifacts_v5_drops_full_content(tmp_path):
+    conn = connect(tmp_path / "panel.db")
+    conn.execute(
+        "CREATE TABLE artifacts ("
+        " name TEXT PRIMARY KEY, kind TEXT NOT NULL, size INTEGER NOT NULL,"
+        " mtime TEXT NOT NULL, sha256 TEXT NOT NULL, content BLOB,"
+        " imported_at TEXT NOT NULL)"
+    )
+    payload = b"x" * (200 * 1024)
+    conn.execute(
+        "INSERT INTO artifacts VALUES ('a.txt', 'text', ?, 't', 'h', ?, 't')",
+        (len(payload), payload),
+    )
+    conn.execute("PRAGMA user_version=4")
+    migrate(conn)
+
+    columns = {
+        row["name"] for row in conn.execute("PRAGMA table_info(artifacts)").fetchall()
+    }
+    assert "content" not in columns
+    row = conn.execute("SELECT preview, preview_truncated FROM artifacts").fetchone()
+    assert row["preview"] is None
+    assert row["preview_truncated"] == 0
+
+
 def test_audit_redacts_secret_values(tmp_path):
     conn = connect(tmp_path / "panel.db")
     migrate(conn)
-    record(conn, "admin", "config.save", ".env", "GIT_TOKEN=abc123", "127.0.0.1")
+    record(conn, "admin", "config.save", "settings", "GIT_TOKEN=abc123", "127.0.0.1")
     row = conn.execute("SELECT detail FROM audit").fetchone()
     assert "abc123" not in row[0]
 

@@ -28,11 +28,20 @@ def test_get_reports_hash_mtime_and_stats(client, data_dir):
 
 
 def _pin_stride(settings, stride: int = 256) -> None:
-    """固定采样步长，让「参与探测」的断言与 conftest 的 `.env` 无关。"""
-    settings.env_path.write_text(
-        f"PROBE_HOST=probe.example.com\nSAMPLE_STRIDE={stride}\n",
-        encoding="utf-8",
-    )
+    """固定采样步长，让「参与探测」的断言与 conftest 的首次导入无关。"""
+    from panel import db, settings_store
+
+    conn = db.connect(settings.db_path)
+    try:
+        with conn:
+            settings_store.apply_overrides(
+                conn,
+                settings,
+                {"PROBE_HOST": "probe.example.com", "SAMPLE_STRIDE": str(stride)},
+                actor="test",
+            )
+    finally:
+        conn.close()
 
 
 def test_stats_expand_networks_and_commented_entries(client, settings, data_dir):
@@ -182,7 +191,12 @@ def test_each_section_saves_independently(client):
 
 
 def test_pinned_view_exposes_output_file_name(client, settings):
-    settings.env_path.write_text("PINNED_OUTPUT_NAME=FIXED\n", encoding="utf-8")
+    document = client.get("/api/config").json()
+    response = client.put(
+        "/api/config",
+        json={"hash": document["hash"], "values": {"PINNED_OUTPUT_NAME": "FIXED"}},
+    )
+    assert response.status_code == 200
     assert client.get("/api/library").json()["pinned"]["output_name"] == "FIXED"
 
 
@@ -213,5 +227,5 @@ def test_put_rejects_stale_hash_after_valid_content(client, data_dir):
 
 def test_restore_rejects_traversal(client):
     # 用编码的反斜杠让名字到达处理器（路径分隔符会被客户端先规范化）。
-    response = client.post("/api/library/backups/..%5C..%5C.env/restore")
+    response = client.post("/api/library/backups/..%5C..%5Csecret.txt/restore")
     assert response.status_code == 400

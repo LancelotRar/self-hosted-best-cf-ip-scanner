@@ -3,8 +3,7 @@
 #   docker compose -f compose.yaml -f compose.build.yaml up -d --build
 #
 # 构建产物直接打上 compose.yaml 里的镜像名（本地优先于拉取），不涉及推送。
-# 需要代理时把 HTTP_PROXY / HTTPS_PROXY / NO_PROXY 写进 .env 即可——它们会作为
-# BuildKit 代理参数传入。
+# 构建参数直接写在这里；需要代理时用 --build-arg 或修改本文件。
 name: best-cf-ip-scanner
 
 services:
@@ -14,17 +13,8 @@ services:
       dockerfile: Dockerfile
       args:
         # 调度器版本；Dockerfile 内置各架构校验和，升级时同步改 Dockerfile
-        SUPERCRONIC_VERSION: ${SUPERCRONIC_VERSION:-v0.2.51}
-        # BuildKit 会自动把这三个变量当作代理配置且不写入镜像历史；
-        # 显式透传是为了让 .env 成为唯一配置入口（无代理留空即可）。
-        HTTP_PROXY: ${HTTP_PROXY:-}
-        HTTPS_PROXY: ${HTTPS_PROXY:-}
-        NO_PROXY: ${NO_PROXY:-}
+        SUPERCRONIC_VERSION: v0.2.51
         # 镜像加速（可选）：留空使用官方源
-        APK_MIRROR: ${APK_MIRROR:-}
-        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.org/simple}
-        NPM_CONFIG_REGISTRY: ${NPM_CONFIG_REGISTRY:-https://registry.npmjs.org}
-
-volumes:
-  scanner-out:
-  scanner-state:
+        APK_MIRROR: ""
+        PIP_INDEX_URL: https://pypi.org/simple
+        NPM_CONFIG_REGISTRY: https://registry.npmjs.org

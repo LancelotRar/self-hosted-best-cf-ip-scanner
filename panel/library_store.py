@@ -1,6 +1,6 @@
-"""IP 库与机房映射的数据库真源。
+"""IP 库、机房映射与固定保留列表的数据库真源。
 
-两类文档同构（单行内容 + sha256），差异只有表名、`.env` 里的文件名与默认值。
+三类文档同构（单行内容 + sha256），差异只有表名、参数名与默认值。
 数据库是唯一真源；容器卷里的同名文件只是**投影**，供扫描器读取——面板启动与每次保存
 都会把数据库内容重新写出去，所以手工改卷内文件不会影响后续运行。
 """
@@ -13,14 +13,14 @@ from pathlib import Path
 
 from scanner.schema import BY_NAME
 
-from .config_store import read_env
+from . import settings_store
 from .files import atomic_write
 
 LIBRARY = "library"
 LOCATIONS = "locations"
 PINNED = "pinned"
 
-# kind -> (表名, `.env` 参数名, schema 默认文件名)
+# kind -> (表名, 参数名, schema 默认文件名)
 _SPEC: dict[str, tuple[str, str, str]] = {
     LIBRARY: ("library", "LIBRARY_FILE", str(BY_NAME["LIBRARY_FILE"].default)),
     LOCATIONS: ("locations", "LOCATIONS_FILE", str(BY_NAME["LOCATIONS_FILE"].default)),
@@ -36,11 +36,10 @@ def sha256_text(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def file_path(settings, kind: str) -> Path:
+def file_path(conn, settings, kind: str) -> Path:
     """卷内投影文件的路径；文件名非法时退回 schema 默认值。"""
     _, param, default = _SPEC[kind]
-    raw = (read_env(settings).values.get(param) or "").strip()
-    name = raw or default
+    name = (settings_store.value(conn, settings, param) or "").strip() or default
     if not name or "/" in name or "\\" in name or ".." in name:
         name = default
     return Path(settings.data_dir) / name
@@ -72,20 +71,25 @@ def save(conn, kind: str, content: str, actor: str = "admin") -> dict[str, str]:
     return {"content": content, "sha256": digest, "updated_at": now, "actor": actor}
 
 
-def project(settings, kind: str, content: str) -> None:
+def project(conn, settings, kind: str, content: str) -> None:
     """把内容写成扫描器要读的文件（容器卷内，宿主不可见）。"""
-    atomic_write(file_path(settings, kind), content)
+    atomic_write(
+        file_path(conn, settings, kind),
+        content,
+        mode=0o644,
+        uid=settings.puid,
+        gid=settings.pgid,
+    )
 
 
 def ensure(conn, settings) -> None:
     """首次启动把内容落到数据库，之后以数据库为准覆盖投影文件。
 
-    数据库已有 -> 直接投影；否则从卷内文件导入（可能是镜像内置默认值，也可能是
-    `bootstrap.migrate` 刚从旧宿主目录搬进来的用户数据）。两步都幂等。
+    数据库已有 -> 直接投影；否则从卷内文件导入镜像内置默认值。两步都幂等。
     """
     for kind in (LIBRARY, LOCATIONS, PINNED):
         if read(conn, kind) is None:
-            candidate = file_path(settings, kind)
+            candidate = file_path(conn, settings, kind)
             if candidate.is_file():
                 save(
                     conn,
@@ -95,7 +99,7 @@ def ensure(conn, settings) -> None:
                 )
         row = read(conn, kind)
         if row is not None:
-            project(settings, kind, row["content"])
+            project(conn, settings, kind, row["content"])
 
 
 # ------------------------------------------------------------------ 版本 --

@@ -124,26 +124,23 @@ COPY --link docker/entrypoint.sh docker/scan-and-publish.sh docker/publish.sh do
 COPY --link docker/panel-entrypoint.sh /usr/local/bin/
 COPY --link docker/startup-report.py /usr/local/bin/startup-report.py
 COPY --link docker/check-config.py /usr/local/bin/check-config.py
-COPY --link docker/export-dotenv.py docker/print-config.py /usr/local/bin/
+COPY --link docker/export-runtime.py docker/print-config.py /usr/local/bin/
 COPY --link docker/push-filter.py /usr/local/bin/push-filter.py
-COPY --link docker/apply-config.sh docker/config-watcher.sh /usr/local/bin/
+COPY --link docker/apply-config.sh /usr/local/bin/
 COPY --link docker/crontab.template /etc/supercronic/crontab.template
-# 内置候选地址库与机房映射作为"出厂默认值"：容器首次启动时播种到挂载的 /data，
-# 之后用户直接编辑宿主目录即可维护，重建镜像也不会覆盖。
+# 内置候选地址库与机房映射作为"出厂默认值"：面板首次启动时播种到 /data。
 COPY --link data /opt/default-data
 
 RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/scan-and-publish.sh \
       /usr/local/bin/publish.sh /usr/local/bin/doctor.sh /usr/local/bin/check-config.py \
-      /usr/local/bin/export-dotenv.py /usr/local/bin/print-config.py \
+      /usr/local/bin/export-runtime.py /usr/local/bin/print-config.py \
       /usr/local/bin/push-filter.py \
-      /usr/local/bin/apply-config.sh /usr/local/bin/config-watcher.sh \
+      /usr/local/bin/apply-config.sh \
       /usr/local/bin/panel-entrypoint.sh \
  && adduser -D -u 1000 -h /home/scanner scanner \
  && mkdir -p /output /cache \
  && chown -R 1000:1000 /output /cache /opt/default-data
 
-# 这里刻意不写 USER：镜像需要以 root 启动，才能把 bind mount 进来的宿主目录
-# 对齐到 PUID/PGID 并播种默认数据；入口脚本随后用 su-exec 降权，业务进程全程
-# 非 root（docker exec 后执行 `id` 可验证）。若强制 USER 1000，宿主机目录属主
-# 不一致时会直接启动失败，正是本项目要避免的首次部署摩擦。
+# 这里刻意不写 USER：镜像需要以 root 启动，才能把挂载目录对齐到 PUID/PGID；
+# 入口脚本随后用 su-exec 降权，业务进程全程非 root（docker exec 后执行 `id` 可验证）。
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

@@ -1,7 +1,7 @@
 """文件写入的原子实现。
 
-产物预览已改为读数据库快照（见 `artifacts_store`），这里只剩下：
-把数据库里的内容安全地写成扫描器可读的投影文件。
+产物预览已改为读数据库快照（见 `artifacts_store`），这里只剩下把数据库里的
+内容安全地写成扫描器可读的投影文件（配置与 IP 库）。
 """
 
 from __future__ import annotations
@@ -11,11 +11,32 @@ import stat
 import tempfile
 from pathlib import Path
 
-MAX_TEXT_BYTES = 1024 * 1024
-MAX_CSV_BYTES = 2 * 1024 * 1024
+
+def _is_root() -> bool:
+    getter = getattr(os, "geteuid", None)
+    return bool(getter and getter() == 0)
 
 
-def atomic_write(path: Path, text: str) -> None:
+def chown(path: Path, uid: int | None = None, gid: int | None = None) -> None:
+    """把路径属主对齐到运行用户；非 root（含 Windows）时静默跳过。"""
+    if uid is None and gid is None:
+        return
+    if not _is_root():
+        return
+    try:
+        os.chown(path, -1 if uid is None else uid, -1 if gid is None else gid)
+    except (OSError, AttributeError):
+        pass
+
+
+def atomic_write(
+    path: Path,
+    text: str,
+    *,
+    mode: int | None = None,
+    uid: int | None = None,
+    gid: int | None = None,
+) -> None:
     """同目录临时文件 + fsync + os.replace；尽量保留原文件属主与权限。"""
     file_path = Path(path)
     file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -39,10 +60,13 @@ def atomic_write(path: Path, text: str) -> None:
                 pass
         else:
             try:
-                os.chmod(temporary, 0o600)
+                os.chmod(temporary, 0o600 if mode is None else mode)
             except OSError:
                 pass
+        if uid is not None or gid is not None:
+            chown(Path(temporary), uid, gid)
         os.replace(temporary, file_path)
+        chown(file_path, uid, gid)
     except BaseException:
         try:
             os.unlink(temporary)
@@ -51,4 +75,4 @@ def atomic_write(path: Path, text: str) -> None:
         raise
 
 
-__all__ = ["MAX_CSV_BYTES", "MAX_TEXT_BYTES", "atomic_write"]
+__all__ = ["atomic_write", "chown"]

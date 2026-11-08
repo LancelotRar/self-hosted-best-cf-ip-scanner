@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""把 `.env` 里的已知键输出成 shell `export` 语句。
+"""把运行配置投影（JSON）里的已知键输出成 shell `export` 语句。
 
 用法：
-    eval "$(export-dotenv.py)"                  # 导出全部已知键
-    eval "$(export-dotenv.py --keys PUID,TZ)"   # 只导出指定键（入口阶段用）
+    eval "$(export-runtime.py)"                  # 导出全部已知键
+    eval "$(export-runtime.py --keys TZ,CRON_SCHEDULE)"   # 只导出指定键（入口阶段用）
 
 规则：
-- 只导出 `scanner/schema.py` 里的已知键，忽略注释与未知键；
+- 只导出 `scanner/schema.py` 里的已知键，忽略未知键；
 - 空值视为未设置，不导出；
 - 已经存在的非空环境变量优先，不覆盖（`docker compose run -e` 的临时覆盖语义）；
-- `.env` 解析失败时退出 1 并打印原因，调用方应停止本轮而不是带错值继续。
+- 投影解析失败时退出 1 并打印原因，调用方应停止本轮而不是带错值继续。
 """
 
 from __future__ import annotations
@@ -31,13 +31,12 @@ def _app_dir() -> Path:
 
 sys.path.insert(0, str(_app_dir()))
 
-from scanner.dotenv import DotenvError  # noqa: E402
-from scanner.runtime_env import load  # noqa: E402
+from scanner.runtime_env import RuntimeConfigError, load  # noqa: E402
 from scanner.schema import KNOWN_KEYS  # noqa: E402
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="导出 .env 中的已知键")
+    parser = argparse.ArgumentParser(description="导出运行配置投影中的已知键")
     parser.add_argument("--keys", default="", help="只导出这些键（逗号分隔）")
     parser.add_argument(
         "--plain",
@@ -50,8 +49,8 @@ def main(argv: list[str] | None = None) -> int:
     prefix = "" if args.plain else "export "
     try:
         values = load()
-    except DotenvError as exc:
-        print(f"[export-dotenv] .env 解析失败：{exc}", file=sys.stderr)
+    except RuntimeConfigError as exc:
+        print(f"[export-runtime] 运行配置解析失败：{exc}", file=sys.stderr)
         return 1
 
     for name, value in values.items():

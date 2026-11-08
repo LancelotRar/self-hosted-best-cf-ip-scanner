@@ -8,12 +8,12 @@
 
 | 层 | 命令 | 覆盖 |
 | --- | --- | --- |
-| 单元 | `python -m pytest -q` | `.env` 解析（CRLF/引号/行内注释）、schema 与配置优先级、cron 5/6/7 段（supercronic 语义）、脱敏、轮次解析、路径安全、认证与限速 |
+| 单元 | `python -m pytest -q` | schema 默认值落库、配置事务与加密落库、JSON 投影解析、cron 5/6/7 段（supercronic 语义）、脱敏、轮次解析、路径安全、认证与限速 |
 | API 集成 | 同上（`tests/test_*_api.py`） | 认证/CSRF、配置保存事务与核对、409 冲突、回滚、调度、运行/SSE、日志、产物、IP 库、发布、系统 |
-| 脚本/配置契约 | `pytest tests/test_scripts.py -q` | `sh -n` 全部脚本、Python 脚本可编译、`.env.example` 可解析、compose 拓扑、无 `shell=True` |
+| 脚本/配置契约 | `pytest tests/test_scripts.py -q` | `sh -n` 全部脚本、Python 脚本可编译、仓库无配置文件模板、compose 拓扑、无 `shell=True` |
 | 前端单元 | `npm --prefix web run test` | auth/config store、`ParamField` 值转换 |
 | 前端类型/构建 | `npm --prefix web run typecheck && npm --prefix web run build` | Vue + TS 严格模式与生产构建 |
-| 镜像/Compose 冒烟 | CI `smoke` job | 单镜像双容器、scanner healthy、`/healthz`、首次设置页、`.env` 热读取、`run -e` 优先级 |
+| 镜像/Compose 冒烟 | CI `smoke` job | 单镜像双容器、scanner healthy、`/healthz`、首次设置页、运行配置投影生成与每轮重读、`run -e` 优先级 |
 | E2E | `npm --prefix web run e2e` | 首次设置/登录、保存结果面板、取消/非法值、409 冲突、日志连接状态、空产物、IP 库行错误、发布空态 |
 | 人工上线 | 见 §5 | 真实域名、真实发布、Windows Docker Desktop、反代、备份恢复 |
 
@@ -22,7 +22,6 @@
 ```bash
 python -m pytest -q \
   --cov=panel \
-  --cov=scanner/dotenv.py \
   --cov=scanner/schema.py \
   --cov=scanner/runtime_env.py \
   --cov-fail-under=80
@@ -34,7 +33,7 @@ python -m pytest -q \
 
 - 外部依赖全部可注入：`Settings`、`ScannerController`、候选配置校验器、时钟。
   业务代码不直接 `docker.from_env()`、不读真实 `/panel-data`。
-- 测试只用 `tmp_path` 与 fake 控制器：不访问网络、不写真实 `.env`/`data`/`output`、
+- 测试只用 `tmp_path` 与 fake 控制器：不访问网络、不写真实 `panel-data`/`data`/`output`、
   不使用真实令牌或仓库。
 - SSE 的 fake 生成器必须有界，测试不能依赖超时结束。
 
@@ -42,7 +41,7 @@ python -m pytest -q \
 
 ```bash
 # 后端
-python -m pytest -q --cov=panel --cov=scanner/dotenv.py --cov=scanner/schema.py \
+python -m pytest -q --cov=panel --cov=scanner/schema.py \
   --cov=scanner/runtime_env.py --cov-fail-under=80
 
 # 契约
@@ -63,17 +62,14 @@ E2E 需要一套**干净**的真实栈（CI 由 `e2e` job 自动准备）：
 rm -rf panel-data
 docker compose down -v            # 数据与产物在命名卷里，清空才算干净栈
 cp compose.example.yaml compose.yaml
-cp .env.example .env
-sed -i 's|^PROBE_HOST=.*|PROBE_HOST=probe.example.com|' .env
-sed -i 's|^RUN_ON_START=.*|RUN_ON_START=false|' .env
-sed -i 's|^PANEL_PORT=.*|PANEL_PORT=18080|' .env
-docker compose up -d --build
+docker compose -f compose.yaml -f compose.build.yaml up -d --build
 
 npm --prefix web exec playwright install --with-deps chromium
-PANEL_URL=http://127.0.0.1:18080 E2E_PASSWORD=e2e-correct-horse npm --prefix web run e2e
+PANEL_URL=http://127.0.0.1:8080 E2E_PASSWORD=e2e-correct-horse npm --prefix web run e2e
 ```
 
-E2E 不依赖真实扫描成功：只验证运行流、错误与空态提示。仅允许 1 次基础设施重试；
+E2E 不依赖真实扫描成功：只验证运行流、错误与空态提示。应用参数使用数据库默认值；
+需要特定参数时通过面板保存，不存在配置文件入口。仅允许 1 次基础设施重试；
 连续失败按缺陷处理。
 
 ## 5. CI 门禁（全部通过才允许合并/发布）
@@ -84,7 +80,7 @@ E2E 不依赖真实扫描成功：只验证运行流、错误与空态提示。�
 | `frontend` | `npm ci` → `typecheck` → `build` → `test` |
 | `contract` | `sh -n docker/*.sh scripts/*.sh`；`docker compose config --quiet` |
 | `build` | 单镜像（含前端 Node 构建阶段）构建成功 |
-| `smoke` | 启动两个容器；scanner healthy；面板 `/healthz` 200；首次设置页可访问；`.env` 热读取；`run -e` 优先 |
+| `smoke` | 启动两个容器；scanner healthy；面板 `/healthz` 200；首次设置页可访问；运行配置投影生成且每轮重读；`run -e` 优先 |
 | `e2e` | 干净 `panel-data` 启动真实栈，Playwright 串行执行关键流程 |
 
 ## 6. 兼容性矩阵
@@ -100,7 +96,9 @@ E2E 不依赖真实扫描成功：只验证运行流、错误与空态提示。�
 ## 7. 人工上线检查清单
 
 - [ ] 用真实 `PROBE_HOST` 跑完一轮，产物符合预期。
-- [ ] 面板改参数 → 核对通过 → 下一轮日志出现新值；手工改 `.env` 同样验证。
+- [ ] 面板改参数 → 核对通过 → 下一轮日志出现新值。
+- [ ] 面板保存敏感值（令牌）后落库加密，页面/日志/审计不出现明文。
+- [ ] 首次启动把 schema 默认值写入数据库，面板与扫描器一致。
 - [ ] cron 热重载后按新时间触发（5 段与 7 段含秒各验一次）。
 - [ ] 手动执行、日志实时流、产物预览/下载、IP 库保存/恢复。
 - [ ] 发布到测试仓库成功；令牌未出现在页面/日志/审计。

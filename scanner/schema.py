@@ -264,30 +264,10 @@ PARAMS: tuple[ParamSpec, ...] = (
         consumer="shell",
         restart=True,
     ),
-    # ---------------------------------------------------------- 运行身份 --
-    ParamSpec(
-        "PUID",
-        "运行身份",
-        "int",
-        1000,
-        "容器内 UID",
-        "业务进程与产物文件的属主；重启容器后生效。",
-        consumer="shell",
-        restart=True,
-    ),
-    ParamSpec(
-        "PGID",
-        "运行身份",
-        "int",
-        1000,
-        "容器内 GID",
-        "业务进程与产物文件的属组；重启容器后生效。",
-        consumer="shell",
-        restart=True,
-    ),
+    # ---------------------------------------------------------- 时区 ------
     ParamSpec(
         "TZ",
-        "运行身份",
+        "定时计划",
         "str",
         "Asia/Shanghai",
         "时区",
@@ -436,77 +416,6 @@ PARAMS: tuple[ParamSpec, ...] = (
         "与 NO_PROXY 内容一致，兼容只认小写的工具。",
         consumer="proxy",
     ),
-    # ---------------------------------------------------------- 只读设置 --
-    ParamSpec(
-        "IMAGE_NAME",
-        "只读设置",
-        "str",
-        "ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner",
-        "镜像名",
-        "修改需要重新 docker compose up；页面只读。",
-        consumer="panel",
-        read_only=True,
-    ),
-    ParamSpec(
-        "IMAGE_TAG",
-        "只读设置",
-        "str",
-        "latest",
-        "镜像标签",
-        "建议锁定具体版本或 digest；页面只读。",
-        consumer="panel",
-        read_only=True,
-    ),
-    ParamSpec(
-        "CONTAINER_NAME",
-        "只读设置",
-        "str",
-        "best-cf-ip-scanner",
-        "扫描容器名",
-        "与其他 compose 项目冲突时在 .env 中修改；页面只读。",
-        consumer="panel",
-        read_only=True,
-    ),
-    ParamSpec(
-        "PANEL_PORT",
-        "只读设置",
-        "int",
-        8080,
-        "面板端口",
-        "修改需要重建面板容器；页面只读。",
-        consumer="panel",
-        read_only=True,
-    ),
-    ParamSpec(
-        "PANEL_BIND",
-        "只读设置",
-        "str",
-        "0.0.0.0",
-        "面板监听地址",
-        "默认监听全部网卡；页面只读。",
-        consumer="panel",
-        read_only=True,
-    ),
-    ParamSpec(
-        "PANEL_TRUST_PROXY",
-        "只读设置",
-        "bool",
-        False,
-        "信任反向代理",
-        "仅在根路径反代后设为 true，才采信 X-Forwarded-*。",
-        consumer="panel",
-        read_only=True,
-    ),
-    ParamSpec(
-        "PANEL_SESSION_DAYS",
-        "只读设置",
-        "int",
-        7,
-        "会话有效期（天）",
-        "登录 Cookie 的有效期。",
-        consumer="panel",
-        read_only=True,
-    ),
 )
 
 BY_NAME: dict[str, ParamSpec] = {spec.name: spec for spec in PARAMS}
@@ -545,7 +454,7 @@ def coerce(spec: ParamSpec, raw: str) -> object:
 
 
 def format_value(spec: ParamSpec, value: object) -> str:
-    """把参数值编码回 `.env` 可写的字符串，与 `coerce` 互逆。"""
+    """把参数值编码回配置字符串，与 `coerce` 互逆。"""
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, (tuple, list)):

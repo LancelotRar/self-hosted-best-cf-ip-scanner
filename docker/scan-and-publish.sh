@@ -9,20 +9,19 @@
 set -u
 
 # 手动 `docker compose exec` / `run` 进来时当前用户可能是 root：与定时任务一致地
-# 降权，免得产物被写成 root 属主。
+# 降权，免得产物被写成 root 属主。运行身份属于部署参数，来自容器环境。
 if [ "$(id -u)" = "0" ]; then
   exec su-exec "${PUID:-1000}:${PGID:-1000}" "$0" "$@"
 fi
 
-# 每轮都重新读 `.env`：扫描进程与 git/curl 子进程都能拿到最新值。
+# 每轮都重新读运行配置投影：扫描进程与 git/curl 子进程都能拿到最新值。
 # 已存在的非空环境变量优先，不覆盖本轮显式覆盖。
-PROJECT_DIR="${PROJECT_DIR:-/project}"
-export DOTENV_PATH="${DOTENV_PATH:-$PROJECT_DIR/.env}"
-if ! dotenv_exports="$(python "${EXPORT_DOTENV:-/usr/local/bin/export-dotenv.py}")"; then
-  echo "[job] 读取 .env 失败，本轮跳过"
+export RUNTIME_CONFIG_PATH="${RUNTIME_CONFIG_PATH:-/scanner-config/runtime.json}"
+if ! runtime_exports="$(python "${EXPORT_RUNTIME:-/usr/local/bin/export-runtime.py}")"; then
+  echo "[job] 读取运行配置失败，本轮跳过"
   exit 1
 fi
-eval "$dotenv_exports"
+eval "$runtime_exports"
 
 # 单实例锁：定时任务与 `scan-once` 可能同时被触发，两轮并发会互相清空产物目录。
 # 拿不到锁说明已有一轮在跑，直接跳过（不算失败）。
@@ -58,7 +57,7 @@ record_end() {
     >> "$RUNS_FILE" 2>/dev/null || true
 }
 
-# 每轮打印一行生效参数摘要，便于确认 .env 已生效（不含敏感值）。
+# 每轮打印一行生效参数摘要，便于确认面板参数已生效（不含敏感值）。
 summary="$(python "$SUMMARY_COMMAND" --short 2>/dev/null | head -n 1 | tr '\t\n' '  ')" || summary=""
 
 start=$(date +%s)

@@ -8,7 +8,7 @@ export interface Param {
   help: string;
   default: unknown;
   value: unknown;
-  source: "dotenv" | "default";
+  source: "custom" | "default";
   configured: boolean;
   secret: boolean;
   read_only: boolean;
@@ -20,8 +20,8 @@ export interface Param {
 
 export interface ConfigResponse {
   hash: string;
-  mtime: string | null;
-  file_size: number;
+  revision: number;
+  updated_at: string | null;
   params: Param[];
 }
 

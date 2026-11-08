@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from ..config_store import APPLY_CONFIG_SCRIPT, read_env
+from .. import settings_store
+from ..config_store import APPLY_CONFIG_SCRIPT
 from ..cron import CronInvalid, next_runs, validate
 from ..deps import controller_of, settings_of
 from ..docker_api import ScannerUnavailable
@@ -14,10 +15,7 @@ router = APIRouter(prefix="/api/schedule", tags=["schedule"])
 
 
 def _effective_tz(request: Request) -> str:
-    from scanner.schema import BY_NAME
-
-    document = read_env(settings_of(request))
-    return document.values.get("TZ") or str(BY_NAME["TZ"].default)
+    return settings_store.value(request.app.state.conn, settings_of(request), "TZ")
 
 
 @router.get("/preview", dependencies=[Depends(require_user)])

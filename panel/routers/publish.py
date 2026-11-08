@@ -27,7 +27,7 @@ class PublishPayload(BaseModel):
 @router.get("", dependencies=[Depends(require_user)])
 def get_publish(request: Request) -> dict[str, object]:
     settings = settings_of(request)
-    document = config_store.read_env(settings)
+    document = config_store.read_config(request.app.state.conn, settings)
     params = [
         param
         for param in config_store.param_entries(document)
@@ -67,6 +67,7 @@ def put_publish(payload: PublishPayload, request: Request) -> dict[str, object]:
         )
     try:
         result = config_store.save(
+            request.app.state.conn,
             settings_of(request),
             payload.hash,
             payload.values,

@@ -5,30 +5,25 @@
 #   0  已应用，或渲染结果与当前一致（无需变更）
 #   1  渲染/校验失败；旧 crontab 保持不变，调度器继续按旧表运行
 #
-# 面板保存 CRON_SCHEDULE 后会主动调用本脚本；手工改 .env 由 config-watcher.sh 兜底。
+# 面板保存 CRON_SCHEDULE 后会主动调用本脚本；运行配置由面板写入
+# `/scanner-config/runtime.json`，不存在手工编辑路径。
 set -u
 
-PROJECT_DIR="${PROJECT_DIR:-/project}"
-export DOTENV_PATH="${DOTENV_PATH:-$PROJECT_DIR/.env}"
-EXPORT_DOTENV="${EXPORT_DOTENV:-/usr/local/bin/export-dotenv.py}"
+export RUNTIME_CONFIG_PATH="${RUNTIME_CONFIG_PATH:-/scanner-config/runtime.json}"
+EXPORT_RUNTIME="${EXPORT_RUNTIME:-/usr/local/bin/export-runtime.py}"
 CRONTAB_TEMPLATE="${CRONTAB_TEMPLATE:-/etc/supercronic/crontab.template}"
 CRONTAB_PATH="${CRONTAB_PATH:-/tmp/supercronic.crontab}"
 
 log() { echo "[apply-config] $(date '+%Y-%m-%d %H:%M:%S %Z') $*"; }
 
 # 面板通过 docker exec 以 root 调用；/tmp 是 sticky，而 crontab 属主是业务用户，
-# root 直接覆盖会被 EPERM 拒绝。先按 .env 的 PUID/PGID 降权，与扫描任务一致。
+# root 直接覆盖会被 EPERM 拒绝。先按容器环境的 PUID/PGID 降权，与扫描任务一致。
 if [ "$(id -u)" = "0" ]; then
-  PUID_EXPORTS="$(python "$EXPORT_DOTENV" --keys PUID,PGID)" || {
-    log "[错误] 读取 .env 身份失败，保留旧 crontab"
-    exit 1
-  }
-  eval "$PUID_EXPORTS"
   exec su-exec "${PUID:-1000}:${PGID:-1000}" "$0" "$@"
 fi
 
-if ! exports="$(python "$EXPORT_DOTENV" --keys CRON_SCHEDULE)"; then
-  log "[错误] 读取 .env 失败，保留旧 crontab"
+if ! exports="$(python "$EXPORT_RUNTIME" --keys CRON_SCHEDULE)"; then
+  log "[错误] 读取运行配置失败，保留旧 crontab"
   exit 1
 fi
 eval "$exports"

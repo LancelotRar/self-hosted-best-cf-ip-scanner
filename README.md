@@ -21,10 +21,10 @@ Cloudflare 边缘、淘汰 EIV 受限子池、取回边缘机房代码），定�
 
 ## 特性
 
-- **拉取即用**：只需 `compose.yaml` 与 `.env` 两个文件，不需要克隆仓库、Python 环境或本地构建。
+- **拉取即用**：只需一个 `compose.yaml`，不需要克隆仓库、Python 环境、本地构建或任何配置文件。
 - **面板优先**：同一个 compose 堆栈内的运维面板（`http://<宿主IP>:8080`）覆盖参数、调度、运行、日志、产物、IP 库与发布；CLI 只作应急路径。
-- **参数全在 `.env`**：面板保存与手工编辑同一个文件，效果完全一致；改完下一轮生效，调度变更热重载，无需重建容器。
-- **数据与产物不落宿主目录**：候选地址库、机房映射与扫描结果都存在容器卷 + 面板数据库里，只能在面板里查看和编辑，宿主目录不会出现任何明文文件。
+- **应用参数全在面板**：探测域名、采样、订阅档位、发布与代理都在面板里编辑，首次启动把默认值写入数据库，并自动生成扫描器读取的运行期投影。
+- **数据与产物不落宿主目录**：候选地址库、机房映射与扫描结果都存在容器卷里，面板数据库保存元数据与有界预览；宿主目录不会出现任何明文文件。
 - **失败不覆盖**：任一筛选阶段全灭时进程返回非零、不写新产物，目标仓库保留上一轮结果。
 - **轻量且最小权限**：Alpine + Python 3.13 多阶段构建；扫描业务进程非 root、只读根文件系统。
 - **日志面向排障**：启动打印生效配置，每轮打印阶段耗时与失败原因 top-5，另有 `doctor.sh` 一键自检。
@@ -41,10 +41,10 @@ Cloudflare 边缘、淘汰 EIV 受限子池、取回边缘机房代码），定�
 </thead>
 <tbody>
 <tr><th rowspan="4" align="center">部署与运行</th><td align="center"><a href="docs/deployment.md">部署详解</a></td><td align="center">前置条件、完整 compose 文件、目录与持久化、启动与验证、本地构建</td></tr>
-<tr><td align="center"><a href="docs/panel.md">运维面板</a></td><td align="center">首次登录、九个标签页、保存事务与核对结果、密码重置、反向代理</td></tr>
+<tr><td align="center"><a href="docs/panel.md">运维面板</a></td><td align="center">首次登录、五个页面、保存事务与核对结果、密码重置、反向代理</td></tr>
 <tr><td align="center"><a href="docs/scheduling.md">定时设置</a></td><td align="center">cron 表达式写法、启动即执行、热重载、暂停与恢复</td></tr>
 <tr><td align="center"><a href="docs/operations.md">日常运维</a></td><td align="center">面板日常操作、手动执行一轮、更新镜像、日志与清理</td></tr>
-<tr><th rowspan="4" align="center">配置与数据</th><td align="center"><a href="docs/configuration.md">配置手册</a></td><td align="center">完整 <code>.env</code> 模板、每个参数的默认值与影响、常见组合示例</td></tr>
+<tr><th rowspan="4" align="center">配置与数据</th><td align="center"><a href="docs/configuration.md">配置手册</a></td><td align="center">应用参数总表、默认值与影响、常见组合；部署参数见部署详解</td></tr>
 <tr><td align="center"><a href="docs/ip-library.md">候选地址库</a></td><td align="center">条目格式、用注释排除网段、改动如何生效与验证</td></tr>
 <tr><td align="center"><a href="docs/network.md">代理与直连</a></td><td align="center">出网代理与探测直连为何必须分开、<code>NO_PROXY</code> 机制、TUN 场景</td></tr>
 <tr><td align="center"><a href="docs/publishing.md">自动发布</a></td><td align="center">推送到 Git 仓库：开关、令牌、镜像语义与重试</td></tr>
@@ -55,34 +55,47 @@ Cloudflare 边缘、淘汰 EIV 受限子池、取回边缘机房代码），定�
 
 ## 快速开始
 
-### 1. 获取配置模板
+### 1. 获取编排文件
 
 ```bash
 mkdir best-cf-ip-scanner && cd best-cf-ip-scanner
 
 curl -fsSLO https://raw.githubusercontent.com/LancelotRar/self-hosted-best-cf-ip-scanner/main/compose.example.yaml
-curl -fsSLO https://raw.githubusercontent.com/LancelotRar/self-hosted-best-cf-ip-scanner/main/.env.example
-
-cp compose.example.yaml compose.yaml   # 容器编排
-cp .env.example .env                   # 环境变量
+cp compose.example.yaml compose.yaml
 ```
 
-模板文件保留在原处，便于日后对比改动或按新版本模板升级。
+只需要一个 `compose.yaml`。项目不提供任何应用配置文件；部署参数（运行身份、镜像、
+容器名、端口）直接写在 `compose.yaml` 里，应用参数首次启动后进面板填写。
 
-### 2. 最小设置
+### 2. 部署与应用参数
 
-`.env` 中填写以下一项即可运行：
+部署参数默认值如下，按环境修改 `compose.yaml` 即可：
 
-```dotenv
-# 必填：你自己的、已开启 Cloudflare 代理的域名
-PROBE_HOST=probe.example.com
+```yaml
+services:
+  scanner:
+    image: ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner:latest
+    container_name: best-cf-ip-scanner
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+
+  panel:
+    image: ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner:latest
+    container_name: best-cf-ip-scanner-panel
+    ports:
+      - "8080:8080"
 ```
 
-其余参数保持默认：每 6 小时第 30 分扫描一轮、每个 /24 抽 1 个代表 IP、TCP 握手
-3 次中成功 2 次即合格、端口 443、默认生成 `GLOBAL20/50/100/200/400` 五个全量列表，国家列表默认关闭；只在本地产出。
+探测域名、调度、采样、订阅档位、发布与代理等**应用参数全部在面板里填写**。
+首次启动后打开 `http://<宿主IP>:8080`，在「参数」页按需修改并保存。
+
+> 默认 `PROBE_HOST=cloudflare-ech.com` 可直接跑通；想更严格地筛选，建议换成
+> 你自己托管在 Cloudflare、且已开启代理的域名。
 
 > [!IMPORTANT]
-> 配置有误时容器**不会进入调度**：启动阶段就会打印问题清单并退出。详细规则见
+> 应用参数只存在数据库里，不存在任何配置文件入口。配置有误时扫描器**不会进入调度**，
+> 启动阶段就会打印问题清单并退出。详细规则见
 > [配置手册的「留空与特殊值 / 校验机制」](docs/configuration.md)。
 
 ### 3. 启动并验证
@@ -110,9 +123,10 @@ docker compose logs -f
 ```bash
 docker compose ps                 # scanner 与 panel 均应为 Up (healthy)
 docker compose logs --tail=30     # 应能看到「本轮完成」
-ls output                         # 应看到 detail.csv 与 GLOBAL*.txt
 curl -fsS http://127.0.0.1:8080/healthz   # 面板健康检查
 ```
+
+产物在面板「信息总览 · 产物情况」里查看；宿主目录里不会出现这些文件。
 
 一轮完整的日志形如：
 
@@ -128,29 +142,25 @@ TCP 握手测量：合格 2673，淘汰 1488（每候选 3 次，至少成功 2 
 ### 4. 打开运维面板
 
 浏览器访问 `http://<宿主IP>:8080`，首次打开会要求设置管理员密码（至少 8 位）。
-面板是日常运维的主入口，九个标签覆盖全部常规操作：
+面板是日常运维的主入口，五个页面覆盖全部常规操作：
 
 <table align="center">
 <thead>
-<tr><th align="center">标签</th><th align="center">能做什么</th></tr>
+<tr><th align="center">页面</th><th align="center">能做什么</th></tr>
 </thead>
 <tbody>
-<tr><td align="center">总览</td><td align="center">扫描器状态、上次结果、下次执行时间、生效配置摘要</td></tr>
-<tr><td align="center">参数</td><td align="center">分组表单、类型化控件、保存前校验、差异预览、版本历史与回滚</td></tr>
-<tr><td align="center">调度</td><td align="center">cron 编辑、未来 5 次执行预览、热重载</td></tr>
+<tr><td align="center">总览</td><td align="center">扫描器状态、上次结果、下次执行时间、生效配置摘要、产物列表、近期扫描</td></tr>
+<tr><td align="center">参数</td><td align="center">七个子标签：扫描参数 / 计划任务 / 自定义 IP 库 / 机房映射 / 产物定制 / 仓库设置 / 代理设置；分组表单、保存前校验、差异预览、版本历史与回滚</td></tr>
 <tr><td align="center">运行</td><td align="center">立即执行一轮、实时输出、历史轮次与扫描/发布退出码</td></tr>
 <tr><td align="center">日志</td><td align="center">实时日志（SSE）、关键字过滤、暂停、下载</td></tr>
-<tr><td align="center">产物</td><td align="center">TXT/CSV 预览、下载、复制订阅内容</td></tr>
-<tr><td align="center">IP 库</td><td align="center">在线编辑、逐行校验、自动备份与恢复；另有「固定保留」列表单独生成产物</td></tr>
-<tr><td align="center">发布</td><td align="center">Git 参数、令牌掩码显示、最近推送结果</td></tr>
-<tr><td align="center">系统</td><td align="center">改密码、审计日志、扫描容器启停、版本信息</td></tr>
+<tr><td align="center">设置</td><td align="center">时区、外观、改密码、审计日志、扫描容器启停、版本信息</td></tr>
 </tbody>
 </table>
 
 > [!NOTE]
-> 面板保存直接改写 `.env`，与手工编辑完全同源：扫描器每轮重新读取。
-> 只有 `PUID` / `PGID` / `TZ` / `RUN_ON_START` 需要重启扫描容器
-> （面板会提示并提供「重启扫描容器」）。详见 [运维面板](docs/panel.md)。
+> 面板保存写入数据库并重新生成扫描器读取的投影，不需要手工编辑任何配置文件。
+> 只有 `TZ` / `RUN_ON_START` 需要重启扫描容器（面板会提示并提供「重启扫描容器」）。
+> 详见 [运维面板](docs/panel.md)。
 
 ### 5. 产物
 

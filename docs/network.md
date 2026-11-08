@@ -40,7 +40,9 @@
 
 ## 配置
 
-```dotenv
+在面板「参数 → 代理设置」里填写：
+
+```text
 # 出网走代理
 HTTP_PROXY=http://192.168.1.2:7890
 HTTPS_PROXY=http://192.168.1.2:7890
@@ -89,14 +91,12 @@ docker compose exec scanner /usr/local/bin/doctor.sh | sed -n '/网络与连通�
 
 ## 变更探测域名时的同步项
 
-需要同时改三处，缺一不可：
+需要同时改两处，缺一不可：
 
-- `.env` 的 `PROBE_HOST`；
-- `.env` 的 `NO_PROXY` / `no_proxy`；
+- 面板「参数 → 探测端点」的 `PROBE_HOST`；
 - 该域名在 Cloudflare 上的代理（小黄云）状态。
 
-改完在面板「参数」页保存即可；面板会自动把新域名追加到 `NO_PROXY` / `no_proxy`。
-手工编辑 `.env` 同样在下一轮生效（`PROBE_HOST` 需要自己同步豁免清单）。
-保存后看面板的「核对状态」或执行
+改完在面板里保存即可；面板会自动把新域名追加到代理豁免清单（`NO_PROXY` / `no_proxy`）。
+不需要手工编辑任何文件。保存后看面板的「核对状态」或执行
 `docker compose exec -T scanner /usr/local/bin/startup-report.py`，确认
 「代理 → NO_PROXY 豁免探测域名: 是」。

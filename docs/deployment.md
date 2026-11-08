@@ -1,8 +1,8 @@
 # 部署详解
 
-[← 返回首页](../README.md)
+[← 返回首页](../README.md) · [配置手册](configuration.md)
 
-本文覆盖：前置条件、获取配置、最少设置、启动与验证、目录与持久化、完整的
+本文覆盖：前置条件、获取文件、部署参数、启动与验证、目录与持久化、完整的
 `compose.example.yaml` 说明，以及本地构建镜像。
 
 ## 前置条件
@@ -16,64 +16,54 @@
 </tr>
 </thead>
 <tbody>
-<tr><td align="center">一个自己托管在 Cloudflare、且已开启代理（小黄云）的域名</td><td align="center"><code>PROBE_HOST</code>，边缘端点校验域名</td><td align="center"><strong>必需</strong></td></tr>
 <tr><td align="center">Docker 24+（含 compose v2）与可出网的机器</td><td align="center">运行容器</td><td align="center"><strong>必需</strong></td></tr>
+<tr><td align="center">一个自己托管在 Cloudflare、且已开启代理（小黄云）的域名</td><td align="center">面板里的「探测域名」，边缘端点校验</td><td align="center"><strong>建议</strong></td></tr>
 <tr><td align="center">一个 Git 仓库 + 具备 <code>contents:write</code> 的访问令牌</td><td align="center">自动发布产物</td><td align="center">可选</td></tr>
 </tbody>
 </table>
 
-`PROBE_HOST` 不能省：它决定「哪些 IP 算合格的 Cloudflare 边缘」，选型理由见
-[README 的工作原理](../README.md#为什么探测域名必须是自己的域名)。
+探测域名可以在首次启动后于面板里填写；默认 `cloudflare-ech.com` 也能直接跑通。
+选型理由见 [README 的工作原理](../README.md#为什么探测域名必须是自己的域名)。
 
-## 1. 获取配置模板
+## 1. 获取文件
 
 ```bash
 mkdir best-cf-ip-scanner && cd best-cf-ip-scanner
 
 curl -fsSLO https://raw.githubusercontent.com/LancelotRar/self-hosted-best-cf-ip-scanner/main/compose.example.yaml
-curl -fsSLO https://raw.githubusercontent.com/LancelotRar/self-hosted-best-cf-ip-scanner/main/.env.example
-
 cp compose.example.yaml compose.yaml
-cp .env.example .env
 ```
 
-用 `cp` 而不是 `mv`：模板留在原处，后续可与实际文件对比、或按新版本模板升级。
+只需要一个 `compose.yaml`。项目不提供任何应用配置文件，也不需要配置文件入口；
+应用参数首次启动时由面板写入数据库，之后只在面板里编辑。
 
-得到两个文件：
+## 2. 部署参数
 
-<table align="center">
-<thead>
-<tr>
-<th align="center">文件</th>
-<th align="center">作用</th>
-</tr>
-</thead>
-<tbody>
-<tr><td align="center"><code>compose.yaml</code></td><td align="center">容器编排：镜像、挂载、权限、健康检查</td></tr>
-<tr><td align="center"><code>.env</code></td><td align="center">全部可调参数（由 <code>.env.example</code> 复制而来）</td></tr>
-</tbody>
-</table>
+部署参数（运行身份、镜像、容器名、端口）直接写在 `compose.yaml`，面板不展示、
+也不提供设置。默认值如下，按环境修改即可：
 
-## 2. 配置 `.env`
+```yaml
+services:
+  scanner:
+    image: ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner:latest
+    container_name: best-cf-ip-scanner
+    environment:
+      PUID: "1000"
+      PGID: "1000"
 
-最少只需一项：
-
-```dotenv
-# 必填：你自己的、已开启 Cloudflare 代理的域名
-PROBE_HOST=probe.example.com
+  panel:
+    image: ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner:latest
+    container_name: best-cf-ip-scanner-panel
+    ports:
+      - "8080:8080"
+    environment:
+      PUID: "1000"
+      PGID: "1000"
 ```
 
-其余参数都有默认值：每 6 小时第 30 分扫描一轮、每个 /24 抽 1 个代表 IP、TCP 握手
-3 次中成功 2 次即合格、端口 443、默认生成 `GLOBAL20/50/100/200/400` 五个全量列表；国家列表由 `COUNTRY_FILTERS`
-开关控制（默认关闭）；默认不发布，只在本地产出。
-
-- 需要调频率 / 端口 / 并发 / 订阅档位 / 发布：见 [配置手册](configuration.md)
-- 机器需要经代理出网：见 [代理与直连](network.md)（注意 `NO_PROXY` 必须豁免
-  `PROBE_HOST`，否则启动会被拒绝）
-
-改完保存即可：面板保存会直接改写 `.env`；手工编辑同样在下一轮生效。
-只有 `PUID` / `PGID` / `TZ` / `RUN_ON_START` 需要 `docker compose restart scanner`。
-详见 [运维面板](panel.md)。
+- 宿主机用户不是 1000 时，把 `PUID` / `PGID` 改成 `id -u` / `id -g`。
+- 只想本机访问面板时，把 `ports` 改成 `"127.0.0.1:8080:8080"`。
+- 应用参数（探测域名、调度、发布等）见 [配置手册](configuration.md)。
 
 ## 3. 启动
 
@@ -82,15 +72,16 @@ docker compose up -d
 docker compose logs -f
 ```
 
-首次启动会做四件事：
+首次启动的顺序是：
 
-- 创建三个命名卷 `ip-data`、`scan-output`、`publish-cache`（属主对齐到 `PUID:PGID`）；
-- 把镜像内置的候选地址库与机房映射播种进 `ip-data` 卷，随后由面板导入数据库；
-- `RUN_ON_START=true` 时先跑一轮，再交给 cron 调度；
-- 启动运维面板（同镜像、`panel` 服务），浏览器访问 `http://<宿主IP>:8080`。
+1. **panel 先启动**：建库并把 schema 默认值写入数据库、把镜像内置的候选地址库与
+   机房映射播种到 `ip-data` 卷、把卷内文件属主对齐到 `PUID:PGID`、生成
+   `/scanner-config/runtime.json`；
+2. **scanner 等 panel 健康后启动**：读取投影、渲染 crontab，`RUN_ON_START=true`
+   时先跑一轮，再交给 cron 调度；
+3. 浏览器打开 `http://<宿主IP>:8080`，首次会要求设置管理员密码。
 
-从旧版本（数据在 `./data`、`./output`）升级时，面板第一次启动会把宿主目录里的
-地址库、机房映射、轮次记录与产物搬进命名卷并入库，之后宿主目录里的这些文件就不再被读取。
+首次启动直接使用数据库默认值，不从任何宿主目录或配置文件导入应用参数。
 
 ## 4. 验证部署
 
@@ -104,8 +95,6 @@ curl -fsS http://127.0.0.1:8080/healthz   # {"status":"ok",...}
 
 产物在面板「信息总览 · 产物情况」里查看：应列出 `detail.csv` 与 `GLOBAL*.txt`。
 宿主目录里不会有这些文件。
-
-浏览器打开 `http://<宿主IP>:8080`，首次会要求设置管理员密码。
 
 一轮完整流程的日志形如：
 
@@ -126,22 +115,19 @@ TCP 握手测量：合格 2673，淘汰 1488（每候选 3 次，至少成功 2 
 
 ```
 <部署目录>/
-├── compose.yaml           # 编排文件（由模板复制而来）
+├── compose.yaml           # 编排文件（部署参数的唯一入口）
 ├── compose.example.yaml   # 编排模板，用于对比改动 / 按新版模板升级
-├── .env                   # 运行参数（只在这里改）
-├── .env.example           # 参数模板，同上
-├── data/                  # 候选地址库 + 机房映射（持久化，需备份）
-├── output/                # 产物（可随时删除，下一轮重建）
-├── cache/                 # 发布缓存（可随时删除）
-└── panel-data/            # 面板数据库、密钥与配置/地址库备份（需备份，可能含令牌）
+└── panel-data/            # 面板数据库、密钥（需备份，可能含加密后的令牌）
 ```
 
-升级用 `docker compose pull && docker compose up -d`；**不要**在部署目录 `git pull`。
+地址库、机房映射、轮次记录与产物都在**命名卷**里，宿主目录看不到；应用参数在
+`panel-data/panel.db`。升级用 `docker compose pull && docker compose up -d`；
+**不要**在部署目录 `git pull`。
 
 <table align="center">
 <thead>
 <tr>
-<th align="center">宿主机</th>
+<th align="center">卷</th>
 <th align="center">容器内</th>
 <th align="center">内容</th>
 <th align="center">说明</th>
@@ -149,54 +135,49 @@ TCP 握手测量：合格 2673，淘汰 1488（每候选 3 次，至少成功 2 
 </thead>
 <tbody>
 <tr><td align="center"><code>ip-data</code></td><td align="center"><code>/data</code></td><td align="center"><code>ip-library.txt</code> + <code>locations.json</code> + <code>runtime/runs.tsv</code></td><td align="center">数据库的投影；面板启动与保存时重写</td></tr>
-<tr><td align="center"><code>scan-output</code></td><td align="center"><code>/output</code></td><td align="center"><code>detail.csv</code> + 订阅列表</td><td align="center">每轮全量重写，供发布使用；面板同步入库</td></tr>
+<tr><td align="center"><code>scan-output</code></td><td align="center"><code>/output</code></td><td align="center"><code>detail.csv</code> + 订阅列表</td><td align="center">每轮全量重写，供发布与下载使用；面板同步元数据与有界预览</td></tr>
 <tr><td align="center"><code>publish-cache</code></td><td align="center"><code>/cache</code></td><td align="center">目标仓库浅克隆</td><td align="center">删掉卷即可让下一轮重新克隆</td></tr>
+<tr><td align="center"><code>scanner-config</code></td><td align="center"><code>/scanner-config</code></td><td align="center"><code>runtime.json</code></td><td align="center">应用参数投影；面板唯一写入，扫描器只读</td></tr>
 </tbody>
 </table>
 
-三个位置都是**命名卷**：宿主机目录里看不到任何文件，地址库与产物只在面板里查看和编辑。
+四个位置都是**命名卷**：宿主机目录里看不到任何文件，地址库与产物只在面板里查看和编辑。
 需要备份时用 `docker run --rm -v <项目>_ip-data:/src -v $PWD:/dst alpine tar czf /dst/ip-data.tgz -C /src .`。
-卷内文件属主是 `PUID:PGID`（默认 `1000:1000`）；宿主机用户不是 1000 时，把 `.env` 的
-`PUID` / `PGID` 改成 `id -u` / `id -g`。
+卷内文件属主是 `PUID:PGID`（默认 `1000:1000`）；宿主机用户不是 1000 时，改
+`compose.yaml` 里的 `PUID` / `PGID`。
 
 ## 6. compose.example.yaml 默认配置
 
 ```yaml
 # best-cf-ip-scanner —— 运行配置（官方镜像）
 #
-#   1) 本文件复制为 compose.yaml；.env.example 复制为 .env
-#   2) 在 .env 里填写 PROBE_HOST
+#   1) 本文件复制为 compose.yaml
+#   2) 需要改运行身份、端口或镜像版本时，直接编辑本文件（部署参数只在这里）
 #   3) docker compose up -d && docker compose logs -f
-#
-# 手动执行一轮：docker compose run --rm scan-once
+#   4) 浏览器打开面板，在「参数」页填写探测域名等应用参数
 #
 # 数据卷（命名卷，宿主目录里看不到文件）：
 #   ip-data        输入：候选地址库 + 机房映射（面板里编辑，数据库为唯一真源）
 #   scan-output    产物：明细表 detail.csv + 订阅列表 GLOBAL{N}.txt / {国家代码}{N}.txt
 #   publish-cache  发布缓存：目标仓库的浅克隆（可随时删除）
-#
-# 本地构建镜像见 compose.build.yaml：
-#   docker compose -f compose.yaml -f compose.build.yaml up -d --build
+#   scanner-config 运行配置投影：面板写入，扫描器只读
 name: best-cf-ip-scanner
 
-# 两个服务（常驻调度 / 一次性执行）共用同一份运行配置，避免参数漂移
 x-scanner-common: &scanner-common
-  # 官方镜像（多架构 amd64/arm64）。锁定版本可把 IMAGE_TAG 改成 sha-xxxxxxx 或 1.2.3
-  image: ${IMAGE_NAME:-ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner}:${IMAGE_TAG:-latest}
-  # 不再用 env_file 注入：`.env` 是唯一配置源，扫描器每轮自己重新读取
-  # /project/.env（面板与手工编辑同源）。显式 environment 仍优先于 .env。
-  # 容器内路径固定；对应数据卷见下方 volumes
+  image: ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner:latest
   environment:
-    DOTENV_PATH: /project/.env
+    RUNTIME_CONFIG_PATH: /scanner-config/runtime.json
+    PUID: "1000"
+    PGID: "1000"
     OUTPUT_DIR: /output
     DATA_DIR: /data
     GIT_REPO_DIR: /cache/repo
-  # 最小权限：只读根文件系统
+  depends_on:
+    panel:
+      condition: service_healthy
   read_only: true
   tmpfs:
     - /tmp:size=64m
-  # 入口以 root 只做「挂载目录 chown + 首启播种数据 + su-exec 降权」，
-  # 因此只放这几步必需的五个能力；降权后业务进程不带任何 root 能力。
   cap_drop:
     - ALL
   cap_add:
@@ -208,90 +189,93 @@ x-scanner-common: &scanner-common
   security_opt:
     - no-new-privileges:true
   volumes:
-    # IP 库与 IATA 映射：面板写入数据库后投影到卷里，只给扫描器读（宿主不可见）
     - ip-data:/data
-    # 产物：明细表 + 订阅列表，写入卷后由面板入库展示（宿主不可见）
     - scan-output:/output
-    # 发布缓存：目标仓库的浅克隆，删掉卷即可让下一轮重新克隆
     - publish-cache:/cache
-    # 项目目录只读挂载：扫描器从这里每轮读取 .env
-    - ./:/project:ro
+    - scanner-config:/scanner-config:ro
 
 services:
-  # 常驻服务：容器内按 CRON_SCHEDULE 调度
   scanner:
     <<: *scanner-common
-    # 固定容器名：CI 冒烟与文档命令按此名引用；不需要可删掉这行，Compose 会自动命名
-    container_name: ${CONTAINER_NAME:-best-cf-ip-scanner}
-    # 单机常驻：随宿主机/守护进程重启自动恢复；每轮任务幂等
+    container_name: best-cf-ip-scanner
     restart: unless-stopped
-    # 停止时给当前这一轮留出收尾时间（全量约 2 分钟），避免正在推送产物时被 SIGKILL。
-    # 想立刻停可以 docker compose stop -t 5。
     stop_grace_period: 150s
-    # 调度器是常驻进程；进程在 = 健康。业务失败只体现在日志与退出码里，
-    # 不把"上一轮扫描失败"误报成容器故障。
-    # start_period 放宽到 5 分钟：RUN_ON_START=true 时容器会先跑完整轮扫描
-    # （全量约 2~5 分钟），期间 supercronic 还没接管，过早判死会误导运维。
     healthcheck:
       test: ["CMD", "pidof", "supercronic"]
       interval: 1m
       timeout: 5s
       retries: 3
       start_period: 5m
-    # 日志落盘上限：长期运行不让 json-file 无限增长
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
 
-  # 一次性服务：手动补跑一轮，跑完即退出（用 run --rm 调用，不参与 up）
-  #   docker compose run --rm scan-once
-  # 与常驻服务共用锁：若定时任务正在跑，本次会提示并跳过，不会并发写产物。
   scan-once:
     <<: *scanner-common
     profiles: ["manual"]
     restart: "no"
     entrypoint: ["/usr/local/bin/scan-and-publish.sh"]
 
-  # 运维面板：与扫描器同一镜像、同一 compose 项目，通过 docker.sock 只操作本项目扫描容器。
-  # 浏览器访问 http://<宿主IP>:${PANEL_PORT}
   panel:
-    image: ${IMAGE_NAME:-ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner}:${IMAGE_TAG:-latest}
-    container_name: ${PANEL_CONTAINER_NAME:-best-cf-ip-scanner-panel}
+    image: ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner:latest
+    container_name: best-cf-ip-scanner-panel
     entrypoint: ["/usr/local/bin/panel-entrypoint.sh"]
     ports:
-      - "${PANEL_BIND:-0.0.0.0}:${PANEL_PORT:-8080}:8080"
+      - "8080:8080"
     environment:
-      PROJECT_DIR: /project
-      DOTENV_PATH: /project/.env
+      CONFIG_DIR: /scanner-config
+      DEFAULT_DATA_DIR: /opt/default-data
       PANEL_DATA_DIR: /panel-data
-      PANEL_PORT: 8080
-      SCANNER_CONTAINER: ${CONTAINER_NAME:-best-cf-ip-scanner}
+      PANEL_PORT: "8080"
+      PUID: "1000"
+      PGID: "1000"
+      SCANNER_CONTAINER: best-cf-ip-scanner
+      SCANNER_IMAGE: ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner:latest
       DATA_DIR: /data
       OUTPUT_DIR: /output
       CACHE_DIR: /cache
-      PANEL_TRUST_PROXY: ${PANEL_TRUST_PROXY:-false}
-      PANEL_SESSION_DAYS: ${PANEL_SESSION_DAYS:-7}
+      PANEL_TRUST_PROXY: "false"
+      PANEL_SESSION_DAYS: "7"
       HOME: /tmp
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./:/project
       - ip-data:/data
       - scan-output:/output
       - publish-cache:/cache
       - ./panel-data:/panel-data
+      - scanner-config:/scanner-config
     read_only: true
     tmpfs:
       - /tmp:size=64m
     restart: unless-stopped
-    depends_on:
-      - scanner
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  ip-data:
+  scan-output:
+  publish-cache:
+  scanner-config:
 ```
 
 > [!NOTE]
 > 以上是启动所需的关键片段；完整、可复制的版本以仓库根目录的
-> [`compose.example.yaml`](../compose.example.yaml) 为准（含健康检查、日志上限等）。
+> [`compose.example.yaml`](../compose.example.yaml) 为准。
 > 面板说明见 [运维面板](panel.md)。
 
 ## 7. 本地构建镜像（可选）
@@ -300,19 +284,19 @@ services:
 docker compose -f compose.yaml -f compose.build.yaml up -d --build
 ```
 
-构建产物直接打上 `compose.yaml` 里的镜像名，本地优先于拉取；构建期需要代理时把
-`HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY` 写进 `.env`（或作为环境变量传入 compose），
-它们会作为 BuildKit 代理参数传入。
-
-中国网络下还可以用镜像站加速（留空 = 官方源）：
-
-```dotenv
-APK_MIRROR=https://mirrors.aliyun.com/alpine
-PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
-NPM_CONFIG_REGISTRY=https://registry.npmmirror.com
-```
+构建产物直接打上 `compose.yaml` 里的镜像名，本地优先于拉取。构建参数直接写在
+`compose.build.yaml`；需要代理或镜像加速时修改该文件，或用 `--build-arg` 传入：
 
 ```bash
-HTTP_PROXY=http://<代理>:7890 HTTPS_PROXY=http://<代理>:7890 NO_PROXY=localhost,127.0.0.1 \
-  docker compose -f compose.yaml -f compose.build.yaml up -d --build
+docker compose -f compose.yaml -f compose.build.yaml build \
+  --build-arg HTTP_PROXY=http://<代理>:7890 \
+  --build-arg HTTPS_PROXY=http://<代理>:7890
+```
+
+中国网络下还可以在 `compose.build.yaml` 里设置镜像站：
+
+```yaml
+APK_MIRROR: https://mirrors.aliyun.com/alpine
+PIP_INDEX_URL: https://pypi.tuna.tsinghua.edu.cn/simple
+NPM_CONFIG_REGISTRY: https://registry.npmmirror.com
 ```

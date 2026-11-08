@@ -1,13 +1,13 @@
 """配置中心 —— 全部可调参数的唯一入口。
 
 默认值、分组与类型集中在 `scanner/schema.py`；取值优先级：
-**显式环境变量 > 项目根 `.env`（`DOTENV_PATH`）> schema 默认值**。
-空串一律视为未设置（便于 `.env` 留空保持默认）。
+**显式环境变量 > 运行配置投影（`RUNTIME_CONFIG_PATH`，JSON）> schema 默认值**。
+投影由面板生成，扫描器不直接读数据库。空串一律视为未设置（便于保持默认）。
 
 本模块保持原有常量名与类型不变，供全包引用；不 import 扫描业务模块。
 
 取值约定：
-- 空字符串等同于未设置（便于 `.env` 留空保持默认）；
+- 空字符串等同于未设置（便于保持默认）；
 - 布尔只认 true/false/yes/no/on/off/1/0（大小写不敏感）；
 - 列表用英文逗号分隔（`PROBE_PORTS=443,2053`）；
 - 国家档位用「国家代码:档位,档位」分组，组间用分号（`US:50,100;JP:50`），
@@ -28,8 +28,12 @@ from .schema import BY_NAME, coerce
 # 应用目录（代码根）：scanner/ 的上一级，容器内即 /app
 APP_DIR = Path(__file__).resolve().parent.parent
 
-# 导入时读取一次 `.env`；每个扫描轮次都是新进程，因此「每轮重读」自然成立。
-_DOTENV: dict[str, str] = runtime_env.load()
+# 导入时读取一次运行配置投影；每个扫描轮次都是新进程，因此「每轮重读」自然成立。
+try:
+    _RUNTIME: dict[str, str] = runtime_env.load()
+except runtime_env.RuntimeConfigError as exc:
+    print(f"[错误] {exc}", file=sys.stderr)
+    raise SystemExit(1) from None
 
 # 各类型的期望值描述，用于把类型错误翻译成可操作的提示。
 _EXPECT: dict[str, str] = {
@@ -47,10 +51,10 @@ _EXPECT: dict[str, str] = {
 
 # ------------------------------------------------------------ 取值 --
 def _raw(name: str) -> str | None:
-    """显式环境变量优先，其次 `.env`；空串返回 None（视为未配置）。"""
+    """显式环境变量优先，其次运行配置投影；空串返回 None（视为未配置）。"""
     value = os.environ.get(name)
     if value is None:
-        value = _DOTENV.get(name)
+        value = _RUNTIME.get(name)
     if value is None:
         return None
     value = value.strip()

@@ -1,29 +1,50 @@
+import json
 import os
 import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
+from scanner.runtime_env import RuntimeConfigError, load
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _runtime(tmp_path, values):
+    path = tmp_path / "runtime.json"
+    path.write_text(json.dumps(values), encoding="utf-8")
+    return path
+
+
+def test_load_reads_json_object(tmp_path):
+    path = _runtime(tmp_path, {"SAMPLE_STRIDE": "128", "PROBE_HOST": None})
+    assert load(path) == {"SAMPLE_STRIDE": "128", "PROBE_HOST": ""}
+
+
+def test_load_rejects_non_object(tmp_path):
+    path = tmp_path / "runtime.json"
+    path.write_text("[]", encoding="utf-8")
+    with pytest.raises(RuntimeConfigError):
+        load(path)
+
+
 def test_export_skips_existing_and_empty(tmp_path):
-    env_file = tmp_path / ".env"
-    env_file.write_text("SAMPLE_STRIDE=128\nPROBE_HOST=\n", encoding="utf-8")
-    env = dict(os.environ, DOTENV_PATH=str(env_file), SAMPLE_STRIDE="512")
+    path = _runtime(tmp_path, {"SAMPLE_STRIDE": "128", "PROBE_HOST": ""})
+    env = dict(os.environ, RUNTIME_CONFIG_PATH=str(path), SAMPLE_STRIDE="512")
     out = subprocess.check_output(
-        [sys.executable, str(ROOT / "docker/export-dotenv.py")], env=env, text=True
+        [sys.executable, str(ROOT / "docker/export-runtime.py")], env=env, text=True
     )
     assert "SAMPLE_STRIDE" not in out
     assert "PROBE_HOST" not in out
 
 
 def test_export_plain_omits_shell_export(tmp_path):
-    env_file = tmp_path / ".env"
-    env_file.write_text("CRON_SCHEDULE=30 */6 * * *\n", encoding="utf-8")
+    path = _runtime(tmp_path, {"CRON_SCHEDULE": "30 */6 * * *"})
     env = {key: value for key, value in os.environ.items() if key != "CRON_SCHEDULE"}
-    env["DOTENV_PATH"] = str(env_file)
+    env["RUNTIME_CONFIG_PATH"] = str(path)
     out = subprocess.check_output(
-        [sys.executable, str(ROOT / "docker/export-dotenv.py"), "--plain"],
+        [sys.executable, str(ROOT / "docker/export-runtime.py"), "--plain"],
         env=env,
         text=True,
     )
@@ -32,11 +53,10 @@ def test_export_plain_omits_shell_export(tmp_path):
 
 
 def test_export_quotes_shell_metacharacters(tmp_path):
-    env_file = tmp_path / ".env"
-    env_file.write_text("PROBE_USER_AGENT='a $(danger) b'\n", encoding="utf-8")
+    path = _runtime(tmp_path, {"PROBE_USER_AGENT": "a $(danger) b"})
     env = {key: value for key, value in os.environ.items() if key != "PROBE_USER_AGENT"}
-    env["DOTENV_PATH"] = str(env_file)
+    env["RUNTIME_CONFIG_PATH"] = str(path)
     out = subprocess.check_output(
-        [sys.executable, str(ROOT / "docker/export-dotenv.py")], env=env, text=True
+        [sys.executable, str(ROOT / "docker/export-runtime.py")], env=env, text=True
     )
     assert "export PROBE_USER_AGENT='a $(danger) b'" in out

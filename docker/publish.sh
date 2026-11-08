@@ -29,7 +29,7 @@ case "$(printf '%s' "$GIT_PUSH_ENABLED" | tr '[:upper:]' '[:lower:]')" in
     ;;
 esac
 
-: "${GIT_REPO_URL:?GIT_REPO_URL 未配置（见 .env.example）}"
+: "${GIT_REPO_URL:?GIT_REPO_URL 未配置（在面板「仓库设置」里填写）}"
 
 GIT_BRANCH="${GIT_BRANCH:-main}"
 GIT_REMOTE="${GIT_REMOTE:-origin}"
@@ -71,7 +71,7 @@ fi
 # 仅 HTTP(S) 远端需要令牌；本地路径 / file:// 远端不注入，便于离线验证。
 case "$GIT_REPO_URL" in
   http://* | https://*)
-    : "${GIT_TOKEN:?GIT_TOKEN 未配置：HTTP(S) 远端需要具备 contents:write 权限的令牌（见 .env.example）}"
+    : "${GIT_TOKEN:?GIT_TOKEN 未配置：HTTP(S) 远端需要具备 contents:write 权限的令牌（在面板「仓库设置」里填写）}"
     BASIC_AUTH="$(printf 'x-access-token:%s' "$GIT_TOKEN" | base64 | tr -d '\n')"
     export GIT_CONFIG_COUNT=1
     export GIT_CONFIG_KEY_0="http.extraheader"

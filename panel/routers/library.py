@@ -23,9 +23,8 @@ from scanner.ippool import (
 from scanner.pinned import parse_pinned, pinned_errors
 from scanner.schema import BY_NAME
 
-from .. import library_store
+from .. import library_store, settings_store
 from ..audit import record as audit_record
-from ..config_store import read_env
 from ..deps import settings_of
 from ..security import require_user, verify_csrf
 
@@ -48,18 +47,18 @@ def _now_iso() -> str:
 
 
 def _as_int(raw: object, default: int) -> int:
-    """`.env` 里的值可能被手工改坏；解析失败退回 schema 默认值。"""
+    """历史坏值不应阻断页面：解析失败退回 schema 默认值。"""
     try:
         return int(str(raw).strip())
     except (TypeError, ValueError):
         return default
 
 
-def _sample_stride(settings) -> int:
-    """采样步长：与扫描器同源（`.env` > schema 默认）。"""
-    document = read_env(settings)
+def _sample_stride(conn, settings) -> int:
+    """采样步长：与扫描器同源（数据库 > schema 默认）。"""
     stride = _as_int(
-        document.values.get("SAMPLE_STRIDE"), int(BY_NAME["SAMPLE_STRIDE"].default)
+        settings_store.value(conn, settings, "SAMPLE_STRIDE"),
+        int(BY_NAME["SAMPLE_STRIDE"].default),
     )
     return max(stride, 1)
 
@@ -86,9 +85,9 @@ def _stats(text: str, stride: int) -> dict[str, int]:
     }
 
 
-def _pinned_output_name(settings) -> str:
-    """固定保留产物的文件名（不含扩展名）：`.env` > schema 默认。"""
-    raw = (read_env(settings).values.get("PINNED_OUTPUT_NAME") or "").strip()
+def _pinned_output_name(conn, settings) -> str:
+    """固定保留产物的文件名（不含扩展名）：数据库 > schema 默认。"""
+    raw = settings_store.value(conn, settings, "PINNED_OUTPUT_NAME").strip()
     return raw or str(BY_NAME["PINNED_OUTPUT_NAME"].default)
 
 
@@ -122,8 +121,8 @@ def _document(request: Request) -> dict[str, object]:
         "hash": row["sha256"] if row else library_store.sha256_text(""),
         "mtime": row["updated_at"] if row else None,
         "read_at": _now_iso(),
-        "stats": _stats(content, _sample_stride(settings)),
-        "pinned": _pinned_view(pinned_content, pinned_row, _pinned_output_name(settings)),
+        "stats": _stats(content, _sample_stride(conn, settings)),
+        "pinned": _pinned_view(pinned_content, pinned_row, _pinned_output_name(conn, settings)),
     }
 
 
@@ -194,10 +193,10 @@ def put_library(payload: LibraryPayload, request: Request) -> dict[str, object]:
         if library_store.read(conn, library_store.LIBRARY) is not None:
             library_store.backup(conn, str(current["content"]))
         library_store.save(conn, library_store.LIBRARY, payload.content)
-        library_store.project(settings, library_store.LIBRARY, payload.content)
+        library_store.project(conn, settings, library_store.LIBRARY, payload.content)
     if payload.pinned is not None:
         library_store.save(conn, library_store.PINNED, payload.pinned)
-        library_store.project(settings, library_store.PINNED, payload.pinned)
+        library_store.project(conn, settings, library_store.PINNED, payload.pinned)
 
     changes: list[str] = []
     if payload.content is not None:
@@ -261,7 +260,7 @@ def restore_backup(name: str, request: Request) -> dict[str, object]:
     if library_store.read(conn, library_store.LIBRARY) is not None:
         library_store.backup(conn, str(current["content"]))
     library_store.save(conn, library_store.LIBRARY, content)
-    library_store.project(settings, library_store.LIBRARY, content)
+    library_store.project(conn, settings, library_store.LIBRARY, content)
     audit_record(
         conn,
         "admin",

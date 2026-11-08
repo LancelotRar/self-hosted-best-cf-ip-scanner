@@ -12,7 +12,7 @@ describe("formatLogLine", () => {
   });
 
   it("识别错误与警告标记", () => {
-    expect(formatLogLine("2026-11-03T09:34:44Z [错误] 读取 .env 失败")).toContain("[错误]：");
+    expect(formatLogLine("2026-11-03T09:34:44Z [错误] 读取运行配置失败")).toContain("[错误]：");
     expect(formatLogLine("2026-11-03T09:34:44Z [警告] 未找到监听脚本")).toContain("[警告]：");
     expect(formatLogLine("2026-11-03T09:34:44Z Traceback (most recent call last):")).toContain("[错误]：");
   });

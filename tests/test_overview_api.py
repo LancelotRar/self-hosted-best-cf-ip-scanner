@@ -11,7 +11,7 @@ def test_overview_includes_last_run_and_next_runs(client, runs_tsv):
     assert body["running"] is False
     assert body["last_run"]["run_id"] == "r1"
     assert len(body["next_runs"]) == 5
-    assert body["config_summary"]["PROBE_HOST"] == "probe.example.com"
+    assert body["config_summary"]["PROBE_HOST"] == "cloudflare-ech.com"
 
 
 def test_overview_reports_running_state(client, monkeypatch):

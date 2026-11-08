@@ -2,9 +2,10 @@
 """打印当前生效配置（JSON），供 `docker exec` 与面板核对生效值。
 
 输出结构：
-    {"SAMPLE_STRIDE": {"value": 256, "source": "dotenv"}, ...}
+    {"SAMPLE_STRIDE": {"value": 256, "source": "projection"}, ...}
 
-`source` 取值：`env`（显式环境变量）/ `dotenv`（项目 `.env`）/ `default`（schema 默认值）。
+`source` 取值：`env`（显式环境变量）/ `projection`（面板生成的运行配置投影）/
+`default`（schema 默认值）。
 敏感参数（GIT_TOKEN、代理 URL）只输出 `{"value": null, "configured": bool}`，
 永不输出明文——面板与日志都复用同一份输出。
 """
@@ -27,18 +28,17 @@ def _app_dir() -> Path:
 
 sys.path.insert(0, str(_app_dir()))
 
-from scanner.dotenv import DotenvError  # noqa: E402
-from scanner.runtime_env import load  # noqa: E402
+from scanner.runtime_env import RuntimeConfigError, load  # noqa: E402
 from scanner.schema import PARAMS, ParamSpec, coerce  # noqa: E402
 
 
-def _resolve(spec: ParamSpec, dotenv: dict[str, str]) -> dict[str, object]:
+def _resolve(spec: ParamSpec, runtime: dict[str, str]) -> dict[str, object]:
     env_raw = os.environ.get(spec.name)
-    dotenv_raw = dotenv.get(spec.name)
+    runtime_raw = runtime.get(spec.name)
     if env_raw is not None and env_raw.strip():
         source, raw = "env", env_raw
-    elif dotenv_raw is not None and dotenv_raw.strip():
-        source, raw = "dotenv", dotenv_raw
+    elif runtime_raw is not None and runtime_raw.strip():
+        source, raw = "projection", runtime_raw
     else:
         source, raw = "default", None
 
@@ -61,12 +61,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.parse_args(argv)
 
     try:
-        dotenv = load()
-    except DotenvError as exc:
-        print(f"[print-config] .env 解析失败：{exc}", file=sys.stderr)
+        runtime = load()
+    except RuntimeConfigError as exc:
+        print(f"[print-config] 运行配置解析失败：{exc}", file=sys.stderr)
         return 1
 
-    payload = {spec.name: _resolve(spec, dotenv) for spec in PARAMS}
+    payload = {spec.name: _resolve(spec, runtime) for spec in PARAMS}
     print(json.dumps(payload, ensure_ascii=False, indent=2, default=list))
     return 0
 
