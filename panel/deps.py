@@ -11,12 +11,20 @@ def settings_of(request: Request):
     return request.app.state.settings
 
 
+def _build_controller(settings):
+    if settings.control_url:
+        from .http_control import HttpController
+
+        return HttpController(settings.control_url, settings.control_token)
+    return default_controller(settings)
+
+
 def controller_of(request: Request):
-    """返回注入的控制器；未注入时按环境创建，socket 不可用则返回 None。"""
+    """返回注入的控制器；未注入时按环境创建，socket/控制 sidecar 不可用则返回 None。"""
     controller = request.app.state.controller
     if controller is None:
         try:
-            controller = default_controller(settings_of(request))
+            controller = _build_controller(settings_of(request))
         except Exception:  # noqa: BLE001 - 降级为"不可核对"，不影响只读页面
             return None
         request.app.state.controller = controller

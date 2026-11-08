@@ -16,6 +16,18 @@ def test_healthz(tmp_path, monkeypatch):
     assert response.json()["status"] == "ok"
 
 
+def test_security_headers_are_present(tmp_path):
+    settings = Settings.for_tests(tmp_path)
+    with TestClient(create_app(settings)) as client:
+        response = client.get("/healthz")
+        assert response.headers["x-content-type-options"] == "nosniff"
+        assert response.headers["x-frame-options"] == "DENY"
+        assert "default-src 'self'" in response.headers["content-security-policy"]
+
+        api = client.get("/api/does-not-exist")
+        assert api.headers["cache-control"] == "no-store"
+
+
 def test_spa_deep_link_serves_index(tmp_path):
     settings = Settings.for_tests(tmp_path)
     with TestClient(create_app(settings)) as client:

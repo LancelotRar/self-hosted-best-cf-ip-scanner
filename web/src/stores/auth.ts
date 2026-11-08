@@ -8,6 +8,7 @@ export const useAuthStore = defineStore("auth", {
     initialized: false,
     authenticated: false,
     username: null as string | null,
+    setupTokenRequired: false,
     ready: false,
     loading: false,
   }),
@@ -19,15 +20,20 @@ export const useAuthStore = defineStore("auth", {
       this.initialized = status.initialized;
       this.authenticated = status.authenticated;
       this.username = status.username;
+      this.setupTokenRequired = Boolean(status.setup_token_required);
       this.ready = true;
     },
     async refresh() {
       this.apply(await api.get<AuthStatus>("/api/auth/status"));
     },
-    async setup(password: string) {
+    async setup(password: string, token?: string) {
       this.loading = true;
       try {
-        await api.post("/api/auth/setup", { password });
+        await api.post(
+          "/api/auth/setup",
+          { password },
+          token ? { "X-Setup-Token": token } : undefined,
+        );
         await this.refresh();
       } finally {
         this.loading = false;

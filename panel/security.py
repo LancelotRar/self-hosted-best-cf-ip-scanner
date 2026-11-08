@@ -51,10 +51,12 @@ class LoginLimiter:
         max_failures: int = 5,
         window_s: float = 60,
         clock=time.monotonic,
+        max_keys: int = 10_000,
     ) -> None:
         self.max_failures = max_failures
         self.window_s = window_s
         self.clock = clock
+        self.max_keys = max_keys
         self._failures: dict[str, list[float]] = {}
 
     def _recent(self, key: str) -> list[float]:
@@ -72,6 +74,9 @@ class LoginLimiter:
     def record_failure(self, key: str) -> None:
         self._recent(key)
         self._failures.setdefault(key, []).append(self.clock())
+        # 攻击者可以用大量随机用户名/IP 撑大字典；超过上限时丢弃最旧 key。
+        while len(self._failures) > self.max_keys:
+            self._failures.pop(next(iter(self._failures)), None)
 
     def reset(self, key: str) -> None:
         self._failures.pop(key, None)
@@ -104,10 +109,15 @@ class Security:
         os.replace(temporary, path)
         return secret
 
-    def create_session(self, user_id: int, days: int | None = None) -> str:
-        return self.serializer.dumps({"uid": user_id})
+    def create_session(
+        self, user_id: int, epoch: int = 0, days: int | None = None
+    ) -> str:
+        return self.serializer.dumps({"uid": user_id, "epoch": int(epoch)})
 
-    def read_session(self, token: str | None, days: int | None = None) -> int | None:
+    def read_session(
+        self, token: str | None, days: int | None = None
+    ) -> tuple[int, int] | None:
+        """返回 (user_id, session_epoch)；签名无效或缺少 epoch 时视为未登录。"""
         if not token:
             return None
         max_age = (days or self.settings.session_days) * 86400
@@ -115,10 +125,17 @@ class Security:
             data = self.serializer.loads(token, max_age=max_age)
         except (BadSignature, SignatureExpired):
             return None
-        user_id = data.get("uid") if isinstance(data, dict) else None
-        return user_id if isinstance(user_id, int) else None
+        if not isinstance(data, dict):
+            return None
+        user_id = data.get("uid")
+        epoch = data.get("epoch")
+        if not isinstance(user_id, int) or not isinstance(epoch, int):
+            return None
+        return user_id, epoch
 
-    def set_cookies(self, response, request: Request, user_id: int) -> str:
+    def set_cookies(
+        self, response, request: Request, user_id: int, epoch: int = 0
+    ) -> str:
         """写入会话与 CSRF Cookie，返回本次 CSRF token。"""
         days = self.settings.session_days
         secure = self.settings.trust_proxy and (
@@ -126,7 +143,7 @@ class Security:
         )
         response.set_cookie(
             SESSION_COOKIE,
-            self.create_session(user_id, days),
+            self.create_session(user_id, epoch, days),
             max_age=days * 86400,
             httponly=True,
             samesite="strict",
@@ -163,10 +180,16 @@ def client_ip(request: Request) -> str:
 
 
 def require_user(request: Request) -> int:
-    """已登录用户 id；未登录返回 401。"""
+    """已登录用户 id；未登录、会话过期或密码已变更时返回 401。"""
     security: Security = request.app.state.security
-    user_id = security.read_session(request.cookies.get(SESSION_COOKIE))
-    if user_id is None:
+    session = security.read_session(request.cookies.get(SESSION_COOKIE))
+    if session is None:
+        raise HTTPException(status_code=401, detail="未登录")
+    user_id, epoch = session
+    row = request.app.state.conn.execute(
+        "SELECT session_epoch FROM users WHERE id = ?", (user_id,)
+    ).fetchone()
+    if row is None or int(row["session_epoch"]) != epoch:
         raise HTTPException(status_code=401, detail="未登录")
     return user_id
 
@@ -199,11 +222,11 @@ def get_security(settings: Settings | None = None) -> Security:
     return _default_security
 
 
-def create_session(user_id: int, days: int | None = None) -> str:
-    return get_security().create_session(user_id, days)
+def create_session(user_id: int, epoch: int = 0, days: int | None = None) -> str:
+    return get_security().create_session(user_id, epoch, days)
 
 
-def read_session(token: str) -> int | None:
+def read_session(token: str) -> tuple[int, int] | None:
     return get_security().read_session(token)
 
 

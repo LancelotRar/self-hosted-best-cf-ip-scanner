@@ -52,17 +52,20 @@ services:
       PGID: "1000"
 
   panel:
-    image: ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner:latest
+    image: ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner-panel:latest
     container_name: best-cf-ip-scanner-panel
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
       PUID: "1000"
       PGID: "1000"
 ```
 
 - 宿主机用户不是 1000 时，把 `PUID` / `PGID` 改成 `id -u` / `id -g`。
-- 只想本机访问面板时，把 `ports` 改成 `"127.0.0.1:8080:8080"`。
+- 面板默认只监听本机；远程访问用 `ssh -L 8080:127.0.0.1:8080 <user>@<host>`，
+  或放在 TLS 反向代理后并把 `PANEL_TRUST_PROXY` 设为 `true`。
+- 本版本起 scanner 与 panel 使用两个镜像；升级时请同步把 `panel.image` 改成
+  `ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner-panel:latest`。
 - 应用参数（探测域名、调度、发布等）见 [配置手册](configuration.md)。
 
 ## 3. 启动
@@ -120,9 +123,12 @@ TCP 握手测量：合格 2673，淘汰 1488（每候选 3 次，至少成功 2 
 └── panel-data/            # 面板数据库、密钥（需备份，可能含加密后的令牌）
 ```
 
-地址库、机房映射、轮次记录与产物都在**命名卷**里，宿主目录看不到；应用参数在
-`panel-data/panel.db`。升级用 `docker compose pull && docker compose up -d`；
-**不要**在部署目录 `git pull`。
+扫描产物在**命名卷**里，宿主目录看不到；候选地址库、机房映射、应用参数与审计在
+`panel-data/panel.db`（绑定挂载）。备份时必须同时保留 `panel-data/` 下的
+`panel.db`、`settings.key` 与 `secret.key`，否则加密的令牌无法解密。
+升级用 `docker compose pull && docker compose up -d`；
+**不要**在部署目录 `git pull`。升级到包含会话 epoch 的版本后，旧登录 Cookie 会失效，
+需要重新登录一次。
 
 <table align="center">
 <thead>
@@ -219,11 +225,11 @@ services:
     entrypoint: ["/usr/local/bin/scan-and-publish.sh"]
 
   panel:
-    image: ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner:latest
+    image: ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner-panel:latest
     container_name: best-cf-ip-scanner-panel
     entrypoint: ["/usr/local/bin/panel-entrypoint.sh"]
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
       CONFIG_DIR: /scanner-config
       DEFAULT_DATA_DIR: /opt/default-data
@@ -240,15 +246,26 @@ services:
       PANEL_SESSION_DAYS: "7"
       HOME: /tmp
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
       - ip-data:/data
-      - scan-output:/output
-      - publish-cache:/cache
+      - scan-output:/output:ro
+      - publish-cache:/cache:ro
       - ./panel-data:/panel-data
       - scanner-config:/scanner-config
     read_only: true
     tmpfs:
       - /tmp:size=64m
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETUID
+      - SETGID
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 256m
     restart: unless-stopped
     healthcheck:
       test:
@@ -277,6 +294,21 @@ volumes:
 > 以上是启动所需的关键片段；完整、可复制的版本以仓库根目录的
 > [`compose.example.yaml`](../compose.example.yaml) 为准。
 > 面板说明见 [运维面板](panel.md)。
+
+### 6.1 容器控制（可选）
+
+默认栈不挂载 `docker.sock`，面板的「立即执行 / 实时日志 / 启停扫描容器」不可用。
+需要时追加控制覆盖层：
+
+```bash
+docker compose -f compose.yaml -f compose.control.yaml up -d
+```
+
+覆盖层新增 `scanner-control` sidecar：只有它挂载 `docker.sock`，面板通过内部
+`control` 网络调用固定端点（状态、日志、执行一轮、应用配置、启停），不再直接
+持有 Engine API。可设置 `SCANNER_CONTROL_TOKEN` 让 panel 与 sidecar 共享请求口令。
+
+`docker.sock` 等价于宿主机 root；只在可信网络、已启用 TLS 反向代理的环境中使用。
 
 ## 7. 本地构建镜像（可选）
 

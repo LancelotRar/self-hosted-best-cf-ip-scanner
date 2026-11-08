@@ -37,6 +37,12 @@ class Settings:
     trust_proxy: bool = False
     session_days: int = 7
     port: int = 8080
+    # 可选：首次设置的一次性口令。为空时保持原有首次设置行为；
+    # 面板暴露到非可信网络时应设置，setup 请求必须带 X-Setup-Token。
+    setup_token: str | None = None
+    # 可选：通过固定操作 sidecar 访问 Docker；为空时使用本地 docker.sock。
+    control_url: str | None = None
+    control_token: str | None = None
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -67,6 +73,10 @@ class Settings:
             trust_proxy=_as_bool(os.environ.get("PANEL_TRUST_PROXY")),
             session_days=int(os.environ.get("PANEL_SESSION_DAYS") or 7),
             port=int(os.environ.get("PANEL_PORT") or 8080),
+            setup_token=(os.environ.get("PANEL_SETUP_TOKEN") or "").strip() or None,
+            control_url=(os.environ.get("SCANNER_CONTROL_URL") or "").strip() or None,
+            control_token=(os.environ.get("SCANNER_CONTROL_TOKEN") or "").strip()
+            or None,
         )
 
     @classmethod

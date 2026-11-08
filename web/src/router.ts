@@ -1,14 +1,16 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from "vue-router";
 
 import AppShell from "./layouts/AppShell.vue";
-import ConfigView from "./views/ConfigView.vue";
-import LogsView from "./views/LogsView.vue";
-import RunsView from "./views/RunsView.vue";
 import { useAuthStore } from "./stores/auth";
-import LoginView from "./views/LoginView.vue";
-import OverviewView from "./views/OverviewView.vue";
-import SettingsView from "./views/SettingsView.vue";
-import SetupView from "./views/SetupView.vue";
+
+// 页面级懒加载：首屏只加载 AppShell 与当前路由，其余页面按需下载。
+const OverviewView = () => import("./views/OverviewView.vue");
+const ConfigView = () => import("./views/ConfigView.vue");
+const RunsView = () => import("./views/RunsView.vue");
+const LogsView = () => import("./views/LogsView.vue");
+const SettingsView = () => import("./views/SettingsView.vue");
+const LoginView = () => import("./views/LoginView.vue");
+const SetupView = () => import("./views/SetupView.vue");
 
 const routes: RouteRecordRaw[] = [
   { path: "/login", name: "login", component: LoginView },

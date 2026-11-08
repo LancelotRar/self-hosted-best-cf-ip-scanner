@@ -3,12 +3,12 @@
 [← 返回首页](../README.md) · [配置手册](configuration.md)
 
 面板是本项目的**默认、首选运维入口**：一个 compose 堆栈、两个容器（`scanner` +
-`panel`）、同一个镜像。应用参数只从面板编辑；CLI、`docker compose run` 保留为
+`panel`）、两个独立镜像。应用参数只从面板编辑；CLI、`docker compose run` 保留为
 备用/应急路径。
 
 ```
 浏览器 ──▶ panel（FastAPI + Vue SPA）
-              │  docker.sock（只操作本项目扫描容器）
+              │  control sidecar（可选；只有 sidecar 挂 docker.sock）
               │  SQLite（应用参数真源）
               │  /scanner-config/runtime.json（运行期投影，只写）
               ▼

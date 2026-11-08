@@ -12,7 +12,7 @@
 编排入口见仓库根目录的 best_cf_ip_scanner.py。
 """
 
-from . import atomicio, config, ippool, locations, outputs, probe, timeutil
+import importlib
 
 __all__ = [
     "atomicio",
@@ -23,3 +23,17 @@ __all__ = [
     "probe",
     "timeutil",
 ]
+
+
+def __getattr__(name: str):
+    """按需导入子模块。
+
+    面板镜像只需要 schema/validation/ippool 等轻量模块；如果这里急切导入
+    probe，会把 curl_cffi 一并拉进面板镜像。保留 `scanner.probe` 这类属性
+    访问的兼容性，但不在包初始化时加载。
+    """
+    if name in __all__:
+        module = importlib.import_module(f".{name}", __name__)
+        globals()[name] = module
+        return module
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

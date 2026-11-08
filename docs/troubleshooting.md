@@ -55,7 +55,7 @@ docker compose exec scanner /usr/local/bin/doctor.sh
 <tr><td align="center">容器反复重启，日志提示「配置不合法」</td><td align="center">启动校验未通过：缺 <code>PROBE_HOST</code>、数值越界、或代理未豁免 <code>PROBE_HOST</code>；日志会按编号列出全部问题。先在面板改好参数并保存，再 <code>docker compose up -d</code>（必要时 <code>--force-recreate</code>）</td></tr>
 <tr><td align="center">日志提示「读取运行配置失败」或投影缺失</td><td align="center">面板没有成功启动/生成投影。看 <code>docker compose logs panel</code>，确认 <code>panel</code> 为 healthy；面板启动后会重建 <code>/scanner-config/runtime.json</code></td></tr>
 <tr><td align="center">面板打不开 / 一直 502</td><td align="center"><code>docker compose ps</code> 看 <code>panel</code> 是否 Up；<code>docker compose logs panel</code> 看启动错误；确认 <code>PANEL_PORT</code> 未被占用、<code>PANEL_BIND</code> 允许你的来源网段</td></tr>
-<tr><td align="center">面板提示「扫描容器不可用」</td><td align="center"><code>docker.sock</code> 未挂载或权限不足；面板仍可访问，只读页面与配置编辑可用，容器操作与生效核对会显示不可用</td></tr>
+<tr><td align="center">面板提示「扫描容器不可用」</td><td align="center">未启用控制覆盖层，或 <code>scanner-control</code> 未健康、<code>SCANNER_CONTROL_TOKEN</code> 不一致；面板仍可访问，只读页面与配置编辑可用，容器操作与生效核对会显示不可用</td></tr>
 <tr><td align="center">面板显示「核对不一致」（mismatch）</td><td align="center">扫描器读到的值仍与面板保存值不同：确认没有另一处显式环境变量覆盖（compose <code>environment:</code> / <code>run -e</code>），再点「重新核对」；不要把它当「已生效」</td></tr>
 <tr><td align="center">面板保存返回 409</td><td align="center">页面打开后数据库已被别处修改（另一个标签页/客户端）。面板不会覆盖任何一方：按提示重新加载，确认差异后再保存</td></tr>
 <tr><td align="center">启动即退出，日志提示 <code>[错误] 环境变量 X 非法</code></td><td align="center">取值格式错误（不是整数 / 布尔 / 列表），按提示改正</td></tr>

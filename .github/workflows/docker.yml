@@ -12,8 +12,11 @@ on:
     paths:
       - "Dockerfile"
       - "requirements.txt"
+      - "requirements-panel.txt"
       - "best_cf_ip_scanner.py"
       - "scanner/**"
+      - "panel/**"
+      - "web/**"
       - "docker/**"
       - "data/**"
       - ".github/workflows/docker.yml"
@@ -34,10 +37,13 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # GHCR 镜像名必须全小写，而 github.repository 可能含大写
+      # GHCR 镜像名必须全小写，而 github.repository 可能含大写。
+      # scanner 与 panel 分成两个包，避免两个 target 互相覆盖。
       - id: image
-        name: Resolve image name
-        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+        name: Resolve image names
+        run: |
+          echo "scanner=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          echo "panel=ghcr.io/${GITHUB_REPOSITORY,,}-panel" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -48,10 +54,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - id: meta
+      - id: meta-scanner
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
-          images: ${{ steps.image.outputs.name }}
+          images: ${{ steps.image.outputs.scanner }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=branch
@@ -59,12 +65,42 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=sha,format=short
 
-      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+      - id: meta-panel
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ steps.image.outputs.panel }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=short
+
+      - name: Build & push scanner
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
+          target: scanner
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: ${{ steps.meta-scanner.outputs.tags }}
+          labels: ${{ steps.meta-scanner.outputs.labels }}
+          # 供应链元数据：SBOM + 最大级别 provenance，随镜像一起推到 GHCR。
+          sbom: true
+          provenance: mode=max
+          cache-from: type=gha,scope=scanner
+          cache-to: type=gha,mode=max,scope=scanner
+
+      - name: Build & push panel
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          target: panel
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta-panel.outputs.tags }}
+          labels: ${{ steps.meta-panel.outputs.labels }}
+          sbom: true
+          provenance: mode=max
+          cache-from: type=gha,scope=panel
+          cache-to: type=gha,mode=max,scope=panel

@@ -1,0 +1,71 @@
+# 可选控制覆盖层：启用面板的容器控制（实时日志 / 立即执行 / 启停）。
+#
+# 默认 compose.example.yaml 不挂载 docker.sock。本覆盖层新增一个固定操作 sidecar：
+#   - 只有 sidecar 挂载 docker.sock；
+#   - sidecar 只暴露状态/日志/执行一轮/应用配置/启停固定端点；
+#   - panel 通过内部 control 网络调用，不再直接持有 Engine API。
+#
+#   docker compose -f compose.yaml -f compose.control.yaml up -d
+#
+# 风险提示：sidecar 仍持有 docker.sock，等价于宿主机 root；只是把面板可调用的
+# 操作收窄到固定集合。仅在可信网络、可信面板口令、已启用 TLS 反向代理时使用。
+# 可选的 SCANNER_CONTROL_TOKEN 会同时传给 panel 与 sidecar；设置后请求必须带
+# X-Control-Token。为空时依赖 internal control 网络的隔离。
+name: best-cf-ip-scanner
+
+services:
+  scanner-control:
+    image: ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner-panel:latest
+    container_name: best-cf-ip-scanner-control
+    entrypoint: ["python", "-m", "panel.control_sidecar"]
+    environment:
+      SCANNER_CONTAINER: best-cf-ip-scanner
+      CONTROL_PORT: "8090"
+      SCANNER_CONTROL_TOKEN: "${SCANNER_CONTROL_TOKEN:-}"
+      HOME: /tmp
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m
+    cap_drop:
+      - ALL
+    cap_add:
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 256m
+    networks:
+      - control
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8090/healthz', timeout=3)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  panel:
+    environment:
+      SCANNER_CONTROL_URL: http://scanner-control:8090
+      SCANNER_CONTROL_TOKEN: "${SCANNER_CONTROL_TOKEN:-}"
+    networks:
+      - default
+      - control
+    depends_on:
+      scanner-control:
+        condition: service_healthy
+
+networks:
+  control:
+    internal: true

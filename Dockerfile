@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---------------------------------------------------------------- 前端构建 --
-# 只在构建期需要 Node；产物 dist 复制进运行阶段的 panel/static。
+# 只在 panel target 需要；构建 scanner 时 BuildKit 不会执行该 stage。
 FROM node:24-alpine AS web
 
 # 镜像加速（可选）：中国网络下 npm 很慢时可指向 npmmirror。
@@ -14,36 +14,15 @@ RUN npm ci --no-audit --no-fund
 COPY --link web/ ./
 RUN npm run build
 
-# ---------------------------------------------------------------- 构建阶段 --
-# 只负责把 Python 依赖装到 /install，不进入最终镜像（无 pip 缓存、无构建残留）。
-FROM python:3.13-alpine3.23 AS builder
 
-# 镜像加速（可选）：pip 默认走 pypi.org，可改成国内镜像站。
-ARG PIP_INDEX_URL=https://pypi.org/simple
-ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PIP_INDEX_URL=${PIP_INDEX_URL}
+# ------------------------------------------------------------- Python 公共层 --
+# 两个运行镜像共享的解释器、时区库与证书；不包含 git/supercronic/业务依赖。
+FROM python:3.13-alpine3.23 AS python-base
 
-WORKDIR /build
-# 依赖清单用 bind mount 引入（不进镜像层），pip 缓存走 BuildKit cache mount：
-# 只改代码时不会重装依赖，重装依赖时也能复用下载缓存。
-RUN --mount=type=bind,source=requirements.txt,target=requirements.txt \
-    --mount=type=bind,source=requirements-panel.txt,target=requirements-panel.txt \
-    --mount=type=cache,target=/root/.cache/pip \
-    pip install --prefix=/install -r requirements.txt -r requirements-panel.txt
-
-
-# ---------------------------------------------------------------- 运行阶段 --
-FROM python:3.13-alpine3.23 AS runtime
-
-# 调度器版本与各架构二进制校验和（升级时两者同步更新）。默认值由
-# compose 的 build.args 传入，也可直接 docker build --build-arg 覆盖。
-ARG SUPERCRONIC_VERSION=v0.2.51
-ARG TARGETARCH=amd64
-# 可选的构建期代理与 Alpine 镜像站（中国网络下显著加速/可用）
+ARG APK_MIRROR=
 ARG HTTP_PROXY
 ARG HTTPS_PROXY
 ARG NO_PROXY
-ARG APK_MIRROR=
 
 # 元数据：发布流水线会用 metadata-action 覆盖，本地构建也带上，便于 docker inspect。
 LABEL org.opencontainers.image.title="best-cf-ip-scanner" \
@@ -51,21 +30,63 @@ LABEL org.opencontainers.image.title="best-cf-ip-scanner" \
       org.opencontainers.image.source="https://github.com/LancelotRar/self-hosted-best-cf-ip-scanner" \
       org.opencontainers.image.licenses="MIT"
 
-# git      —— 发布产物到 Git 仓库（HTTPS + 令牌头部注入）
-# tzdata   —— cron 调度与产物时间戳所依赖的时区库
-# ca-certs —— HTTPS 证书链
-# su-exec  —— 极小的 setuid 工具：入口以 root 准备挂载目录后降权到 PUID/PGID
-# 包缓存走 BuildKit cache mount，不写进镜像层（因此不需要 --no-cache）。
+# tzdata  —— cron 调度与产物时间戳所依赖的时区库
+# ca-certificates —— HTTPS 证书链（扫描器出网 / git）
 RUN --mount=type=cache,target=/etc/apk/cache,sharing=locked \
     if [ -n "$APK_MIRROR" ]; then \
       sed -i "s|https://dl-cdn.alpinelinux.org/alpine|$APK_MIRROR|g" /etc/apk/repositories; \
     fi \
- && apk add git tzdata ca-certificates su-exec
+ && apk add tzdata ca-certificates
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    HOME=/tmp \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /app
+
+
+# --------------------------------------------------------- scanner 依赖层 --
+FROM python-base AS scanner-builder
+
+ARG PIP_INDEX_URL=https://pypi.org/simple
+ENV PIP_INDEX_URL=${PIP_INDEX_URL}
+
+RUN --mount=type=bind,source=requirements.txt,target=requirements.txt \
+    --mount=type=cache,target=/root/.cache/pip \
+    pip install --prefix=/install-scanner -r requirements.txt
+
+
+# ----------------------------------------------------------- panel 依赖层 --
+FROM python-base AS panel-builder
+
+ARG PIP_INDEX_URL=https://pypi.org/simple
+ENV PIP_INDEX_URL=${PIP_INDEX_URL}
+
+RUN --mount=type=bind,source=requirements-panel.txt,target=requirements-panel.txt \
+    --mount=type=cache,target=/root/.cache/pip \
+    pip install --prefix=/install-panel -r requirements-panel.txt
+
+
+# ------------------------------------------------------------- scanner 运行 --
+FROM python-base AS scanner
+
+# 调度器版本与各架构二进制校验和（升级时两者同步更新）。
+ARG SUPERCRONIC_VERSION=v0.2.51
+ARG TARGETARCH=amd64
+# 构建期代理：apk 与 supercronic 下载都可能需要。
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ARG NO_PROXY
+
+# git      —— 发布产物到 Git 仓库（HTTPS + 令牌头部注入）
+# su-exec  —— 极小的 setuid 工具：入口以 root 准备挂载目录后降权到 PUID/PGID
+RUN --mount=type=cache,target=/etc/apk/cache,sharing=locked \
+    apk add git su-exec
 
 # supercronic —— 面向容器的 cron 实现：日志直出、不重叠同作业、可热重载。
 # 下载用 python 的 urllib 而不是 busybox wget：后者经 HTTP 代理跟随 302 到
-# GitHub 资源域名时可能拿到 502；urllib 直接尊重 HTTPS_PROXY/NO_PROXY，
-# 且不额外安装下载工具。校验和写死在下方，升级版本必须同步更新。
+# GitHub 资源域名时可能拿到 502；urllib 直接尊重 HTTPS_PROXY/NO_PROXY。
 RUN python - <<'PY'
 import hashlib
 import os
@@ -101,46 +122,52 @@ RUN printf '* * * * * true\n' > /tmp/smoke.cron \
  && supercronic -test /tmp/smoke.cron \
  && rm -f /tmp/smoke.cron
 
-# 运行期约定：
-# PYTHONUNBUFFERED  日志实时进 docker logs（不要缓冲到容器退出）
-# PYTHONDONTWRITEBYTECODE 容器只读根文件系统下不产生 __pycache__
-# HOME=/tmp          以非 root 运行时给 git/临时文件一个可写落脚点
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    HOME=/tmp \
-    OUTPUT_DIR=/output \
+ENV OUTPUT_DIR=/output \
     DATA_DIR=/data \
     SUPERCRONIC_VERSION=${SUPERCRONIC_VERSION}
 
-COPY --from=builder /install /usr/local
+COPY --from=scanner-builder /install-scanner /usr/local
 
-WORKDIR /app
 COPY --link best_cf_ip_scanner.py ./
 COPY --link scanner ./scanner
-COPY --link panel ./panel
-# 前端产物覆盖 panel/static 的占位页（Vite 构建目录 web/dist）
-COPY --from=web /web/dist ./panel/static
 COPY --link docker/entrypoint.sh docker/scan-and-publish.sh docker/publish.sh docker/doctor.sh /usr/local/bin/
-COPY --link docker/panel-entrypoint.sh /usr/local/bin/
-COPY --link docker/startup-report.py /usr/local/bin/startup-report.py
-COPY --link docker/check-config.py /usr/local/bin/check-config.py
-COPY --link docker/export-runtime.py docker/print-config.py /usr/local/bin/
-COPY --link docker/push-filter.py /usr/local/bin/push-filter.py
-COPY --link docker/apply-config.sh /usr/local/bin/
+COPY --link docker/export-runtime.py docker/print-config.py docker/startup-report.py \
+      docker/check-config.py docker/apply-config.sh docker/push-filter.py /usr/local/bin/
 COPY --link docker/crontab.template /etc/supercronic/crontab.template
-# 内置候选地址库与机房映射作为"出厂默认值"：面板首次启动时播种到 /data。
-COPY --link data /opt/default-data
 
 RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/scan-and-publish.sh \
       /usr/local/bin/publish.sh /usr/local/bin/doctor.sh /usr/local/bin/check-config.py \
       /usr/local/bin/export-runtime.py /usr/local/bin/print-config.py \
-      /usr/local/bin/push-filter.py \
+      /usr/local/bin/startup-report.py /usr/local/bin/push-filter.py \
       /usr/local/bin/apply-config.sh \
-      /usr/local/bin/panel-entrypoint.sh \
- && adduser -D -u 1000 -h /home/scanner scanner \
- && mkdir -p /output /cache \
- && chown -R 1000:1000 /output /cache /opt/default-data
+  && adduser -D -u 1000 -h /home/scanner scanner \
+  && mkdir -p /output /cache \
+  && chown -R 1000:1000 /output /cache
 
-# 这里刻意不写 USER：镜像需要以 root 启动，才能把挂载目录对齐到 PUID/PGID；
-# 入口脚本随后用 su-exec 降权，业务进程全程非 root（docker exec 后执行 `id` 可验证）。
+# 入口以 root 启动，把挂载目录对齐到 PUID/PGID 后立刻 su-exec 降权。
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+
+
+# --------------------------------------------------------------- panel 运行 --
+FROM python-base AS panel
+
+COPY --from=panel-builder /install-panel /usr/local
+
+# 面板需要 scanner 包里的 schema/validation/ippool/pinned；包 __init__ 已改为
+# 按需导入，因此不会把 probe/curl_cffi 带进 panel 镜像。
+COPY --link scanner ./scanner
+COPY --link panel ./panel
+COPY --from=web /web/dist ./panel/static
+COPY --link docker/panel-entrypoint.sh /usr/local/bin/
+COPY --link docker/check-config.py docker/print-config.py /usr/local/bin/
+# 内置候选地址库与机房映射作为"出厂默认值"：面板首次启动时播种到 /data。
+COPY --link data /opt/default-data
+
+RUN chmod +x /usr/local/bin/panel-entrypoint.sh \
+      /usr/local/bin/check-config.py /usr/local/bin/print-config.py \
+  && mkdir -p /data /output /cache /scanner-config /panel-data \
+  && chown -R 1000:1000 /opt/default-data /data /output /cache /scanner-config /panel-data
+
+EXPOSE 8080
+
+ENTRYPOINT ["/usr/local/bin/panel-entrypoint.sh"]

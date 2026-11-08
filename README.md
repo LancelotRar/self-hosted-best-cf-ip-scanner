@@ -24,9 +24,9 @@ Cloudflare 边缘、淘汰 EIV 受限子池、取回边缘机房代码），定�
 - **拉取即用**：只需一个 `compose.yaml`，不需要克隆仓库、Python 环境、本地构建或任何配置文件。
 - **面板优先**：同一个 compose 堆栈内的运维面板（`http://<宿主IP>:8080`）覆盖参数、调度、运行、日志、产物、IP 库与发布；CLI 只作应急路径。
 - **应用参数全在面板**：探测域名、采样、订阅档位、发布与代理都在面板里编辑，首次启动把默认值写入数据库，并自动生成扫描器读取的运行期投影。
-- **数据与产物不落宿主目录**：候选地址库、机房映射与扫描结果都存在容器卷里，面板数据库保存元数据与有界预览；宿主目录不会出现任何明文文件。
+- **数据与产物集中在卷与面板数据库**：扫描产物在命名卷；候选地址库、机房映射、配置与审计在 `panel-data/panel.db`（绑定挂载，需要备份）。
 - **失败不覆盖**：任一筛选阶段全灭时进程返回非零、不写新产物，目标仓库保留上一轮结果。
-- **轻量且最小权限**：Alpine + Python 3.13 多阶段构建；扫描业务进程非 root、只读根文件系统。
+- **轻量且最小权限**：Alpine + Python 3.13 多阶段构建；扫描业务进程非 root、只读根文件系统；面板默认只监听本机且不挂载 docker.sock。
 - **日志面向排障**：启动打印生效配置，每轮打印阶段耗时与失败原因 top-5，另有 `doctor.sh` 一键自检。
 
 ## 文档导航
@@ -81,11 +81,23 @@ services:
       PGID: "1000"
 
   panel:
-    image: ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner:latest
+    image: ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner-panel:latest
     container_name: best-cf-ip-scanner-panel
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
 ```
+
+面板默认只监听本机。远程访问用 SSH 隧道：
+
+```bash
+ssh -L 8080:127.0.0.1:8080 <user>@<host>
+# 然后在本机打开 http://127.0.0.1:8080
+```
+
+或放在 TLS 反向代理后，并把 `PANEL_TRUST_PROXY` 设为 `true`。如果要在首次设置前
+开放访问，请同时设置 `PANEL_SETUP_TOKEN`，首次设置页会要求输入同一个值。
+
+scanner 与 panel 使用两个独立镜像，compose 会分别拉取；不要把它们改成同一个镜像名。
 
 探测域名、调度、采样、订阅档位、发布与代理等**应用参数全部在面板里填写**。
 首次启动后打开 `http://<宿主IP>:8080`，在「参数」页按需修改并保存。
@@ -161,6 +173,19 @@ TCP 握手测量：合格 2673，淘汰 1488（每候选 3 次，至少成功 2 
 > 面板保存写入数据库并重新生成扫描器读取的投影，不需要手工编辑任何配置文件。
 > 只有 `TZ` / `RUN_ON_START` 需要重启扫描容器（面板会提示并提供「重启扫描容器」）。
 > 详见 [运维面板](docs/panel.md)。
+
+> [!IMPORTANT]
+> 默认 compose 不挂载 `docker.sock`，因此「立即执行 / 实时日志 / 启停扫描容器」默认不可用。
+> 需要这些能力时显式追加控制覆盖层：
+>
+> ```bash
+> docker compose -f compose.yaml -f compose.control.yaml up -d
+> ```
+>
+> 覆盖层会启动一个固定操作 sidecar：只有 sidecar 挂载 `docker.sock`，面板通过内部
+> `control` 网络调用它，不再直接持有 Engine API。sidecar 仍等价于宿主机 root 权限，
+> 只在可信网络、已启用 TLS 反向代理的环境中使用；可设置 `SCANNER_CONTROL_TOKEN`
+> 增加一层共享口令。
 
 ### 5. 产物
 

@@ -65,6 +65,7 @@ export interface AuthStatus {
   initialized: boolean;
   authenticated: boolean;
   username: string | null;
+  setup_token_required?: boolean;
 }
 
 export interface ScannerStatus {

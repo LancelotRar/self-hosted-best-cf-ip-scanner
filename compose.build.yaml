@@ -11,10 +11,20 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: scanner
       args:
         # 调度器版本；Dockerfile 内置各架构校验和，升级时同步改 Dockerfile
         SUPERCRONIC_VERSION: v0.2.51
         # 镜像加速（可选）：留空使用官方源
+        APK_MIRROR: ""
+        PIP_INDEX_URL: https://pypi.org/simple
+
+  panel:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: panel
+      args:
         APK_MIRROR: ""
         PIP_INDEX_URL: https://pypi.org/simple
         NPM_CONFIG_REGISTRY: https://registry.npmjs.org

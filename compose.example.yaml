@@ -15,6 +15,10 @@
 #
 # 本地构建镜像见 compose.build.yaml：
 #   docker compose -f compose.yaml -f compose.build.yaml up -d --build
+#
+# 默认不挂载 docker.sock：面板只做配置、产物与审计，容器控制（日志/立即执行/启停）
+# 默认不可用。需要这些能力时显式追加控制覆盖层（会重新引入宿主 root 风险）：
+#   docker compose -f compose.yaml -f compose.control.yaml up -d
 name: best-cf-ip-scanner
 
 # 两个服务（常驻调度 / 一次性执行）共用同一份运行配置，避免参数漂移
@@ -50,6 +54,13 @@ x-scanner-common: &scanner-common
     - SETGID
   security_opt:
     - no-new-privileges:true
+  # 200 并发 socket 需要足够的 fd；限制异常轮次对宿主的影响。
+  ulimits:
+    nofile:
+      soft: 65536
+      hard: 65536
+  pids_limit: 512
+  mem_limit: 1g
   volumes:
     # IP 库与 IATA 映射：面板写入数据库后投影到卷里，只给扫描器读（宿主不可见）
     - ip-data:/data
@@ -96,16 +107,17 @@ services:
     restart: "no"
     entrypoint: ["/usr/local/bin/scan-and-publish.sh"]
 
-  # 运维面板：与扫描器同一镜像、同一 compose 项目，通过 docker.sock 只操作本项目扫描容器。
-  #   浏览器访问 http://<宿主IP>:8080
-  # 以 root 运行：需要访问 docker.sock，并把写入数据卷的文件属主对齐到 PUID/PGID。
+  # 运维面板：与扫描器同一镜像、同一 compose 项目。
+  #   默认只监听 127.0.0.1:8080；远程访问请用 SSH 隧道或 TLS 反向代理。
+  # 以 root 运行只为把数据卷文件属主对齐到 PUID/PGID；不挂 docker.sock。
+  # 需要容器控制时追加 compose.control.yaml（见文件头说明）。
   # 面板是应用配置的唯一入口：配置存数据库，并生成扫描器读取的 /scanner-config/runtime.json。
   panel:
-    image: ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner:latest
+    image: ghcr.io/lancelotrar/self-hosted-best-cf-ip-scanner-panel:latest
     container_name: best-cf-ip-scanner-panel
     entrypoint: ["/usr/local/bin/panel-entrypoint.sh"]
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
       CONFIG_DIR: /scanner-config
       DEFAULT_DATA_DIR: /opt/default-data
@@ -120,19 +132,33 @@ services:
       CACHE_DIR: /cache
       PANEL_TRUST_PROXY: "false"
       PANEL_SESSION_DAYS: "7"
+      # 首次设置口令（可选）：设置后首次设置页会要求输入同一个值。
+      # PANEL_SETUP_TOKEN: "change-me"
       HOME: /tmp
     volumes:
-      # 只读挂载 docker.sock：面板只能通过 Engine API 操作容器，不落任意命令执行
-      - /var/run/docker.sock:/var/run/docker.sock
       - ip-data:/data
-      - scan-output:/output
-      - publish-cache:/cache
+      # 面板只读取产物与锁文件，不需要写权限
+      - scan-output:/output:ro
+      - publish-cache:/cache:ro
       - ./panel-data:/panel-data
       # 运行配置投影：面板唯一写入方，扫描器只读挂载
       - scanner-config:/scanner-config
     read_only: true
     tmpfs:
       - /tmp:size=64m
+    # 面板仍以 root 启动完成卷属主对齐，但默认不带任何额外能力。
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETUID
+      - SETGID
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 256m
     restart: unless-stopped
     healthcheck:
       test:

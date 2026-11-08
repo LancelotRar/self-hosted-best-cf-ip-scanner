@@ -1,3 +1,6 @@
+import threading
+import time
+
 from panel.audit import record
 from panel.db import SCHEMA_VERSION, connect, migrate
 from panel.redact import redact_secrets
@@ -51,6 +54,51 @@ def test_audit_redacts_secret_values(tmp_path):
     record(conn, "admin", "config.save", "settings", "GIT_TOKEN=abc123", "127.0.0.1")
     row = conn.execute("SELECT detail FROM audit").fetchone()
     assert "abc123" not in row[0]
+
+
+def test_writes_on_shared_connection_are_serialized(conn):
+    start = threading.Barrier(2)
+    state = {"active": 0, "max": 0}
+    state_lock = threading.Lock()
+    errors: list[BaseException] = []
+
+    def worker(index: int) -> None:
+        try:
+            start.wait(timeout=2)
+            with conn:
+                with state_lock:
+                    state["active"] += 1
+                    state["max"] = max(state["max"], state["active"])
+                time.sleep(0.05)
+                conn.execute(
+                    "INSERT INTO audit (at, actor, action, target, detail, ip)"
+                    " VALUES ('t', 'admin', 'test', 'x', ?, '127.0.0.1')",
+                    (str(index),),
+                )
+                with state_lock:
+                    state["active"] -= 1
+        except BaseException as exc:  # noqa: BLE001 - 测试收集线程异常
+            errors.append(exc)
+
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=3)
+
+    assert not errors, errors
+    assert state["max"] == 1
+
+
+def test_audit_retention_keeps_row_count_bounded(tmp_path, monkeypatch):
+    from panel import audit
+
+    monkeypatch.setattr(audit, "MAX_ROWS", 2)
+    conn = connect(tmp_path / "panel.db")
+    migrate(conn)
+    for index in range(3):
+        audit.record(conn, "admin", "test", "x", str(index), "127.0.0.1")
+    assert conn.execute("SELECT COUNT(*) FROM audit").fetchone()[0] == 2
 
 
 def test_redact_masks_proxy_credentials_and_userinfo():

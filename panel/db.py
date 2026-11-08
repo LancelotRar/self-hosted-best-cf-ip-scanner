@@ -6,10 +6,11 @@
 from __future__ import annotations
 
 import sqlite3
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 _SCHEMA: tuple[str, ...] = (
     """
@@ -24,7 +25,8 @@ _SCHEMA: tuple[str, ...] = (
         username      TEXT    NOT NULL UNIQUE,
         password_hash TEXT    NOT NULL,
         created_at    TEXT    NOT NULL,
-        updated_at    TEXT    NOT NULL
+        updated_at    TEXT    NOT NULL,
+        session_epoch INTEGER NOT NULL DEFAULT 0
     )
     """,
     """
@@ -139,7 +141,65 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def connect(path: Path) -> sqlite3.Connection:
+class LockedConnection:
+    """把单个 SQLite 连接的访问串行化。
+
+    FastAPI 的同步路由在线程池里执行，而整个应用共享一个连接。
+    直接共享会让两个线程的 `with conn:` 事务交错；这里用可重入锁保证
+    同一时刻只有一个线程进入事务，`execute` 之间也不会互相踩踏。
+    """
+
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+        self._lock = threading.RLock()
+
+    def execute(self, *args, **kwargs):
+        with self._lock:
+            return self._conn.execute(*args, **kwargs)
+
+    def executemany(self, *args, **kwargs):
+        with self._lock:
+            return self._conn.executemany(*args, **kwargs)
+
+    def executescript(self, *args, **kwargs):
+        with self._lock:
+            return self._conn.executescript(*args, **kwargs)
+
+    def commit(self) -> None:
+        with self._lock:
+            self._conn.commit()
+
+    def rollback(self) -> None:
+        with self._lock:
+            self._conn.rollback()
+
+    def close(self) -> None:
+        with self._lock:
+            self._conn.close()
+
+    def __enter__(self):
+        self._lock.acquire()
+        self._conn.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        try:
+            return self._conn.__exit__(exc_type, exc, tb)
+        finally:
+            self._lock.release()
+
+    def __getattr__(self, name: str):
+        attr = getattr(self._conn, name)
+        if callable(attr):
+            def locked(*args, **kwargs):
+                with self._lock:
+                    return attr(*args, **kwargs)
+
+            return locked
+        return attr
+
+
+def connect(path: Path) -> LockedConnection:
     """打开（必要时创建）数据库；WAL + 5 秒忙碌等待。"""
     file_path = Path(path)
     file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -147,7 +207,7 @@ def connect(path: Path) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA busy_timeout=5000")
-    return conn
+    return LockedConnection(conn)
 
 
 def _migrate_artifacts_v5(conn: sqlite3.Connection) -> None:
@@ -186,6 +246,17 @@ def _migrate_artifacts_v5(conn: sqlite3.Connection) -> None:
     )
 
 
+def _migrate_users_v6(conn: sqlite3.Connection) -> None:
+    """v5 -> v6：会话 epoch；改密后旧 Cookie 立即失效。"""
+    columns = {
+        row["name"] for row in conn.execute("PRAGMA table_info(users)").fetchall()
+    }
+    if "session_epoch" not in columns:
+        conn.execute(
+            "ALTER TABLE users ADD COLUMN session_epoch INTEGER NOT NULL DEFAULT 0"
+        )
+
+
 def migrate(conn: sqlite3.Connection) -> None:
     """幂等迁移；版本号记在 `PRAGMA user_version`。"""
     current = conn.execute("PRAGMA user_version").fetchone()[0]
@@ -195,6 +266,7 @@ def migrate(conn: sqlite3.Connection) -> None:
         for statement in _SCHEMA:
             conn.execute(statement)
         _migrate_artifacts_v5(conn)
+        _migrate_users_v6(conn)
         conn.execute(
             "INSERT INTO schema_version (version, applied_at) VALUES (?, ?)",
             (SCHEMA_VERSION, _utc_now()),

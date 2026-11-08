@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -45,17 +46,27 @@ def _docker_available() -> bool:
 
 
 def create_app(settings: Settings | None = None, controller=None) -> FastAPI:
+    resolved = settings or Settings.from_env()
+    conn = db.connect(resolved.db_path)
+    db.migrate(conn)
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        try:
+            yield
+        finally:
+            conn.close()
+
     app = FastAPI(
         title="best-cf-ip-scanner 运维面板",
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
+        lifespan=lifespan,
     )
-    app.state.settings = settings or Settings.from_env()
+    app.state.settings = resolved
     app.state.controller = controller
     app.state.active_runs = {}
-    conn = db.connect(app.state.settings.db_path)
-    db.migrate(conn)
     app.state.conn = conn
     # 数据库是唯一真源：首次启动写入 schema 默认值，之后只从数据库读参数。
     settings_store.seed_schema_defaults(conn, app.state.settings)
@@ -66,6 +77,32 @@ def create_app(settings: Settings | None = None, controller=None) -> FastAPI:
     # 生成扫描器读取的运行投影；失败会直接阻止启动，避免带旧配置继续跑。
     settings_store.project(conn, app.state.settings)
     app.state.security = configure(app.state.settings)
+
+    @app.middleware("http")
+    async def security_headers(request: Request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        response.headers.setdefault(
+            "Permissions-Policy", "camera=(), microphone=(), geolocation=()"
+        )
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            "default-src 'self'; script-src 'self'; "
+            "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+            "connect-src 'self'; frame-ancestors 'none'; "
+            "base-uri 'none'; form-action 'self'",
+        )
+        if request.url.path.startswith("/api/"):
+            response.headers.setdefault("Cache-Control", "no-store")
+        if request.url.scheme == "https" or (
+            request.headers.get("x-forwarded-proto", "").lower() == "https"
+        ):
+            response.headers.setdefault(
+                "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+            )
+        return response
 
     static_dir = Path(__file__).resolve().parent / "static"
 

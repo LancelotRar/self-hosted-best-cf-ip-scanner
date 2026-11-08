@@ -1,4 +1,4 @@
-# 运维面板运行期依赖（与扫描器共用同一个镜像，运行期全部精确锁定）
+# 运维面板运行期依赖（panel 独立镜像，运行期全部精确锁定）
 fastapi==0.162.0
 uvicorn==0.54.0
 docker==7.2.0
@@ -6,4 +6,4 @@ pydantic==2.14.2
 sse-starlette==3.6.0
 argon2-cffi==25.1.0
 itsdangerous==2.2.0
-cryptography==48.0.0
+cryptography==50.0.2

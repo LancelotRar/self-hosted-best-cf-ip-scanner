@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  Key,
   Lock,
 } from "@element-plus/icons-vue";
 import { computed, ref } from "vue";
@@ -12,6 +13,7 @@ const auth = useAuthStore();
 const router = useRouter();
 const password = ref("");
 const confirm = ref("");
+const setupToken = ref("");
 const error = ref("");
 
 const tooShort = computed(() => password.value.length > 0 && password.value.length < 8);
@@ -26,8 +28,12 @@ async function submit() {
     error.value = "两次输入的密码不一致";
     return;
   }
+  if (auth.setupTokenRequired && !setupToken.value.trim()) {
+    error.value = "请输入部署时设置的 setup token";
+    return;
+  }
   try {
-    await auth.setup(password.value);
+    await auth.setup(password.value, setupToken.value.trim() || undefined);
     await router.push({ name: "overview" });
   } catch (exception) {
     error.value = (exception as Error).message || "设置失败";
@@ -51,6 +57,18 @@ async function submit() {
       <p class="auth__sub muted">设置管理员密码；之后可在「系统 → 账号」修改。</p>
 
       <form class="auth__form" @submit.prevent="submit">
+        <template v-if="auth.setupTokenRequired">
+          <label class="auth__label" for="setup-token">Setup Token</label>
+          <el-input
+            id="setup-token"
+            v-model="setupToken"
+            autocomplete="off"
+            placeholder="部署时设置的 PANEL_SETUP_TOKEN"
+            :prefix-icon="Key"
+          />
+          <p class="auth__hint">该部署启用了首次设置口令，请从部署环境获取。</p>
+        </template>
+
         <label class="auth__label" for="setup-password">管理员密码</label>
         <el-input
           id="setup-password"
