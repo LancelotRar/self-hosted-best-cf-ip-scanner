@@ -312,22 +312,11 @@ onBeforeRouteLeave(async () => {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-5);
-  align-items: stretch;
+  align-items: start;
 }
 
 .library-grid .block {
   min-width: 0;
-}
-
-.library-grid .block__card {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
-
-.library-grid .library-actions {
-  margin-top: auto;
-  padding-top: var(--space-3);
 }
 
 @media (max-width: 1099px) {
@@ -368,13 +357,6 @@ onBeforeRouteLeave(async () => {
 
 .library-editor__input {
   margin-top: var(--space-3);
-  display: flex;
-  flex: 1;
-}
-
-.library-editor__input :deep(.el-textarea) {
-  display: flex;
-  flex: 1;
 }
 
 .library-editor__input :deep(.el-textarea__inner) {
@@ -382,7 +364,6 @@ onBeforeRouteLeave(async () => {
   font-size: 12.5px;
   line-height: 1.7;
   background: var(--surface-2);
-  height: 100%;
   min-height: 220px;
 }
 

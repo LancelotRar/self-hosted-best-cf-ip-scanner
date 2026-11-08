@@ -180,7 +180,7 @@ watch(cronValue, () => void loadPreview(), { immediate: true });
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
   gap: var(--space-5);
-  align-items: stretch;
+  align-items: start;
 }
 
 .schedule-grid .block {
@@ -191,7 +191,6 @@ watch(cronValue, () => void loadPreview(), { immediate: true });
 .preview-card {
   display: flex;
   flex-direction: column;
-  height: 100%;
 }
 
 .schedule-help {

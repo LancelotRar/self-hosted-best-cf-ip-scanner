@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import {
-  Aim, Check, Clock, Close, Connection, EditPen, Files,
+  Aim, Check, Clock, Close, Connection, EditPen,
   RefreshRight, SetUp, Setting, Share, Upload,
 } from "@element-plus/icons-vue";
-import { nextTick, onMounted, ref, type Component } from "vue";
+import { computed, nextTick, onMounted, ref, type Component } from "vue";
 import { onBeforeRouteLeave, useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 
@@ -66,7 +66,6 @@ function discardAndLeave() {
 
 const GROUPS: Record<string, string[]> = {
   scanner: ["探测端点", "探测参数", "采样"],
-  artifacts: ["文件名调整", "订阅列表", "发布", "网络代理"],
 };
 
 const groupedFor = (tab: string): Array<{ name: string; params: Param[] }> =>
@@ -80,15 +79,21 @@ const groupedFor = (tab: string): Array<{ name: string; params: Param[] }> =>
     }))
     .filter((group) => group.params.length > 0);
 
+/** 两列卡片：偶数索引进左列、奇数索引进右列，各列独立堆叠，高度互不影响。 */
+const scannerColumns = computed(() => {
+  const groups = groupedFor("scanner");
+  return [groups.filter((_, index) => index % 2 === 0), groups.filter((_, index) => index % 2 === 1)];
+});
+
+/** 产物与发布里的分组参数，供自定义卡片直接渲染。 */
+const paramsFor = (group: string): Param[] =>
+  store.params.filter((param) => param.group === group && !param.hidden);
+
 /** 每个参数组一张卡片，标题在卡片外；图标按组名固定映射。 */
 const GROUP_ICONS: Record<string, Component> = {
   探测端点: Connection,
   探测参数: SetUp,
   采样: Aim,
-  文件名调整: EditPen,
-  订阅列表: Files,
-  发布: Upload,
-  网络代理: Share,
 };
 
 const iconFor = (name: string) => GROUP_ICONS[name] ?? Setting;
@@ -239,27 +244,35 @@ onBeforeRouteLeave(async () => {
     <template v-else-if="store.params.length">
       <el-tabs v-model="activeTab" class="config-tabs">
         <el-tab-pane label="扫描参数" name="scanner" lazy>
-          <section
-            v-for="group in groupedFor('scanner')"
-            :key="group.name"
-            class="block"
-          >
-            <header class="block__head">
-              <el-icon><component :is="iconFor(group.name)" /></el-icon>
-              <span>{{ group.name }}</span>
-            </header>
-            <div class="panel block__card">
-              <div class="field-grid">
-                <ParamField
-                  v-for="param in group.params"
-                  :key="param.name"
-                  :param="param"
-                  :model-value="store.values[param.name]"
-                  @update:model-value="update(param, $event)"
-                />
-              </div>
+          <div class="card-columns">
+            <div
+              v-for="(column, columnIndex) in scannerColumns"
+              :key="columnIndex"
+              class="card-column"
+            >
+              <section
+                v-for="group in column"
+                :key="group.name"
+                class="block"
+              >
+                <header class="block__head">
+                  <el-icon><component :is="iconFor(group.name)" /></el-icon>
+                  <span>{{ group.name }}</span>
+                </header>
+                <div class="panel block__card">
+                  <div class="field-grid">
+                    <ParamField
+                      v-for="param in group.params"
+                      :key="param.name"
+                      :param="param"
+                      :model-value="store.values[param.name]"
+                      @update:model-value="update(param, $event)"
+                    />
+                  </div>
+                </div>
+              </section>
             </div>
-          </section>
+          </div>
         </el-tab-pane>
 
         <el-tab-pane label="计划任务" name="schedule" lazy>
@@ -274,18 +287,25 @@ onBeforeRouteLeave(async () => {
           <ConfigLocationsTab />
         </el-tab-pane>
 
-        <el-tab-pane label="产物与发布" name="artifacts" lazy>
-          <template v-for="group in groupedFor('artifacts')" :key="group.name">
+        <el-tab-pane label="产物定制" name="artifacts" lazy>
+          <div class="card-columns">
             <section class="block">
               <header class="block__head">
-                <el-icon><component :is="iconFor(group.name)" /></el-icon>
-                <span>{{ group.name }}</span>
+                <el-icon><EditPen /></el-icon><span>文件名调整</span>
               </header>
               <div class="panel block__card">
-                <ArtifactNamesEditor v-if="group.name === '文件名调整'" />
-                <div v-else class="field-grid">
+                <ArtifactNamesEditor />
+              </div>
+            </section>
+
+            <section class="block">
+              <header class="block__head">
+                <el-icon><SetUp /></el-icon><span>列表档位</span>
+              </header>
+              <div class="panel block__card">
+                <div class="field-grid">
                   <ParamField
-                    v-for="param in group.params"
+                    v-for="param in paramsFor('订阅列表')"
                     :key="param.name"
                     :param="param"
                     :model-value="store.values[param.name]"
@@ -294,7 +314,45 @@ onBeforeRouteLeave(async () => {
                 </div>
               </div>
             </section>
-          </template>
+          </div>
+        </el-tab-pane>
+
+        <el-tab-pane label="推送设置" name="publish" lazy>
+          <section class="block">
+            <header class="block__head">
+              <el-icon><Upload /></el-icon><span>推送设置</span>
+            </header>
+            <div class="panel block__card">
+              <div class="field-grid field-grid--two">
+                <ParamField
+                  v-for="param in paramsFor('发布')"
+                  :key="param.name"
+                  :param="param"
+                  :model-value="store.values[param.name]"
+                  @update:model-value="update(param, $event)"
+                />
+              </div>
+            </div>
+          </section>
+        </el-tab-pane>
+
+        <el-tab-pane label="代理设置" name="proxy" lazy>
+          <section class="block">
+            <header class="block__head">
+              <el-icon><Share /></el-icon><span>代理设置</span>
+            </header>
+            <div class="panel block__card">
+              <div class="field-grid field-grid--two">
+                <ParamField
+                  v-for="param in paramsFor('网络代理')"
+                  :key="param.name"
+                  :param="param"
+                  :model-value="store.values[param.name]"
+                  @update:model-value="update(param, $event)"
+                />
+              </div>
+            </div>
+          </section>
         </el-tab-pane>
       </el-tabs>
 
@@ -385,16 +443,36 @@ onBeforeRouteLeave(async () => {
   padding-top: var(--space-4);
 }
 
-/* 参数组各成一张卡片：标题在卡片外，卡片之间留出间距 */
-.config-tabs .block + .block {
-  margin-top: var(--space-6);
+/* 双列卡片：两列各自堆叠，卡片高度只由自身内容决定 */
+.card-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.card-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+@media (max-width: 1199px) {
+  .card-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .field-grid {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: 24px;
+}
+
+.field-grid--two {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   column-gap: 32px;
-  row-gap: 28px;
 }
 
 .field-grid :deep(.field--wide) {
@@ -402,7 +480,7 @@ onBeforeRouteLeave(async () => {
 }
 
 @media (max-width: 1199px) {
-  .field-grid {
+  .field-grid--two {
     grid-template-columns: minmax(0, 1fr);
   }
 }
