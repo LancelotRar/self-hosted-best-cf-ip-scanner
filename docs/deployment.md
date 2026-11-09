@@ -140,7 +140,7 @@ TCP 握手测量：合格 2673，淘汰 1488（每候选 3 次，至少成功 2 
 </tr>
 </thead>
 <tbody>
-<tr><td align="center"><code>ip-data</code></td><td align="center"><code>/data</code></td><td align="center"><code>ip-library.txt</code> + <code>locations.json</code> + <code>runtime/runs.tsv</code></td><td align="center">数据库的投影；面板启动与保存时重写</td></tr>
+<tr><td align="center"><code>ip-data</code></td><td align="center"><code>/data</code></td><td align="center"><code>ip-library.txt</code> + <code>locations.json</code> + <code>runtime/runs.tsv</code> + <code>runtime/runs/*.json</code></td><td align="center">地址库/映射是数据库投影；轮次记录与每轮指标由扫描器写入，面板只读</td></tr>
 <tr><td align="center"><code>scan-output</code></td><td align="center"><code>/output</code></td><td align="center"><code>detail.csv</code> + 订阅列表</td><td align="center">每轮全量重写，供发布与下载使用；面板同步元数据与有界预览</td></tr>
 <tr><td align="center"><code>publish-cache</code></td><td align="center"><code>/cache</code></td><td align="center">目标仓库浅克隆</td><td align="center">删掉卷即可让下一轮重新克隆</td></tr>
 <tr><td align="center"><code>scanner-config</code></td><td align="center"><code>/scanner-config</code></td><td align="center"><code>runtime.json</code></td><td align="center">应用参数投影；面板唯一写入，扫描器只读</td></tr>

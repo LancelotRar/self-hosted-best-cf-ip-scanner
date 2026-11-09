@@ -97,7 +97,7 @@ docker compose logs --no-color > scanner.log   # 导出
 </tr>
 </thead>
 <tbody>
-<tr><td align="center"><code>ip-data</code>（卷）</td><td align="center">地址库、机房映射、轮次记录的投影</td><td align="center">由数据库重建；直接删卷不影响数据库</td></tr>
+<tr><td align="center"><code>ip-data</code>（卷）</td><td align="center">地址库、机房映射、轮次记录 <code>runs.tsv</code> 与每轮指标 <code>runs/*.json</code></td><td align="center">地址库/映射由数据库重建；轮次记录与指标可按需清理</td></tr>
 <tr><td align="center"><code>scan-output</code>（卷）</td><td align="center">明细表与订阅列表</td><td align="center">可随时删除，下一轮重新生成</td></tr>
 <tr><td align="center"><code>publish-cache</code>（卷）</td><td align="center">目标仓库浅克隆</td><td align="center">可删除，下一轮重新克隆</td></tr>
 <tr><td align="center"><code>scanner-config</code>（卷）</td><td align="center">应用参数投影 <code>runtime.json</code></td><td align="center">由面板重建；不要手工编辑</td></tr>

@@ -161,7 +161,7 @@ TCP 握手测量：合格 2673，淘汰 1488（每候选 3 次，至少成功 2 
 <tr><th align="center">页面</th><th align="center">能做什么</th></tr>
 </thead>
 <tbody>
-<tr><td align="center">总览</td><td align="center">扫描器状态、上次结果、下次执行时间、生效配置摘要、产物列表、近期扫描</td></tr>
+<tr><td align="center">总览</td><td align="center">扫描器状态、上次结果、下次执行时间、合格数与阶段指标、生效配置摘要、产物列表、近期扫描</td></tr>
 <tr><td align="center">参数</td><td align="center">七个子标签：扫描参数 / 计划任务 / 自定义 IP 库 / 机房映射 / 产物定制 / 仓库设置 / 代理设置；分组表单、保存前校验、差异预览、版本历史与回滚</td></tr>
 <tr><td align="center">运行</td><td align="center">立即执行一轮、实时输出、历史轮次与扫描/发布退出码</td></tr>
 <tr><td align="center">日志</td><td align="center">实时日志（SSE）、关键字过滤、暂停、下载</td></tr>
