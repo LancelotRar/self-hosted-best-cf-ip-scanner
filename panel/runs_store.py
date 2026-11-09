@@ -6,11 +6,15 @@
 
 from __future__ import annotations
 
+import json
+import re
 import sqlite3
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from .settings import Settings
+
+_RUN_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$")
 
 
 @dataclass(frozen=True)
@@ -31,6 +35,39 @@ class RunRecord:
 
 def runs_path(settings: Settings) -> Path:
     return settings.data_dir / "runtime" / "runs.tsv"
+
+
+def metrics_dir(settings: Settings) -> Path:
+    return settings.data_dir / "runtime" / "runs"
+
+
+def metrics_path(settings: Settings, run_id: str) -> Path | None:
+    """指标文件路径；run_id 只允许安全字符，避免被拼成路径穿越。"""
+    if not _RUN_ID_RE.fullmatch(run_id):
+        return None
+    return metrics_dir(settings) / f"{run_id}.json"
+
+
+def read_metrics(settings: Settings, run_id: str) -> dict[str, object] | None:
+    """读取扫描器写下的结构化指标；缺失或损坏时返回 None，不影响页面。"""
+    path = metrics_path(settings, run_id)
+    if path is None or not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def attach_metrics(
+    settings: Settings, records: list[dict[str, object]]
+) -> list[dict[str, object]]:
+    """给轮次补 metrics 字段；只读最近轮次的小 JSON，成本可忽略。"""
+    for item in records:
+        run_id = item.get("run_id")
+        item["metrics"] = read_metrics(settings, run_id) if isinstance(run_id, str) else None
+    return records
 
 
 def _as_int(raw: str) -> int | None:
@@ -141,11 +178,14 @@ def with_status(
         (index for index, record in enumerate(records) if not record.finished_at),
         default=None,
     )
+    last_index = len(records) - 1
     decorated: list[dict[str, object]] = []
     for index, record in enumerate(records):
         if record.finished_at:
             status = "done"
-        elif record.run_id in active_ids or (lock_held and index == last_unfinished):
+        elif record.run_id in active_ids or (
+            lock_held and index == last_unfinished and last_unfinished == last_index
+        ):
             status = "running"
         else:
             status = "interrupted"
@@ -178,4 +218,15 @@ def scan_lock_held(settings: Settings) -> bool:
             return False
 
 
-__all__ = ["RunRecord", "parse", "runs_path", "scan_lock_held", "sync", "with_status"]
+__all__ = [
+    "RunRecord",
+    "attach_metrics",
+    "metrics_dir",
+    "metrics_path",
+    "parse",
+    "read_metrics",
+    "runs_path",
+    "scan_lock_held",
+    "sync",
+    "with_status",
+]

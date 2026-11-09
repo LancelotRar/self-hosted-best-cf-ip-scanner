@@ -36,11 +36,11 @@ def get_publish(request: Request) -> dict[str, object]:
     finished = [
         record
         for record in runs_store.parse(runs_store.runs_path(settings))
-        if record.finished_at
+        if record.finished_at and record.publish_exit is not None
     ]
     last = None
     if finished:
-        record = finished[-1]
+        record = max(finished, key=lambda item: item.finished_at or "")
         last = {
             "run_id": record.run_id,
             "scan_exit": record.scan_exit,

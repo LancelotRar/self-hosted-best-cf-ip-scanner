@@ -15,6 +15,7 @@ def test_preview_txt_and_csv(client, output_dir):
     assert csv_body["kind"] == "csv"
     assert csv_body["headers"][0] == "IP"
     assert csv_body["rows"][0][0] == "1.2.3.4"
+    assert csv_body["row_count"] == 1
 
 
 def test_list_reports_read_time_and_files(client, output_dir):
@@ -26,6 +27,16 @@ def test_list_reports_read_time_and_files(client, output_dir):
     names = [item["name"] for item in body["files"]]
     assert names == ["GLOBAL20.txt"]
     assert body["files"][0]["count"] == 2
+
+
+def test_csv_count_is_data_rows_without_header(client, output_dir):
+    (output_dir / "detail.csv").write_text(
+        "\ufeffIP,端口,延迟\n1.2.3.4,443,12\n5.6.7.8,443,20\n", encoding="utf-8"
+    )
+    body = client.get("/api/outputs").json()
+    detail = next(item for item in body["files"] if item["name"] == "detail.csv")
+    assert detail["kind"] == "csv"
+    assert detail["count"] == 2
 
 
 def test_database_stores_bounded_preview_not_full_file(client, output_dir, settings):

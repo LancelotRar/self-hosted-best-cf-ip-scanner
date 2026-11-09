@@ -18,6 +18,7 @@ def test_system_info_reports_versions(client):
     assert body["panel_version"]
     assert body["python"]
     assert body["image"]
+    assert body["timezone"] == "Asia/Shanghai"
 
 
 def test_audit_lists_container_operations(client):

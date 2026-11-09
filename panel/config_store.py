@@ -129,7 +129,7 @@ def _cross_field_errors(values: Mapping[str, str]) -> list[dict[str, object]]:
         return errors
     if min_success > attempts:
         errors.append(
-            {"name": "TCP_MIN_SUCCESS", "message": "不得大于 TCP_ATTEMPTS"}
+            {"name": "TCP_MIN_SUCCESS", "message": "不得大于「TCP 握手次数」"}
         )
     return errors
 

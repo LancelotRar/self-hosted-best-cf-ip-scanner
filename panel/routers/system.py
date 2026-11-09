@@ -11,7 +11,10 @@ from importlib.metadata import PackageNotFoundError, version
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
+from scanner.schema import BY_NAME
+
 from .. import __version__ as panel_version
+from .. import config_store
 from ..audit import record as audit_record
 from ..deps import controller_of, settings_of
 from ..docker_api import ScannerUnavailable
@@ -80,9 +83,12 @@ def _docker_version() -> str:
 
 @router.get("/info", dependencies=[Depends(require_user)])
 def system_info(request: Request) -> dict[str, object]:
+    settings = settings_of(request)
+    document = config_store.read_config(request.app.state.conn, settings)
     return {
         "panel_version": panel_version,
         "python": sys.version.split()[0],
         "docker": _docker_version(),
-        "image": settings_of(request).scanner_image,
+        "image": settings.scanner_image,
+        "timezone": str(document.values.get("TZ") or BY_NAME["TZ"].default),
     }

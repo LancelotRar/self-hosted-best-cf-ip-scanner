@@ -271,7 +271,7 @@ PARAMS: tuple[ParamSpec, ...] = (
         "str",
         "Asia/Shanghai",
         "时区",
-        "调度与提交信息使用的时区；重启容器后生效。",
+        "影响计划任务、运行记录与日志时间；重启扫描容器后生效。",
         consumer="shell",
         restart=True,
     ),

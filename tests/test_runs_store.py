@@ -1,4 +1,4 @@
-from panel.runs_store import parse
+from panel.runs_store import parse, read_metrics
 
 
 def test_parse_pairs_start_and_end(tmp_path):
@@ -32,3 +32,22 @@ def test_malformed_lines_are_skipped(tmp_path):
     assert len(runs) == 1
     assert runs[0].scan_exit == 1
     assert runs[0].publish_exit is None
+
+
+def test_read_metrics_ignores_missing_and_unsafe_ids(tmp_path):
+    from panel.settings import Settings
+
+    settings = Settings.for_tests(tmp_path)
+    assert read_metrics(settings, "missing") is None
+    assert read_metrics(settings, "../secret") is None
+    assert read_metrics(settings, "r1/../../x") is None
+
+
+def test_read_metrics_parses_valid_file(tmp_path):
+    from panel.settings import Settings
+
+    settings = Settings.for_tests(tmp_path)
+    directory = settings.data_dir / "runtime" / "runs"
+    directory.mkdir(parents=True)
+    (directory / "r1.json").write_text('{"ok": true}', encoding="utf-8")
+    assert read_metrics(settings, "r1") == {"ok": True}

@@ -40,6 +40,23 @@ def _text_count(data: bytes) -> int:
     )
 
 
+def _csv_count(data: bytes) -> int:
+    """明细表数据行数（不含表头与空行）；扫描产物的合格候选数就看它。"""
+    try:
+        rows = list(csv.reader(io.StringIO(data.decode("utf-8-sig", "replace"))))
+    except csv.Error:
+        return 0
+    return max(0, sum(1 for row in rows[1:] if any(cell.strip() for cell in row)))
+
+
+def _count_for(kind: str, data: bytes) -> int | None:
+    if kind == "text":
+        return _text_count(data)
+    if kind == "csv":
+        return _csv_count(data)
+    return None
+
+
 def sync(conn, settings) -> None:
     """把产物目录的元数据对齐进数据库：新增/改动写入，消失的删除。"""
     root = Path(settings.output_dir)
@@ -89,7 +106,7 @@ def sync(conn, settings) -> None:
                     mtime,
                     hashlib.sha256(data).hexdigest(),
                     data[:PREVIEW_BYTES],
-                    _text_count(data) if kind == "text" else None,
+                    _count_for(kind, data),
                     1 if len(data) > PREVIEW_BYTES else 0,
                     _now_iso(),
                 ),
@@ -108,6 +125,7 @@ def list_rows(conn) -> list[dict[str, object]]:
             "name": row["name"],
             "size": row["size"],
             "mtime": row["mtime"],
+            "kind": row["kind"],
             "count": row["count"],
         }
         for row in rows
@@ -139,7 +157,9 @@ def preview(row: dict[str, object], max_rows: int = 200) -> dict[str, object]:
             "kind": "csv",
             "headers": headers,
             "rows": body,
-            "truncated": bool(row["preview_truncated"]) or len(rows) - 1 > max_rows,
+            "row_count": row.get("count"),
+            "truncated": bool(row["preview_truncated"])
+            or int(row.get("count") or 0) > max_rows,
         }
 
     if row["kind"] == "text":

@@ -8,7 +8,9 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sse_starlette.sse import EventSourceResponse
 
-from .. import runs_store
+from scanner.schema import BY_NAME
+
+from .. import config_store, runs_store
 from ..audit import record as audit_record
 from ..deps import controller_of, settings_of
 from ..docker_api import ScannerUnavailable
@@ -39,7 +41,11 @@ def list_runs(request: Request, limit: int = 50) -> dict[str, object]:
     decorated = runs_store.with_status(
         records, runs_store.scan_lock_held(settings), active_ids
     )
-    return {"runs": list(reversed(decorated))}
+    decorated = runs_store.attach_metrics(settings, decorated)
+    decorated.sort(key=lambda record: str(record.get("started_at") or ""))
+    document = config_store.read_config(request.app.state.conn, settings)
+    timezone_name = str(document.values.get("TZ") or BY_NAME["TZ"].default)
+    return {"runs": list(reversed(decorated)), "timezone": timezone_name}
 
 
 def _run_env(settings, run_id: str) -> dict[str, str]:

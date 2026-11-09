@@ -2,6 +2,17 @@ def test_history_lists_parsed_runs(client, runs_tsv):
     body = client.get("/api/runs").json()
     assert body["runs"][0]["run_id"] == "r1"
     assert body["runs"][0]["publish_exit"] == 1
+    assert body["timezone"] == "Asia/Shanghai"
+
+
+def test_history_includes_metrics_when_present(client, runs_tsv, settings):
+    metrics_dir = settings.data_dir / "runtime" / "runs"
+    metrics_dir.mkdir(parents=True, exist_ok=True)
+    (metrics_dir / "r1.json").write_text(
+        '{"schema": 1, "stages": {"endpoint": {"qualified": 7}}}', encoding="utf-8"
+    )
+    body = client.get("/api/runs").json()
+    assert body["runs"][0]["metrics"]["stages"]["endpoint"]["qualified"] == 7
 
 
 def test_running_round_is_not_reported_as_interrupted(client, settings, monkeypatch):
@@ -24,6 +35,24 @@ def test_unfinished_without_lock_is_interrupted(client, settings, monkeypatch):
     )
     monkeypatch.setattr("panel.runs_store.scan_lock_held", lambda _settings: False)
     assert client.get("/api/runs").json()["runs"][0]["status"] == "interrupted"
+
+
+def test_old_unfinished_record_stays_interrupted_when_newer_run_finished(
+    client, settings, monkeypatch
+):
+    path = settings.data_dir / "runtime" / "runs.tsv"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "START\trun-dead\tpanel\t2026-11-03T00:00:00Z\t\t\t\t\n"
+        "START\trun-ok\tcron\t2026-11-03T01:00:00Z\t\t\t\t\n"
+        "END\trun-ok\tcron\t2026-11-03T01:01:00Z\t0\t0\t60\t完成\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("panel.runs_store.scan_lock_held", lambda _settings: True)
+    runs = client.get("/api/runs").json()["runs"]
+    by_id = {item["run_id"]: item["status"] for item in runs}
+    assert by_id["run-dead"] == "interrupted"
+    assert by_id["run-ok"] == "done"
 
 
 def test_completed_round_status_done(client, runs_tsv):
