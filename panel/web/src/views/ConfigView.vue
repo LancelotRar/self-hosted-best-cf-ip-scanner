@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import {
-  Aim, Check, Clock, Close, Connection, EditPen, Files,
-  RefreshRight, SetUp, Share, Upload,
+  Check, Clock, Close, Files, RefreshRight, Upload,
 } from "@element-plus/icons-vue";
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
@@ -16,6 +15,7 @@ import ConfigLocationsTab from "../components/ConfigLocationsTab.vue";
 import ConfigScheduleTab from "../components/ConfigScheduleTab.vue";
 import HintIcon from "../components/HintIcon.vue";
 import ErrorState from "../components/ErrorState.vue";
+import FormSection from "../components/FormSection.vue";
 import PageHeader from "../components/PageHeader.vue";
 import ParamField from "../components/ParamField.vue";
 import SaveResultPanel from "../components/SaveResultPanel.vue";
@@ -83,41 +83,63 @@ function discardAndLeave() {
   resolveLeave(true);
 }
 
-/** 探测卡：目标 + TCP 握手阶段，按 schema 顺序逐行排列。 */
-const PROBE_NAMES = [
-  "PROBE_HOST",
-  "PROBE_PORTS",
-  "PROBE_CONCURRENCY",
-  "TCP_ATTEMPTS",
-  "TCP_MIN_SUCCESS",
-  "TCP_TIMEOUT",
-];
+/** 扫描参数按业务阶段分组；字段顺序同时决定同行字段的排布。 */
+const SCANNER_SECTIONS = [
+  {
+    key: "target",
+    title: "探测目标",
+    description: "用于探测 Cloudflare 边缘节点的域名；保存后下一轮扫描生效。",
+    names: ["PROBE_HOST"],
+  },
+  {
+    key: "connection",
+    title: "连接与校验",
+    description: "控制端口分配、TCP 握手与端点校验；超时单位均为秒。",
+    names: [
+      "PROBE_PORTS",
+      "PROBE_CONCURRENCY",
+      "TCP_TIMEOUT",
+      "TCP_ATTEMPTS",
+      "TCP_MIN_SUCCESS",
+      "TRACE_TIMEOUT",
+      "TRACE_ATTEMPTS",
+    ],
+  },
+  {
+    key: "sampling",
+    title: "采样策略",
+    description: "从地址库抽取代表地址；同一小时内结果可复现，跨小时自动轮换。",
+    names: ["SAMPLE_STRIDE", "SAMPLE_SEED", "SEED_HOUR_FACTOR"],
+  },
+] as const;
 
-const paramsNamed = (names: string[]): Param[] =>
+const paramsNamed = (names: readonly string[]): Param[] =>
   names.flatMap((name) => {
     const param = store.params.find((item) => item.name === name);
     return param && !param.hidden ? [param] : [];
   });
 
-const probeParams = computed(() => paramsNamed(PROBE_NAMES));
-
-/** 校验与采样卡：端点校验 + 采样，和探测卡分成两张等宽卡片。 */
-const checkSampleParams = computed(() =>
-  store.params.filter(
-    (param) => !param.hidden && (param.group === "探测参数" || param.group === "采样"),
-  ).filter((param) => !PROBE_NAMES.includes(param.name)),
+const scannerSections = computed(() =>
+  SCANNER_SECTIONS.map((section) => ({
+    ...section,
+    params: paramsNamed(section.names),
+  })),
 );
 
 /** 产物与发布里的分组参数，供自定义卡片直接渲染。 */
 const paramsFor = (group: string): Param[] =>
   store.params.filter((param) => param.group === group && !param.hidden);
 
-/** 订阅列表：总开关/档位与各国条数分开展示，避免同一句说明重复六次。 */
-const listSwitches = computed(() =>
-  paramsFor("订阅列表").filter((param) => !param.name.startsWith("TOP_")),
-);
+const overallSwitch = computed(() => paramsNamed(["OVERALL_ENABLED"])[0]);
+const overallTops = computed(() => paramsNamed(["OVERALL_TOPS"])[0]);
+const countrySwitch = computed(() => paramsNamed(["COUNTRY_FILTERS"])[0]);
 const countryTops = computed(() =>
   paramsFor("订阅列表").filter((param) => param.name.startsWith("TOP_")),
+);
+
+const publishSwitch = computed(() => paramsNamed(["GIT_PUSH_ENABLED"])[0]);
+const publishFields = computed(() =>
+  paramsFor("发布").filter((param) => param.name !== "GIT_PUSH_ENABLED"),
 );
 
 function update(param: Param, value: unknown) {
@@ -313,16 +335,17 @@ onBeforeRouteLeave(async () => {
     <template v-else-if="store.params.length">
       <el-tabs v-model="activeTab" class="config-tabs">
         <el-tab-pane label="扫描参数" name="scanner" lazy>
-          <div class="scanner-grid">
-            <section class="block">
-              <header class="block__head">
-                <el-icon><Connection /></el-icon><span>探测</span>
-                <span class="block__meta">保存后下一轮扫描生效</span>
-              </header>
-              <div class="panel block__card">
-                <div class="scanner-list">
+          <div class="form-shell">
+            <div class="panel form-panel">
+              <FormSection
+                v-for="section in scannerSections"
+                :key="section.key"
+                :title="section.title"
+                :description="section.description"
+              >
+                <div class="form-grid">
                   <ParamField
-                    v-for="param in probeParams"
+                    v-for="param in section.params"
                     :key="param.name"
                     :param="param"
                     :error="fieldErrors[param.name]"
@@ -330,26 +353,8 @@ onBeforeRouteLeave(async () => {
                     @update:model-value="update(param, $event)"
                   />
                 </div>
-              </div>
-            </section>
-
-            <section class="block">
-              <header class="block__head">
-                <el-icon><Aim /></el-icon><span>校验与采样</span>
-              </header>
-              <div class="panel block__card">
-                <div class="scanner-list">
-                  <ParamField
-                    v-for="param in checkSampleParams"
-                    :key="param.name"
-                    :param="param"
-                    :error="fieldErrors[param.name]"
-                    :model-value="store.values[param.name]"
-                    @update:model-value="update(param, $event)"
-                  />
-                </div>
-              </div>
-            </section>
+              </FormSection>
+            </div>
           </div>
         </el-tab-pane>
 
@@ -366,63 +371,70 @@ onBeforeRouteLeave(async () => {
         </el-tab-pane>
 
         <el-tab-pane label="产物定制" name="artifacts" lazy>
-          <div class="config-pair">
-            <section class="block">
-              <header class="block__head">
-                <el-icon><SetUp /></el-icon><span>列表档位</span>
-              </header>
-              <div class="panel block__card">
-                <div class="field-grid">
+          <div class="form-shell">
+            <div class="panel form-panel">
+              <FormSection
+                title="全量列表"
+                description="按档位生成不同规模的全量订阅列表。"
+              >
+                <div class="form-grid">
                   <ParamField
-                    v-for="param in listSwitches"
-                    :key="param.name"
-                    :param="param"
-                    :error="fieldErrors[param.name]"
-                    :model-value="store.values[param.name]"
-                    :disabled="
-                      (param.name === 'OVERALL_TOPS' && !store.values.OVERALL_ENABLED) ||
-                      (param.name.startsWith('TOP_') && !store.values.COUNTRY_FILTERS)
-                    "
-                    @update:model-value="update(param, $event)"
+                    v-if="overallSwitch"
+                    :param="overallSwitch"
+                    :error="fieldErrors[overallSwitch.name]"
+                    :model-value="store.values[overallSwitch.name]"
+                    @update:model-value="update(overallSwitch, $event)"
                   />
-                </div>
-
-                <div class="country-block">
-                  <p class="group-note">
-                    各国列表条数
-                    <HintIcon
-                      content="仅开启「生成国家列表」时生效；0 表示该国不生成。"
-                      label="查看各国列表条数说明"
-                    />
-                  </p>
-                  <div class="field-grid">
-                    <ParamField
-                      v-for="param in countryTops"
-                      :key="param.name"
-                      :param="param"
-                      :error="fieldErrors[param.name]"
-                      :model-value="store.values[param.name]"
-                      :disabled="!store.values.COUNTRY_FILTERS"
-                      @update:model-value="update(param, $event)"
-                    />
+                  <div v-if="overallTops" class="form-subgroup">
+                    <div class="form-grid">
+                      <ParamField
+                        :param="overallTops"
+                        :error="fieldErrors[overallTops.name]"
+                        :model-value="store.values[overallTops.name]"
+                        :disabled="!store.values.OVERALL_ENABLED"
+                        @update:model-value="update(overallTops, $event)"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            </section>
+              </FormSection>
 
-            <section class="block">
-              <header class="block__head">
-                <el-icon><EditPen /></el-icon><span>文件名调整</span>
-                <HintIcon
-                  placement="bottom"
-                  content="留空或使用默认名时，自动沿用默认文件名。"
-                  label="查看文件名规则"
-                />
-              </header>
-              <div class="panel block__card">
+              <FormSection
+                title="国家列表"
+                description="按国家生成独立订阅列表；总开关与各国条数分开设置。"
+              >
+                <div class="form-grid">
+                  <ParamField
+                    v-if="countrySwitch"
+                    :param="countrySwitch"
+                    :error="fieldErrors[countrySwitch.name]"
+                    :model-value="store.values[countrySwitch.name]"
+                    @update:model-value="update(countrySwitch, $event)"
+                  />
+                  <div class="form-subgroup">
+                    <div class="form-grid">
+                      <ParamField
+                        v-for="param in countryTops"
+                        :key="param.name"
+                        :param="param"
+                        :error="fieldErrors[param.name]"
+                        :model-value="store.values[param.name]"
+                        :disabled="!store.values.COUNTRY_FILTERS"
+                        hide-help
+                        @update:model-value="update(param, $event)"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </FormSection>
+
+              <FormSection
+                title="文件名调整"
+                description="留空或使用默认名时，自动沿用默认文件名。"
+              >
                 <ArtifactNamesEditor />
-              </div>
-            </section>
+              </FormSection>
+            </div>
           </div>
         </el-tab-pane>
 
@@ -430,18 +442,29 @@ onBeforeRouteLeave(async () => {
           <div class="config-split">
             <section class="block">
               <header class="block__head">
-                <el-icon><Upload /></el-icon><span>仓库设置</span>
+                <el-icon><Upload /></el-icon><span>Git 仓库</span>
               </header>
               <div class="panel block__card">
-                <div class="field-grid">
+                <div class="form-grid">
                   <ParamField
-                    v-for="param in paramsFor('发布')"
-                    :key="param.name"
-                    :param="param"
-                    :error="fieldErrors[param.name]"
-                    :model-value="store.values[param.name]"
-                    @update:model-value="update(param, $event)"
+                    v-if="publishSwitch"
+                    :param="publishSwitch"
+                    :error="fieldErrors[publishSwitch.name]"
+                    :model-value="store.values[publishSwitch.name]"
+                    @update:model-value="update(publishSwitch, $event)"
                   />
+                  <div class="form-subgroup">
+                    <div class="form-grid">
+                      <ParamField
+                        v-for="param in publishFields"
+                        :key="param.name"
+                        :param="param"
+                        :error="fieldErrors[param.name]"
+                        :model-value="store.values[param.name]"
+                        @update:model-value="update(param, $event)"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </section>
@@ -463,23 +486,22 @@ onBeforeRouteLeave(async () => {
         </el-tab-pane>
 
         <el-tab-pane label="代理设置" name="proxy" lazy>
-          <section class="block block--medium">
-            <header class="block__head">
-              <el-icon><Share /></el-icon><span>代理设置</span>
-            </header>
-            <div class="panel block__card">
-              <div class="field-grid">
-                <ParamField
-                  v-for="param in paramsFor('网络代理')"
-                  :key="param.name"
-                  :param="param"
-                  :error="fieldErrors[param.name]"
-                  :model-value="store.values[param.name]"
-                  @update:model-value="update(param, $event)"
-                />
-              </div>
+          <div class="form-shell">
+            <div class="panel form-panel">
+              <FormSection title="代理地址">
+                <div class="form-grid">
+                  <ParamField
+                    v-for="param in paramsFor('网络代理')"
+                    :key="param.name"
+                    :param="param"
+                    :error="fieldErrors[param.name]"
+                    :model-value="store.values[param.name]"
+                    @update:model-value="update(param, $event)"
+                  />
+                </div>
+              </FormSection>
             </div>
-          </section>
+          </div>
         </el-tab-pane>
       </el-tabs>
 
@@ -496,9 +518,7 @@ onBeforeRouteLeave(async () => {
         v-if="store.dirty && !['library', 'locations', 'schedule'].includes(activeTab)"
         class="actionbar"
       >
-        <span class="muted">
-          {{ store.dirty ? `未保存 ${store.dirtyCount} 项` : "没有未保存的修改" }}
-        </span>
+        <span class="muted">未保存 {{ store.dirtyCount }} 项</span>
         <div class="actionbar__buttons">
           <el-button :disabled="!store.dirty" @click="diffVisible = true">查看变更</el-button>
           <el-button :disabled="!store.dirty" @click="store.cancel()"><el-icon><Close /></el-icon>取消</el-button>
@@ -560,28 +580,17 @@ onBeforeRouteLeave(async () => {
 </template>
 
 <style scoped>
-/* 两列等宽卡片：整体限宽，随窗口缩放而不出现孤立窄卡 */
-.config-pair {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-5);
-  align-items: start;
-  max-width: 1104px;
-  margin-inline: auto;
-}
-
-/* 宽表单 + 窄列表：按 1.75 : 1 分配，同样整体限宽 */
+/* 宽表单 + 窄列表：仓库字段与推送开关各自保持合适密度 */
 .config-split {
   display: grid;
-  grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
   gap: var(--space-5);
   align-items: start;
-  max-width: 1020px;
+  max-width: var(--form-max);
   margin-inline: auto;
 }
 
 @media (max-width: 900px) {
-  .config-pair,
   .config-split {
     grid-template-columns: minmax(0, 1fr);
     max-width: none;
@@ -604,100 +613,6 @@ onBeforeRouteLeave(async () => {
 
 .config-tabs :deep(.el-tabs__content) {
   padding-top: 0;
-}
-
-/* 探测 / 校验与采样：两张等宽卡片并排居中，卡内字段一行一个 */
-.scanner-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 360px));
-  justify-content: center;
-  gap: var(--space-5);
-  align-items: start;
-}
-
-.scanner-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-@media (max-width: 900px) {
-  .scanner-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-/* 12 列栅格：字段按内容类型占不同跨度，数字紧凑、短文本适中、长 URL 整行 */
-.field-grid {
-  display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: 20px 12px;
-  align-items: start;
-}
-
-.field-grid :deep(.field--full) {
-  grid-column: 1 / -1;
-}
-
-.field-grid :deep(.field--half) {
-  grid-column: span 6;
-}
-
-.field-grid :deep(.field--medium) {
-  grid-column: span 4;
-}
-
-.field-grid :deep(.field--short) {
-  grid-column: span 3;
-}
-
-.field-grid :deep(.field--compact) {
-  grid-column: span 4;
-}
-
-.field-grid :deep(.field--third) {
-  grid-column: span 4;
-}
-
-/* 开关类字段横跨整行，形成「设置项」式的一行一项 */
-.field-grid :deep(.field--switch) {
-  grid-column: 1 / -1;
-}
-
-.country-block {
-  margin-top: var(--space-5);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--border-soft);
-}
-
-.group-note {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0 0 var(--space-4);
-  color: var(--text);
-  font-size: var(--fs-label);
-  font-weight: 550;
-  line-height: 20px;
-}
-
-@media (max-width: 1199px) {
-  .field-grid :deep(.field--compact),
-  .field-grid :deep(.field--short),
-  .field-grid :deep(.field--third),
-  .field-grid :deep(.field--medium) {
-    grid-column: span 6;
-  }
-}
-
-@media (max-width: 719px) {
-  .field-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .field-grid :deep(.field) {
-    grid-column: 1 / -1;
-  }
 }
 
 .diff {

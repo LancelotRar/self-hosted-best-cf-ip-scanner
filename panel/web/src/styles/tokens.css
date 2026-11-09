@@ -47,6 +47,11 @@
   --header-h: 56px;
   --tabs-h: 44px;
   --content-max: 1240px;
+
+  /* 表单：统一内容宽度与栅格间距，字段跨度由 .form-grid 消费 */
+  --form-max: 960px;
+  --form-gap-x: 16px;
+  --form-gap-y: 20px;
 }
 
 html[data-theme="dark"] {

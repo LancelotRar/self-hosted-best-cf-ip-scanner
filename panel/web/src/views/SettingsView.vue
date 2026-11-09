@@ -11,7 +11,6 @@ import {
   Lock,
   Monitor,
   RefreshLeft,
-  Timer,
   VideoPause,
   VideoPlay,
 } from "@element-plus/icons-vue";
@@ -19,6 +18,7 @@ import {
 import { get, post } from "../api";
 import EmptyState from "../components/EmptyState.vue";
 import ErrorState from "../components/ErrorState.vue";
+import FormSection from "../components/FormSection.vue";
 import HintIcon from "../components/HintIcon.vue";
 import PageHeader from "../components/PageHeader.vue";
 import ParamField from "../components/ParamField.vue";
@@ -275,69 +275,61 @@ onMounted(async () => {
 
     <el-tabs v-model="activeTab">
       <el-tab-pane label="常规" name="general">
-        <div class="general-grid">
-        <section class="block settings-block">
-          <header class="block__head"><el-icon><Timer /></el-icon><span>时区</span></header>
-          <div class="panel block__card">
-            <ErrorState v-if="!tzParam && config.lastError" :message="config.lastError.message" />
-            <div class="field-grid">
-              <ParamField
-                v-if="tzParam"
-                :param="tzParam"
-                :model-value="config.values.TZ"
-                @update:model-value="updateTz"
-              />
-            </div>
-            <div class="settings-actions">
-              <span class="muted">
-                {{ config.dirty ? `未保存 ${config.dirtyCount} 项` : "没有未保存的修改" }}
-              </span>
-              <span class="spacer" />
-              <el-button :disabled="!config.dirty" @click="config.cancel()">取消</el-button>
-              <el-button
-                type="primary"
-                :disabled="!config.dirty"
-                :loading="config.saving"
-                @click="saveTimezone"
-              >
-                保存
-              </el-button>
-            </div>
-          </div>
-        </section>
+        <section class="form-shell settings-block">
+          <div class="panel form-panel">
+            <section class="form-section">
+              <ErrorState v-if="!tzParam && config.lastError" :message="config.lastError.message" />
+              <div class="form-grid">
+                <ParamField
+                  v-if="tzParam"
+                  :param="tzParam"
+                  :model-value="config.values.TZ"
+                  @update:model-value="updateTz"
+                />
+              </div>
+              <div class="form-actions">
+                <span class="muted">
+                  {{ config.dirty ? `未保存 ${config.dirtyCount} 项` : "没有未保存的修改" }}
+                </span>
+                <span class="spacer" />
+                <el-button :disabled="!config.dirty" @click="config.cancel()">取消</el-button>
+                <el-button
+                  type="primary"
+                  :disabled="!config.dirty"
+                  :loading="config.saving"
+                  @click="saveTimezone"
+                >
+                  保存
+                </el-button>
+              </div>
+            </section>
 
-        <section class="block settings-block">
-          <header class="block__head">
-            <el-icon><Timer /></el-icon><span>运行时间</span>
-            <HintIcon
-              placement="bottom"
-              content="运行记录与日志按面板时区显示；浏览器时区不同也不会改变计划时间。"
-              label="查看运行时间说明"
-            />
-          </header>
-          <div class="panel block__card">
-            <dl class="kv">
-              <div class="kv__row">
-                <dt>面板时区</dt>
-                <dd class="mono">{{ panelTimezone }}</dd>
-              </div>
-              <div class="kv__row">
-                <dt>下一次计划</dt>
-                <dd class="mono">{{ formatTime(nextRun, panelTimezone) }}</dd>
-              </div>
-              <div class="kv__row">
-                <dt>扫描器</dt>
-                <dd>
-                  <StatusPill
-                    :tone="scannerOnline ? 'success' : 'danger'"
-                    :label="scannerStateLabel"
-                  />
-                </dd>
-              </div>
-            </dl>
+            <FormSection
+              title="运行时间"
+              description="运行记录与日志按面板时区显示；浏览器时区不同也不会改变计划时间。"
+            >
+              <dl class="kv">
+                <div class="kv__row">
+                  <dt>面板时区</dt>
+                  <dd class="mono">{{ panelTimezone }}</dd>
+                </div>
+                <div class="kv__row">
+                  <dt>下一次计划</dt>
+                  <dd class="mono">{{ formatTime(nextRun, panelTimezone) }}</dd>
+                </div>
+                <div class="kv__row">
+                  <dt>扫描器</dt>
+                  <dd>
+                    <StatusPill
+                      :tone="scannerOnline ? 'success' : 'danger'"
+                      :label="scannerStateLabel"
+                    />
+                  </dd>
+                </div>
+              </dl>
+            </FormSection>
           </div>
         </section>
-        </div>
       </el-tab-pane>
 
       <el-tab-pane label="外观" name="appearance">
@@ -354,14 +346,8 @@ onMounted(async () => {
             <div class="panel block__card stack">
               <div class="setting-row">
                 <div class="setting-label">
-                  <strong>
-                    主题模式
-                    <HintIcon
-                      placement="bottom"
-                      content="深色适合长时间盯屏；浅色适合明亮环境。"
-                      label="查看主题模式说明"
-                    />
-                  </strong>
+                  <strong>主题模式</strong>
+                  <span class="setting-desc">深色适合长时间盯屏；浅色适合明亮环境。</span>
                 </div>
                 <el-radio-group v-model="themeValue" aria-label="主题模式">
                   <el-radio-button value="dark">深色</el-radio-button>
@@ -371,14 +357,8 @@ onMounted(async () => {
 
               <div class="setting-row">
                 <div class="setting-label">
-                  <strong>
-                    字号
-                    <HintIcon
-                      placement="bottom"
-                      content="影响正文、表格、按钮与表单标签，仅保存在本浏览器。"
-                      label="查看字号说明"
-                    />
-                  </strong>
+                  <strong>字号</strong>
+                  <span class="setting-desc">影响正文、表格、按钮与表单标签，仅保存在本浏览器。</span>
                 </div>
                 <el-radio-group v-model="fontValue" aria-label="字号">
                   <el-radio-button value="sm">小</el-radio-button>
@@ -412,7 +392,7 @@ onMounted(async () => {
           <header class="block__head"><el-icon><Lock /></el-icon><span>修改密码</span></header>
           <div class="panel block__card">
             <div class="password-form">
-              <label class="field-label" for="current-password">当前密码</label>
+              <label class="form-label" for="current-password">当前密码</label>
               <el-input
                 id="current-password"
                 v-model="currentPassword"
@@ -421,19 +401,18 @@ onMounted(async () => {
                 autocomplete="current-password"
               />
 
-              <div class="field-label-row">
-                <label class="field-label" for="new-password">新密码</label>
-                <HintIcon content="至少 8 个字符。" label="查看密码规则" />
-              </div>
+              <label class="form-label" for="new-password">新密码</label>
               <el-input
                 id="new-password"
                 v-model="newPassword"
                 type="password"
                 show-password
                 autocomplete="new-password"
+                aria-describedby="new-password-help"
               />
+              <p id="new-password-help" class="form-help">至少 8 个字符。</p>
 
-              <label class="field-label" for="confirm-password">确认新密码</label>
+              <label class="form-label" for="confirm-password">确认新密码</label>
               <el-input
                 id="confirm-password"
                 v-model="confirmPassword"
@@ -445,7 +424,8 @@ onMounted(async () => {
               <p v-if="passwordError" class="form-error" role="alert">{{ passwordError }}</p>
               <p v-if="passwordOk" class="form-ok" role="status">{{ passwordOk }}</p>
 
-              <div class="password-form__actions">
+              <div class="form-actions password-form__actions">
+                <span class="spacer" />
                 <el-button type="primary" :loading="savingPassword" @click="changePassword">
                   <el-icon><Lock /></el-icon>修改密码
                 </el-button>
@@ -600,27 +580,12 @@ onMounted(async () => {
 <style scoped>
 /* 表单类页面收窄到易读宽度，避免输入框横跨整个屏幕 */
 .settings-block {
-  max-width: 640px;
+  max-width: 760px;
   margin-inline: auto;
 }
 
 .settings-block--narrow {
-  max-width: 460px;
-}
-
-.general-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 320px) minmax(0, 440px);
-  gap: var(--space-5);
-  align-items: start;
-  max-width: 784px;
-  margin-inline: auto;
-}
-
-.general-grid .settings-block {
-  max-width: none;
-  /* 栅格里由轨道控制宽度，auto 外边距会让卡片按内容宽度收缩 */
-  margin-inline: 0;
+  max-width: 520px;
 }
 
 .container-status {
@@ -645,38 +610,21 @@ onMounted(async () => {
   font-size: var(--fs-body);
 }
 
-.field-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 20px 28px;
-}
-
-.settings-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-top: var(--space-5);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--border-soft);
-  font-size: var(--fs-meta);
-}
-
 .appearance-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
   gap: var(--space-5);
   align-items: start;
-  max-width: 880px;
+  max-width: var(--form-max);
   margin-inline: auto;
   margin-bottom: var(--space-6);
 }
 
 .setting-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   gap: var(--space-5);
-  flex-wrap: wrap;
   padding: 4px 0 var(--space-4);
   border-bottom: 1px solid var(--border-soft);
 }
@@ -686,12 +634,24 @@ onMounted(async () => {
   border-bottom: 0;
 }
 
+.setting-label {
+  min-width: 0;
+}
+
 .setting-label strong {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+  display: block;
   font-size: var(--fs-label);
   font-weight: 600;
+  line-height: 20px;
+}
+
+.setting-desc {
+  display: block;
+  max-width: 46ch;
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  line-height: 18px;
 }
 
 .preview {
@@ -755,27 +715,16 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-width: 380px;
+  max-width: none;
 }
 
-.field-label {
-  margin-top: 8px;
-  font-size: var(--fs-meta);
-  color: var(--text-muted);
+.password-form .form-label:not(:first-child) {
+  margin-top: 10px;
 }
 
-.field-label:first-child {
+.password-form .form-help {
   margin-top: 0;
-}
-
-.field-label-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.field-label-row .field-label {
-  margin-top: 8px;
+  margin-bottom: 4px;
 }
 
 .password-form__actions {
@@ -808,7 +757,7 @@ onMounted(async () => {
 
 .kv__row {
   display: grid;
-  grid-template-columns: 120px minmax(0, 1fr);
+  grid-template-columns: 140px minmax(0, 1fr);
   gap: var(--space-4);
   padding: 10px 0;
   border-bottom: 1px solid var(--border-soft);
@@ -839,9 +788,15 @@ onMounted(async () => {
   white-space: nowrap;
 }
 
+@media (max-width: 560px) {
+  .setting-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-3);
+  }
+}
+
 @media (max-width: 1023px) {
-  .appearance-grid,
-  .general-grid {
+  .appearance-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }

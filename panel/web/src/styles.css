@@ -165,6 +165,120 @@ a {
   margin-inline: auto;
 }
 
+/* --------------------------------------------------------------- 表单系统 */
+
+/* 表单内容统一限宽；卡片只承担容器职责，分组信息放在卡片内部。 */
+.form-shell {
+  max-width: var(--form-max);
+  margin-inline: auto;
+}
+
+.form-panel {
+  padding: 0;
+  overflow: visible;
+}
+
+.form-section {
+  padding: 22px 24px;
+}
+
+.form-section + .form-section {
+  border-top: 1px solid var(--border-soft);
+}
+
+.form-section__head {
+  margin-bottom: var(--space-4);
+}
+
+.form-section__title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 22px;
+}
+
+.form-section__title {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--fs-title);
+  font-weight: 600;
+  line-height: var(--lh-title);
+  letter-spacing: -0.008em;
+}
+
+.form-section__desc {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  line-height: 18px;
+}
+
+/* 12 列栅格：数字 3 列、短字段 4 列、普通字段 6 列、长内容独占一行。 */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: var(--form-gap-y) var(--form-gap-x);
+  align-items: start;
+}
+
+.form-grid > .field--span-2 {
+  grid-column: span 2;
+}
+
+.form-grid > .field--span-3 {
+  grid-column: span 3;
+}
+
+.form-grid > .field--span-4 {
+  grid-column: span 4;
+}
+
+.form-grid > .field--span-6 {
+  grid-column: span 6;
+}
+
+.form-grid > .field--span-8 {
+  grid-column: span 8;
+}
+
+.form-grid > .field--span-12,
+.form-grid > .field--switch {
+  grid-column: 1 / -1;
+}
+
+/* 依赖上一项开关的字段：用缩进和细边线表达层级，不改变可用状态。 */
+.form-subgroup {
+  grid-column: 1 / -1;
+  margin-left: 2px;
+  padding-left: 16px;
+  border-left: 2px solid var(--border);
+}
+
+.form-label {
+  color: var(--text);
+  font-size: var(--fs-label);
+  font-weight: 550;
+  line-height: 20px;
+}
+
+.form-help {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  line-height: 18px;
+}
+
+/* 表单底部操作：状态说明在左，主操作固定在右侧。 */
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-soft);
+  font-size: var(--fs-meta);
+}
+
 @media (max-width: 767px) {
   .block__card {
     padding: var(--space-4);
@@ -676,6 +790,23 @@ a {
   font-weight: 600;
 }
 
+/* 多选标签跟随中性色体系，避免整块表单里出现零散的高饱和色块 */
+.el-select__selection .el-tag {
+  --el-tag-bg-color: var(--surface-3);
+  --el-tag-border-color: transparent;
+  --el-tag-text-color: var(--text);
+}
+
+.el-select__selection .el-tag .el-tag__close {
+  color: var(--text-muted);
+  background: transparent;
+}
+
+.el-select__selection .el-tag .el-tag__close:hover {
+  color: var(--text);
+  background: var(--border-strong);
+}
+
 .el-switch {
   --el-switch-on-color: var(--primary);
   /* 关闭态轨道同样属于控件边界，取 --border-strong 以满足 3:1 */
@@ -760,6 +891,30 @@ a {
 
 .param-hint-popper.el-popper p + p {
   margin-top: 6px;
+}
+
+@media (max-width: 959px) {
+  .form-grid > .field--span-2,
+  .form-grid > .field--span-3,
+  .form-grid > .field--span-4 {
+    grid-column: span 6;
+  }
+}
+
+@media (max-width: 719px) {
+  .form-section {
+    padding: var(--space-4);
+  }
+
+  .form-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-4);
+  }
+
+  .form-grid > .field,
+  .form-grid > .form-subgroup {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 1023px) {

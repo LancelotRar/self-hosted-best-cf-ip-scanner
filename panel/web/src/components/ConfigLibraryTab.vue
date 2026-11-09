@@ -230,7 +230,7 @@ onBeforeRouteLeave(async () => {
             </li>
           </ul>
 
-          <footer class="library-actions">
+          <footer class="form-actions library-actions">
             <span class="muted">
               {{ libraryDirty ? "有未保存的修改" : "没有未保存的修改" }}
             </span>
@@ -282,7 +282,7 @@ onBeforeRouteLeave(async () => {
             </li>
           </ul>
 
-          <footer class="library-actions">
+          <footer class="form-actions library-actions">
             <span class="muted">
               {{ pinnedDirty ? "有未保存的修改" : "没有未保存的修改" }}
             </span>
@@ -372,12 +372,8 @@ onBeforeRouteLeave(async () => {
 }
 
 .library-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
   margin-top: auto;
-  padding-top: var(--space-3);
-  font-size: var(--fs-meta);
+  padding-top: var(--space-4);
 }
 
 .field-errors {

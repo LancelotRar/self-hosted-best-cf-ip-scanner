@@ -287,7 +287,7 @@ onBeforeRouteLeave(async () => {
         @current-change="page = $event"
       />
 
-      <div class="loc-actions">
+      <div class="form-actions loc-actions">
         <span class="muted">
           {{ invalid ? "有不合法的条目，修正后才能保存" : dirty ? "有未保存的修改" : "没有未保存的修改" }}
         </span>
@@ -331,7 +331,7 @@ onBeforeRouteLeave(async () => {
 .loc-table__head,
 .loc-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 40px;
+  grid-template-columns: 120px 100px minmax(0, 1fr) 40px;
   justify-content: start;
   gap: var(--space-3);
   align-items: center;
@@ -345,6 +345,7 @@ onBeforeRouteLeave(async () => {
 }
 
 .loc-table__action {
+  grid-column: 4;
   text-align: right;
 }
 
@@ -366,6 +367,7 @@ onBeforeRouteLeave(async () => {
 }
 
 .loc-row__remove {
+  grid-column: 4;
   justify-self: end;
 }
 
@@ -378,9 +380,6 @@ onBeforeRouteLeave(async () => {
 }
 
 .loc-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
   margin-top: var(--space-4);
 }
 

@@ -108,4 +108,57 @@ describe("ParamField", () => {
     expect(wrapper.text()).toContain("常用模板");
     expect(wrapper.find(".el-input").exists()).toBe(true);
   });
+
+  it("参数说明作为可见帮助文字，并关联到控件", async () => {
+    const wrapper = mount(ParamField, {
+      props: { param: intParam, modelValue: 256 },
+      global: { plugins: [ElementPlus] },
+    });
+    await wrapper.vm.$nextTick();
+    const help = wrapper.find(".field__help");
+    expect(help.text()).toContain("每 N 个地址抽 1 个");
+    expect(wrapper.find(".el-input-number input").attributes("aria-describedby")).toBe(
+      "param-SAMPLE_STRIDE-hint",
+    );
+  });
+
+  it("hideHelp 收起分组内重复的字段说明", async () => {
+    const wrapper = mount(ParamField, {
+      props: { param: intParam, modelValue: 256, hideHelp: true },
+      global: { plugins: [ElementPlus] },
+    });
+    await wrapper.vm.$nextTick();
+    expect(wrapper.find(".field__help").exists()).toBe(false);
+    expect(wrapper.find(".el-input-number input").attributes("aria-describedby")).toBeUndefined();
+  });
+
+  it("按内容类型分配表单栅格跨度", () => {
+    const cases = [
+      { param: intParam, modelValue: 256, span: "field--span-3" },
+      { param: portParam, modelValue: [443], span: "field--span-6" },
+      { param: boolParam, modelValue: false, span: "field--span-12" },
+      { param: tzParam, modelValue: "Asia/Shanghai", span: "field--span-6" },
+    ];
+
+    for (const item of cases) {
+      const wrapper = mount(ParamField, {
+        props: { param: item.param, modelValue: item.modelValue },
+        global: { plugins: [ElementPlus] },
+      });
+      expect(wrapper.classes()).toContain(item.span);
+    }
+  });
+
+  it("错误显示在控件下方，并标记 aria-invalid", async () => {
+    const wrapper = mount(ParamField, {
+      props: { param: intParam, modelValue: 256, error: "不能超过 65536" },
+      global: { plugins: [ElementPlus] },
+    });
+    await wrapper.vm.$nextTick();
+
+    const input = wrapper.find(".el-input-number input");
+    expect(wrapper.find(".field__error").text()).toBe("不能超过 65536");
+    expect(input.attributes("aria-invalid")).toBe("true");
+    expect(input.attributes("aria-describedby")).toBe("param-SAMPLE_STRIDE-error");
+  });
 });

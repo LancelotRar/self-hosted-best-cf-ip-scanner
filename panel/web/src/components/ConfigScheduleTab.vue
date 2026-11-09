@@ -4,7 +4,6 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { Clock, Timer } from "@element-plus/icons-vue";
 
 import { get } from "../api";
-import HintIcon from "./HintIcon.vue";
 import { useConfigStore } from "../stores/config";
 import type { SchedulePreview } from "../types";
 import { formatMinute } from "../utils/format";
@@ -123,18 +122,18 @@ watch(
         </div>
 
         <div class="schedule-field__head">
-          <label class="schedule-field__label" for="param-CRON_SCHEDULE">表达式</label>
-          <HintIcon
-            content="5 段：分 时 日 月 周；6 段：再加年；7 段：秒 + 分 时 日 月 周 + 年。"
-            label="查看表达式格式说明"
-          />
+          <label class="form-label" for="param-CRON_SCHEDULE">表达式</label>
         </div>
         <el-input
           id="param-CRON_SCHEDULE"
           v-model="cronValue"
           class="mono"
           placeholder="30 */6 * * *"
+          aria-describedby="schedule-cron-help"
         />
+        <p id="schedule-cron-help" class="form-help">
+          5 段：分 时 日 月 周；6 段：再加年；7 段：秒 + 分 时 日 月 周 + 年。
+        </p>
         <p v-if="previewError" class="preview-error" role="alert">{{ previewError }}</p>
 
         <p v-if="saveError" class="preview-error" role="alert">{{ saveError }}</p>
@@ -146,7 +145,7 @@ watch(
           </strong>
         </div>
 
-        <footer class="schedule-actions">
+        <footer class="form-actions">
           <span class="muted">
             {{ store.dirty ? `未保存 ${store.dirtyCount} 项` : "没有未保存的修改" }}
           </span>
@@ -199,10 +198,11 @@ watch(
 <style scoped>
 .schedule-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 420px));
-  justify-content: center;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-5);
   align-items: start;
+  max-width: var(--form-max);
+  margin-inline: auto;
 }
 
 .schedule-grid .block {
@@ -227,14 +227,7 @@ watch(
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 7px;
-}
-
-.schedule-field__label {
-  color: var(--text);
-  font-size: var(--fs-label);
-  font-weight: 550;
-  line-height: 20px;
+  margin-bottom: 6px;
 }
 
 .preset-row {
@@ -269,16 +262,6 @@ watch(
 .schedule-summary strong {
   font-size: var(--fs-body);
   font-weight: 600;
-}
-
-.schedule-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-top: var(--space-4);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--border-soft);
-  font-size: var(--fs-meta);
 }
 
 .preview-card {

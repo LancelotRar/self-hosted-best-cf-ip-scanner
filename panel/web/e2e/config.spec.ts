@@ -31,7 +31,8 @@ test("保存结果面板显示写入/核对/生效方式/下次执行", async ({
   // 还原，避免污染测试栈的配置
   await field.fill(original);
   await saveButton(page).click();
-  await expect(page.getByText("没有未保存的修改")).toBeVisible();
+  // 没有未保存修改时操作栏收起，页面回到纯阅读状态
+  await expect(page.locator(".actionbar")).toHaveCount(0);
 });
 
 test("取消恢复服务端快照", async ({ page }) => {
@@ -46,7 +47,7 @@ test("取消恢复服务端快照", async ({ page }) => {
 
   await cancelButton(page).click();
   await expect(field).toHaveValue(original);
-  await expect(page.getByText("没有未保存的修改")).toBeVisible();
+  await expect(page.locator(".actionbar")).toHaveCount(0);
 });
 
 test("数字控件把越界值夹到范围内", async ({ page }) => {
@@ -62,7 +63,7 @@ test("数字控件把越界值夹到范围内", async ({ page }) => {
   // 失焦后控件把越界值夹到 max=10；本来就在上限时不再产生改动
   await expect(field).toHaveValue("10");
   if (atMax) {
-    await expect(page.getByText("没有未保存的修改")).toBeVisible();
+    await expect(page.locator(".actionbar")).toHaveCount(0);
   } else {
     await expect(page.getByText("未保存 1 项")).toBeVisible();
     await cancelButton(page).click();

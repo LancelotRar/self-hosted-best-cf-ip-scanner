@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from "vue";
 
-import HintIcon from "./HintIcon.vue";
 import { useConfigStore } from "../stores/config";
 
 interface Target {
@@ -108,7 +107,6 @@ function setListName(target: Target, value: string) {
         <div class="name-field">
           <span class="name-label">
             <label for="artifact-detail">明细表</label>
-            <HintIcon content="默认 detail.csv（不含扩展名）" label="查看「明细表」说明" />
           </span>
           <el-input
             id="artifact-detail"
@@ -122,7 +120,6 @@ function setListName(target: Target, value: string) {
         <div class="name-field">
           <span class="name-label">
             <label for="artifact-pinned">固定保留</label>
-            <HintIcon content="默认 PINNED.txt（不含扩展名）" label="查看「固定保留」说明" />
           </span>
           <el-input
             id="artifact-pinned"
@@ -141,10 +138,6 @@ function setListName(target: Target, value: string) {
         <div v-for="target in fullTargets" :key="target.key" class="name-field">
           <span class="name-label">
             <label :for="`artifact-${target.key}`">{{ target.label }}</label>
-            <HintIcon
-              :content="`默认 ${target.defaultStem}.txt`"
-              :label="`查看「${target.label}」说明`"
-            />
           </span>
           <el-input
             :id="`artifact-${target.key}`"
@@ -163,10 +156,6 @@ function setListName(target: Target, value: string) {
         <div v-for="target in countryTargets" :key="target.key" class="name-field">
           <span class="name-label">
             <label :for="`artifact-${target.key}`">{{ target.label }}</label>
-            <HintIcon
-              :content="`默认 ${target.defaultStem}.txt`"
-              :label="`查看「${target.label}」说明`"
-            />
           </span>
           <el-input
             :id="`artifact-${target.key}`"
@@ -204,8 +193,8 @@ function setListName(target: Target, value: string) {
 .name-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  column-gap: 24px;
-  row-gap: 20px;
+  column-gap: var(--form-gap-x);
+  row-gap: var(--form-gap-y);
 }
 
 .name-field {
@@ -221,7 +210,7 @@ function setListName(target: Target, value: string) {
   gap: 4px;
   color: var(--text);
   font-size: var(--fs-label);
-  font-weight: 600;
+  font-weight: 550;
   line-height: 20px;
 }
 
