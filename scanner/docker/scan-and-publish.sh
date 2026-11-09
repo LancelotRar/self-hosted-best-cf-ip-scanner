@@ -44,7 +44,10 @@ RUNS_FILE="${RUNS_FILE:-${DATA_DIR:-/data}/runtime/runs.tsv}"
 RUN_ID="${RUN_ID:-$(date +%Y%m%dT%H%M%S-$$)}"
 RUN_TRIGGER="${RUN_TRIGGER:-cron}"
 SUMMARY_COMMAND="${SUMMARY_COMMAND:-/usr/local/bin/startup-report.py}"
-mkdir -p "$(dirname "$RUNS_FILE")" 2>/dev/null || true
+# 每轮结构化指标：扫描器成功结束后写这里，面板只读；不放进 /output，避免被发布。
+RUN_METRICS_DIR="${RUN_METRICS_DIR:-${DATA_DIR:-/data}/runtime/runs}"
+export RUN_METRICS_PATH="${RUN_METRICS_PATH:-$RUN_METRICS_DIR/$RUN_ID.json}"
+mkdir -p "$(dirname "$RUNS_FILE")" "$RUN_METRICS_DIR" 2>/dev/null || true
 
 utc_now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 record_start() {

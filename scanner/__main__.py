@@ -27,9 +27,11 @@ scanner/config.py；入口不接受命令行参数。
 
 from __future__ import annotations
 
+import os
 import sys
 import time
 from collections import Counter
+from datetime import datetime, timezone
 from pathlib import Path
 
 # ---- 子模块引用（供编排与外部脚本按模块打桩） ----
@@ -118,6 +120,26 @@ def _failure_summary(reasons: "Counter[str]") -> str:
     return "; ".join(f"{kind} x{count}" for kind, count in reasons.most_common(5))
 
 
+def _metrics_payload(**extra: object) -> dict[str, object]:
+    """本轮结构化指标的公共外壳；路径由运行脚本通过环境变量注入。"""
+    return {
+        "schema": 1,
+        "finished_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        **extra,
+    }
+
+
+def _write_run_metrics(payload: dict[str, object]) -> None:
+    """把指标写到 `RUN_METRICS_PATH`；未配置或写入失败都不影响扫描结果。"""
+    raw = (os.environ.get("RUN_METRICS_PATH") or "").strip()
+    if not raw:
+        return
+    try:
+        write_json_atomic(Path(raw), payload)
+    except OSError as exc:
+        print(f"[提示] 无法写入轮次指标：{exc}", file=sys.stderr)
+
+
 def _purge_previous_outputs(output_dir: Path) -> None:
     """清掉上一轮产物（*.csv / *.txt），保证产物集合是"本轮全量镜像"。
 
@@ -172,6 +194,7 @@ def run(
     result_dir.mkdir(parents=True, exist_ok=True)
     data_dir = Path(DATA_DIR)
     started = time.monotonic()
+    run_started_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
     library_path = Path(library_file)
     if not library_path.is_absolute():
@@ -235,6 +258,7 @@ def run(
         concurrency=concurrency,
         timeout=tcp_timeout,
     )
+    tcp_seconds = time.monotonic() - stage_started
     tcp_ok = [result for result in tcp_results if result.qualified]
     tcp_errors = Counter(
         (result.error or "tcp_connect_failed")[:40] for result in tcp_results if not result.qualified
@@ -242,7 +266,7 @@ def run(
     print(
         f"TCP 握手测量：合格 {len(tcp_ok)}，淘汰 {len(pairs) - len(tcp_ok)}"
         f"（每候选 {tcp_attempts} 次，至少成功 {tcp_min_success} 次，超时 {tcp_timeout}s，"
-        f"耗时 {time.monotonic() - stage_started:.1f}s）"
+        f"耗时 {tcp_seconds:.1f}s）"
     )
     if tcp_errors:
         print(f"  未达标原因：{_failure_summary(tcp_errors)}")
@@ -251,6 +275,27 @@ def run(
             f"[错误] TCP 握手测量 0/{len(pairs)} 合格（top 失败原因：{_failure_summary(tcp_errors)}），"
             "不生成产物以避免覆盖既有结果",
             file=sys.stderr,
+        )
+        _write_run_metrics(
+            _metrics_payload(
+                ok=False,
+                started_at=run_started_at,
+                total_seconds=round(time.monotonic() - started, 1),
+                stage="tcp",
+                message="TCP 握手测量后无合格候选",
+                candidates=len(pairs),
+                networks=len(networks),
+                excluded_addresses=excluded_total,
+                sample_stride=sample_stride,
+                stages={
+                    "tcp": {
+                        "qualified": 0,
+                        "rejected": len(pairs),
+                        "seconds": round(tcp_seconds, 1),
+                    }
+                },
+                failure_reasons={"tcp": dict(tcp_errors.most_common(10))},
+            )
         )
         return 1
 
@@ -262,6 +307,7 @@ def run(
         timeout=trace_timeout,
     )
     candidates = combine_results(tcp_ok, endpoints)
+    endpoint_seconds = time.monotonic() - stage_started
 
     location_map: LocationMap = (
         {} if skip_locations else load_locations(data_dir / LOCATIONS_FILE)
@@ -280,8 +326,38 @@ def run(
             "不生成产物以避免覆盖既有结果",
             file=sys.stderr,
         )
+        _write_run_metrics(
+            _metrics_payload(
+                ok=False,
+                started_at=run_started_at,
+                total_seconds=round(time.monotonic() - started, 1),
+                stage="endpoint",
+                message="边缘端点校验后无合格候选",
+                candidates=len(pairs),
+                networks=len(networks),
+                excluded_addresses=excluded_total,
+                sample_stride=sample_stride,
+                stages={
+                    "tcp": {
+                        "qualified": len(tcp_ok),
+                        "rejected": len(pairs) - len(tcp_ok),
+                        "seconds": round(tcp_seconds, 1),
+                    },
+                    "endpoint": {
+                        "qualified": 0,
+                        "rejected": len(tcp_ok),
+                        "seconds": round(endpoint_seconds, 1),
+                    },
+                },
+                failure_reasons={
+                    "tcp": dict(tcp_errors.most_common(10)),
+                    "endpoint": dict(endpoint_errors.most_common(10)),
+                },
+            )
+        )
         return 1
 
+    output_started = time.monotonic()
     detail_path = result_dir / f"{DETAIL_CSV_NAME}.csv"
     _purge_previous_outputs(result_dir)
     write_csv_atomic(detail_path, DETAIL_COLUMNS, rows)
@@ -316,6 +392,41 @@ def run(
         + (" + 1 个固定保留列表" if pinned_file else "")
         + f" -> {result_dir}"
         f"  总耗时 {time.monotonic() - started:.1f}s"
+    )
+    _write_run_metrics(
+        _metrics_payload(
+            ok=True,
+            started_at=run_started_at,
+            total_seconds=round(time.monotonic() - started, 1),
+            candidates=len(pairs),
+            networks=len(networks),
+            excluded_addresses=excluded_total,
+            sample_stride=sample_stride,
+            stages={
+                "tcp": {
+                    "qualified": len(tcp_ok),
+                    "rejected": len(pairs) - len(tcp_ok),
+                    "seconds": round(tcp_seconds, 1),
+                },
+                "endpoint": {
+                    "qualified": len(rows),
+                    "rejected": len(tcp_ok) - len(rows),
+                    "seconds": round(endpoint_seconds, 1),
+                },
+                "output": {"seconds": round(time.monotonic() - output_started, 1)},
+            },
+            failure_reasons={
+                "tcp": dict(tcp_errors.most_common(10)),
+                "endpoint": dict(endpoint_errors.most_common(10)),
+            },
+            outputs={
+                "detail": {"name": detail_path.name, "rows": len(rows)},
+                "subscriptions": [
+                    {"name": name, "count": count} for name, count in written.items()
+                ],
+                "pinned": bool(pinned_file),
+            },
+        )
     )
     return 0
 
