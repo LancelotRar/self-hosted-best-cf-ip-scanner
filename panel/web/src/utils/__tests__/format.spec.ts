@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatLogLine, formatMinute, triggerLabel } from "../format";
+import { formatLogLine, formatMinute, formatTime, logLevelOf, triggerLabel } from "../format";
 
 const CASE = /^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\]\[(信息|警告|错误)\]：/;
 
@@ -33,6 +33,12 @@ describe("formatLogLine", () => {
 
   it("没有时间戳前缀的行原样返回", () => {
     expect(formatLogLine("plain line")).toBe("plain line");
+  });
+
+  it("按面板时区显示日志时间", () => {
+    expect(
+      formatLogLine("2026-11-03T09:34:44Z [entrypoint] 启动完成", "Asia/Shanghai"),
+    ).toContain("[2026-11-03 17:34:44]");
   });
 
   it("去掉 supercronic 追加的调度元数据，只留正文", () => {
@@ -71,6 +77,32 @@ describe("formatMinute", () => {
   it("空值与非法值不报错", () => {
     expect(formatMinute(null)).toBe("—");
     expect(formatMinute("not-a-time")).toBe("not-a-time");
+  });
+
+  it("按面板时区换算，而不是浏览器本地时区", () => {
+    expect(formatMinute("2026-11-03T09:34:44Z", "Asia/Shanghai")).toBe("2026-11-03 17:34");
+    expect(formatMinute("2026-11-03T09:34:44Z", "UTC")).toBe("2026-11-03 09:34");
+  });
+
+  it("非法时区回退到浏览器本地时间，不抛异常", () => {
+    expect(formatMinute("2026-11-03T09:34:44Z", "Not/AZone")).toMatch(
+      /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/,
+    );
+  });
+});
+
+describe("formatTime", () => {
+  it("按面板时区输出秒级时间", () => {
+    expect(formatTime("2026-11-03T09:34:44Z", "Asia/Shanghai")).toBe("2026-11-03 17:34:44");
+  });
+});
+
+describe("logLevelOf", () => {
+  it("返回与展示一致的等级", () => {
+    expect(logLevelOf("2026-11-03T09:34:44Z [错误] 读取失败")).toBe("错误");
+    expect(logLevelOf("2026-11-03T09:34:44Z [警告] 未找到")).toBe("警告");
+    expect(logLevelOf("2026-11-03T09:34:44Z 未达标原因：失败 3 个")).toBe("信息");
+    expect(logLevelOf("plain line")).toBe("信息");
   });
 });
 

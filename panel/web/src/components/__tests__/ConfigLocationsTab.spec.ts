@@ -43,13 +43,13 @@ describe("ConfigLocationsTab", () => {
     vi.clearAllMocks();
   });
 
-  it("按数据库内容渲染条目，并提示非必要无需编辑", async () => {
+  it("按数据库内容渲染条目，并把编辑提示收进问号", async () => {
     const wrapper = await mounted();
     const codes = wrapper
       .findAll(".loc-row__code input")
       .map((input) => (input.element as HTMLInputElement).value);
     expect(codes).toEqual(["HKG", "NRT"]);
-    expect(wrapper.text()).toContain("非必要无需编辑");
+    expect(wrapper.find('button[aria-label="查看机房映射说明"]').exists()).toBe(true);
     expect(saveButton(wrapper)?.attributes("disabled")).toBeDefined();
   });
 

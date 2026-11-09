@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { onBeforeRouteLeave } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
   Brush,
@@ -17,13 +19,18 @@ import {
 import { get, post } from "../api";
 import EmptyState from "../components/EmptyState.vue";
 import ErrorState from "../components/ErrorState.vue";
+import HintIcon from "../components/HintIcon.vue";
 import PageHeader from "../components/PageHeader.vue";
 import ParamField from "../components/ParamField.vue";
+import StatusPill from "../components/StatusPill.vue";
+import UnsavedDialog from "../components/UnsavedDialog.vue";
 import { PROJECT_URL } from "../config";
 import { useTheme, type Theme } from "../composables/useTheme";
 import { useTableWidths } from "../composables/useTableWidths";
 import { useConfigStore } from "../stores/config";
 import { useUiSettings, type FontSize } from "../composables/useUiSettings";
+import type { Overview } from "../types";
+import { formatTime } from "../utils/format";
 
 interface AuditItem {
   id: number;
@@ -34,7 +41,16 @@ interface AuditItem {
   ip: string;
 }
 
-const activeTab = ref("appearance");
+const TABS = ["general", "appearance", "account", "audit", "container", "about"] as const;
+type SettingsTab = (typeof TABS)[number];
+
+const route = useRoute();
+const router = useRouter();
+const activeTab = ref<SettingsTab>(
+  TABS.includes(String(route.query.tab) as SettingsTab)
+    ? (String(route.query.tab) as SettingsTab)
+    : "general",
+);
 
 const config = useConfigStore();
 const { theme, set } = useTheme();
@@ -107,9 +123,16 @@ async function loadAudit(target = page.value) {
   }
 }
 
-function formatTime(value: string): string {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("zh-CN", { hour12: false });
+interface SystemInfo {
+  panel_version?: string;
+  image?: string;
+  python?: string;
+  docker?: string;
+  timezone?: string;
+}
+
+function formatAuditTime(value: string): string {
+  return formatTime(value, info.value?.timezone);
 }
 
 const busy = ref("");
@@ -130,6 +153,7 @@ async function operate(action: "restart" | "stop" | "start") {
     await post(`/api/system/${action}`, undefined, { "X-Confirm": action });
     ElMessage.success(`已请求${labels[action]}扫描容器`);
     await loadAudit();
+    await loadScanner();
   } catch (exception) {
     ElMessage.error((exception as Error).message);
   } finally {
@@ -137,19 +161,48 @@ async function operate(action: "restart" | "stop" | "start") {
   }
 }
 
-const info = ref<Record<string, unknown> | null>(null);
+const info = ref<SystemInfo | null>(null);
 const infoError = ref("");
 
 async function loadInfo() {
   infoError.value = "";
   try {
-    info.value = await get<Record<string, unknown>>("/api/system/info");
+    info.value = await get<SystemInfo>("/api/system/info");
   } catch (exception) {
     infoError.value = (exception as Error).message;
   }
 }
 
+const scanner = ref<Overview | null>(null);
+const scannerError = ref("");
+const scannerLoading = ref(false);
+
+async function loadScanner() {
+  scannerLoading.value = true;
+  scannerError.value = "";
+  try {
+    scanner.value = await get<Overview>("/api/overview");
+  } catch (exception) {
+    scannerError.value = (exception as Error).message;
+  } finally {
+    scannerLoading.value = false;
+  }
+}
+
+const scannerOnline = computed(() => scanner.value?.scanner.state === "running");
+const scannerImage = computed(() => scanner.value?.scanner.image || "镜像未知");
+const scannerName = computed(() => scanner.value?.scanner.name || "扫描容器");
+const scannerStateLabel = computed(() => {
+  if (!scanner.value) return "未知";
+  if (scannerOnline.value) return scanner.value.running ? "在线 · 运行中" : "在线 · 空闲";
+  return "离线";
+});
+
 const tzParam = computed(() => config.params.find((param) => param.name === "TZ") ?? null);
+const panelTimezone = computed(
+  () => String(config.values.TZ ?? info.value?.timezone ?? "UTC"),
+);
+const nextRun = computed(() => scanner.value?.schedule?.next_runs?.[0] ?? null);
 
 function updateTz(value: unknown) {
   config.applyLocal({ TZ: value });
@@ -159,15 +212,60 @@ async function saveTimezone() {
   try {
     await config.save();
     ElMessage.success("时区已保存，重启扫描容器后生效");
+    await loadInfo();
   } catch (exception) {
     ElMessage.error((exception as Error).message);
   }
 }
 
+const unsavedVisible = ref(false);
+const leaving = ref<((ok: boolean) => void) | null>(null);
+
+function resolveLeave(ok: boolean) {
+  unsavedVisible.value = false;
+  leaving.value?.(ok);
+  leaving.value = null;
+}
+
+function discardAndLeave() {
+  config.cancel();
+  resolveLeave(true);
+}
+
+function focusTimezone() {
+  document.getElementById("param-TZ")?.focus();
+}
+
+onBeforeRouteLeave(async () => {
+  if (!config.dirty) return true;
+  unsavedVisible.value = true;
+  return new Promise<boolean>((resolve) => {
+    leaving.value = resolve;
+  });
+});
+
+watch(
+  () => route.query.tab,
+  (value) => {
+    const tab = String(value ?? "");
+    if (TABS.includes(tab as SettingsTab) && tab !== activeTab.value) {
+      activeTab.value = tab as SettingsTab;
+    }
+  },
+);
+
+watch(activeTab, (tab) => {
+  if (route.query.tab === tab) return;
+  void router.replace({ query: { ...route.query, tab } });
+});
+
 onMounted(async () => {
-  await loadAudit();
-  await loadInfo();
-  await config.load().catch((exception: Error) => ElMessage.error(exception.message));
+  await Promise.all([
+    loadAudit(),
+    loadInfo(),
+    loadScanner(),
+    config.load().catch((exception: Error) => ElMessage.error(exception.message)),
+  ]);
 });
 </script>
 
@@ -177,12 +275,10 @@ onMounted(async () => {
 
     <el-tabs v-model="activeTab">
       <el-tab-pane label="常规" name="general">
+        <div class="general-grid">
         <section class="block settings-block">
           <header class="block__head"><el-icon><Timer /></el-icon><span>时区</span></header>
           <div class="panel block__card">
-            <p class="muted settings-hint">
-              影响计划任务、运行记录与日志时间；保存后需重启扫描容器生效。
-            </p>
             <ErrorState v-if="!tzParam && config.lastError" :message="config.lastError.message" />
             <div class="field-grid">
               <ParamField
@@ -209,6 +305,39 @@ onMounted(async () => {
             </div>
           </div>
         </section>
+
+        <section class="block settings-block">
+          <header class="block__head">
+            <el-icon><Timer /></el-icon><span>运行时间</span>
+            <HintIcon
+              placement="bottom"
+              content="运行记录与日志按面板时区显示；浏览器时区不同也不会改变计划时间。"
+              label="查看运行时间说明"
+            />
+          </header>
+          <div class="panel block__card">
+            <dl class="kv">
+              <div class="kv__row">
+                <dt>面板时区</dt>
+                <dd class="mono">{{ panelTimezone }}</dd>
+              </div>
+              <div class="kv__row">
+                <dt>下一次计划</dt>
+                <dd class="mono">{{ formatTime(nextRun, panelTimezone) }}</dd>
+              </div>
+              <div class="kv__row">
+                <dt>扫描器</dt>
+                <dd>
+                  <StatusPill
+                    :tone="scannerOnline ? 'success' : 'danger'"
+                    :label="scannerStateLabel"
+                  />
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </section>
+        </div>
       </el-tab-pane>
 
       <el-tab-pane label="外观" name="appearance">
@@ -225,8 +354,14 @@ onMounted(async () => {
             <div class="panel block__card stack">
               <div class="setting-row">
                 <div class="setting-label">
-                  <strong>主题模式</strong>
-                  <p class="muted">深色适合长时间盯屏；浅色适合明亮环境。</p>
+                  <strong>
+                    主题模式
+                    <HintIcon
+                      placement="bottom"
+                      content="深色适合长时间盯屏；浅色适合明亮环境。"
+                      label="查看主题模式说明"
+                    />
+                  </strong>
                 </div>
                 <el-radio-group v-model="themeValue" aria-label="主题模式">
                   <el-radio-button value="dark">深色</el-radio-button>
@@ -236,8 +371,14 @@ onMounted(async () => {
 
               <div class="setting-row">
                 <div class="setting-label">
-                  <strong>字号</strong>
-                  <p class="muted">影响正文、表格、按钮与表单标签，仅保存在本浏览器。</p>
+                  <strong>
+                    字号
+                    <HintIcon
+                      placement="bottom"
+                      content="影响正文、表格、按钮与表单标签，仅保存在本浏览器。"
+                      label="查看字号说明"
+                    />
+                  </strong>
                 </div>
                 <el-radio-group v-model="fontValue" aria-label="字号">
                   <el-radio-button value="sm">小</el-radio-button>
@@ -264,26 +405,6 @@ onMounted(async () => {
             </div>
           </section>
         </div>
-
-        <section class="block settings-block">
-          <header class="block__head"><el-icon><Link /></el-icon><span>项目</span></header>
-          <div class="panel block__card">
-            <div class="project-row">
-              <div>
-                <p class="project-row__title">面板与扫描器同源</p>
-                <p class="muted project-row__desc">
-                  问题反馈、版本说明与部署文档都在项目主页。
-                </p>
-                <p class="muted mono repo-url">
-                  github.com/LancelotRar/self-hosted-best-cf-ip-scanner
-                </p>
-              </div>
-              <a :href="PROJECT_URL" target="_blank" rel="noopener noreferrer">
-                <el-button>打开 GitHub 项目主页</el-button>
-              </a>
-            </div>
-          </div>
-        </section>
       </el-tab-pane>
 
       <el-tab-pane label="账号" name="account">
@@ -300,7 +421,10 @@ onMounted(async () => {
                 autocomplete="current-password"
               />
 
-              <label class="field-label" for="new-password">新密码</label>
+              <div class="field-label-row">
+                <label class="field-label" for="new-password">新密码</label>
+                <HintIcon content="至少 8 个字符。" label="查看密码规则" />
+              </div>
               <el-input
                 id="new-password"
                 v-model="newPassword"
@@ -308,7 +432,6 @@ onMounted(async () => {
                 show-password
                 autocomplete="new-password"
               />
-              <p class="field-hint">至少 8 个字符。</p>
 
               <label class="field-label" for="confirm-password">确认新密码</label>
               <el-input
@@ -340,7 +463,7 @@ onMounted(async () => {
             <div class="panel block__card">
               <el-table border v-if="audits.length" :data="audits" size="small" @header-dragend="onColumnDragEnd">
                 <el-table-column label="时间" :width="colWidth('时间') ?? 180">
-                  <template #default="{ row }"><span class="mono">{{ formatTime(row.at) }}</span></template>
+                  <template #default="{ row }"><span class="mono">{{ formatAuditTime(row.at) }}</span></template>
                 </el-table-column>
                 <el-table-column prop="actor" label="操作者" :width="colWidth('操作者') ?? 90" align="center" />
                 <el-table-column prop="action" label="动作" :width="colWidth('动作') ?? 170">
@@ -373,11 +496,29 @@ onMounted(async () => {
 
       <el-tab-pane label="容器" name="container">
         <section class="block settings-block">
-          <header class="block__head"><el-icon><Monitor /></el-icon><span>扫描容器</span></header>
+          <header class="block__head">
+            <el-icon><Monitor /></el-icon><span>扫描容器</span>
+            <HintIcon
+              placement="bottom"
+              content="只操作本项目的扫描容器；重启或停止会中断当前这一轮，产物保留上一轮。"
+              label="查看扫描容器说明"
+            />
+            <el-button text size="small" :loading="scannerLoading" @click="loadScanner">
+              <el-icon><RefreshLeft /></el-icon>刷新状态
+            </el-button>
+          </header>
           <div class="panel block__card">
-            <p class="muted settings-hint">
-              只操作本项目的扫描容器；重启/停止会中断当前这一轮，产物保留上一轮。
-            </p>
+            <ErrorState v-if="scannerError" :message="scannerError" @retry="loadScanner" />
+            <div v-else class="container-status">
+              <StatusPill :tone="scannerOnline ? 'success' : 'danger'" :label="scannerStateLabel" />
+              <div class="container-status__text">
+                <strong class="mono">{{ scannerName }}</strong>
+                <span class="muted mono">{{ scannerImage }}</span>
+                <span v-if="!scannerOnline && scanner?.scanner.reason" class="text-danger">
+                  {{ scanner.scanner.reason }}
+                </span>
+              </div>
+            </div>
             <div class="row">
               <el-button :loading="busy === 'restart'" @click="operate('restart')">
                 <el-icon><RefreshLeft /></el-icon>重启扫描容器
@@ -415,30 +556,93 @@ onMounted(async () => {
                 <dt>Docker SDK</dt>
                 <dd class="mono">{{ info.docker }}</dd>
               </div>
+              <div class="kv__row">
+                <dt>时区</dt>
+                <dd class="mono">{{ info.timezone || "—" }}</dd>
+              </div>
             </dl>
             <p class="muted about-hint">忘记密码请联系部署管理员。</p>
             <p class="muted about-hint">配置版本与审计记录都会保留，可在面板内完成回滚与核查。</p>
           </div>
         </section>
+
+        <section class="block settings-block">
+          <header class="block__head"><el-icon><Link /></el-icon><span>项目</span></header>
+          <div class="panel block__card">
+            <div class="project-row">
+              <div>
+                <p class="project-row__title">面板与扫描器同源</p>
+                <p class="muted project-row__desc">
+                  问题反馈、版本说明与部署文档都在项目主页。
+                </p>
+                <p class="muted mono repo-url">
+                  github.com/LancelotRar/self-hosted-best-cf-ip-scanner
+                </p>
+              </div>
+              <a :href="PROJECT_URL" target="_blank" rel="noopener noreferrer">
+                <el-button>打开 GitHub 项目主页</el-button>
+              </a>
+            </div>
+          </div>
+        </section>
       </el-tab-pane>
     </el-tabs>
+
+    <UnsavedDialog
+      v-model="unsavedVisible"
+      description="有未保存的时区修改，离开后这些修改会丢失。"
+      @discard="discardAndLeave"
+      @stay="focusTimezone"
+    />
   </section>
 </template>
 
 <style scoped>
 /* 表单类页面收窄到易读宽度，避免输入框横跨整个屏幕 */
 .settings-block {
-  max-width: 880px;
+  max-width: 640px;
+  margin-inline: auto;
 }
 
 .settings-block--narrow {
   max-width: 460px;
 }
 
-.settings-hint {
-  margin: 0 0 var(--space-4);
+.general-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 320px) minmax(0, 440px);
+  gap: var(--space-5);
+  align-items: start;
+  max-width: 784px;
+  margin-inline: auto;
+}
+
+.general-grid .settings-block {
+  max-width: none;
+  /* 栅格里由轨道控制宽度，auto 外边距会让卡片按内容宽度收缩 */
+  margin-inline: 0;
+}
+
+.container-status {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding-bottom: var(--space-4);
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.container-status__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
   font-size: var(--fs-meta);
-  line-height: 18px;
+  overflow-wrap: anywhere;
+}
+
+.container-status__text strong {
+  font-size: var(--fs-body);
 }
 
 .field-grid {
@@ -463,6 +667,7 @@ onMounted(async () => {
   gap: var(--space-5);
   align-items: start;
   max-width: 880px;
+  margin-inline: auto;
   margin-bottom: var(--space-6);
 }
 
@@ -482,14 +687,11 @@ onMounted(async () => {
 }
 
 .setting-label strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: var(--fs-label);
   font-weight: 600;
-}
-
-.setting-label p {
-  margin: 2px 0 0;
-  font-size: var(--fs-meta);
-  line-height: 18px;
 }
 
 .preview {
@@ -566,11 +768,14 @@ onMounted(async () => {
   margin-top: 0;
 }
 
-.field-hint {
-  margin: 0;
-  color: var(--text-faint);
-  font-size: var(--fs-micro);
-  line-height: 16px;
+.field-label-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.field-label-row .field-label {
+  margin-top: 8px;
 }
 
 .password-form__actions {
@@ -635,7 +840,8 @@ onMounted(async () => {
 }
 
 @media (max-width: 1023px) {
-  .appearance-grid {
+  .appearance-grid,
+  .general-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }

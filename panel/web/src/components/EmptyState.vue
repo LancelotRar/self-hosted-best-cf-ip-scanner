@@ -4,15 +4,17 @@ withDefaults(
     title?: string;
     description?: string;
     actionLabel?: string;
+    /** 嵌在卡片/表格里的空态：降低高度，避免把整页撑空。 */
+    compact?: boolean;
   }>(),
-  { title: "尚无数据", description: "", actionLabel: "" },
+  { title: "尚无数据", description: "", actionLabel: "", compact: false },
 );
 
 const emit = defineEmits<{ action: [] }>();
 </script>
 
 <template>
-  <div class="empty" role="group">
+  <div class="empty" :class="{ 'empty--compact': compact }" role="group">
     <span class="empty__badge" aria-hidden="true">
       <svg class="empty__icon" viewBox="0 0 24 24">
         <path
@@ -72,6 +74,21 @@ const emit = defineEmits<{ action: [] }>();
   max-width: 52ch;
   font-size: var(--fs-meta);
   line-height: 18px;
+}
+
+.empty--compact {
+  padding: 24px 16px;
+  gap: 4px;
+}
+
+.empty--compact .empty__badge {
+  width: 32px;
+  height: 32px;
+}
+
+.empty--compact .empty__icon {
+  width: 17px;
+  height: 17px;
 }
 
 .empty .el-button {

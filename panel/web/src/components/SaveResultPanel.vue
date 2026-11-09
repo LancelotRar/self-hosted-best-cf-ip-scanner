@@ -59,7 +59,7 @@ const canRestart = computed(
     <dl class="result__facts">
       <div>
         <dt>下次执行</dt>
-        <dd class="mono">{{ formatTime(result.next_run) }}</dd>
+        <dd class="mono">{{ formatTime(result.next_run, String(store.values.TZ ?? "") || undefined) }}</dd>
       </div>
       <div>
         <dt>计划任务</dt>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from "vue";
 
+import HintIcon from "./HintIcon.vue";
 import { useConfigStore } from "../stores/config";
 
 interface Target {
@@ -104,42 +105,54 @@ function setListName(target: Target, value: string) {
     <section class="names__group">
       <h3 class="names__title">基础文件</h3>
       <div class="name-grid">
-        <label class="name-field">
-          <span class="name-label">明细表</span>
+        <div class="name-field">
+          <span class="name-label">
+            <label for="artifact-detail">明细表</label>
+            <HintIcon content="默认 detail.csv（不含扩展名）" label="查看「明细表」说明" />
+          </span>
           <el-input
+            id="artifact-detail"
             :model-value="detailName"
             maxlength="64"
             placeholder="detail"
             @update:model-value="setDetail"
           />
-          <span class="name-hint">默认 detail.csv（不含扩展名）</span>
-        </label>
+        </div>
 
-        <label class="name-field">
-          <span class="name-label">固定保留</span>
+        <div class="name-field">
+          <span class="name-label">
+            <label for="artifact-pinned">固定保留</label>
+            <HintIcon content="默认 PINNED.txt（不含扩展名）" label="查看「固定保留」说明" />
+          </span>
           <el-input
+            id="artifact-pinned"
             :model-value="pinnedName"
             maxlength="64"
             placeholder="PINNED"
             @update:model-value="setPinned"
           />
-          <span class="name-hint">默认 PINNED.txt（不含扩展名）</span>
-        </label>
+        </div>
       </div>
     </section>
 
     <section class="names__group">
       <h3 class="names__title">全量列表</h3>
       <div v-if="fullTargets.length" class="name-grid">
-        <label v-for="target in fullTargets" :key="target.key" class="name-field">
-          <span class="name-label">{{ target.label }}</span>
+        <div v-for="target in fullTargets" :key="target.key" class="name-field">
+          <span class="name-label">
+            <label :for="`artifact-${target.key}`">{{ target.label }}</label>
+            <HintIcon
+              :content="`默认 ${target.defaultStem}.txt`"
+              :label="`查看「${target.label}」说明`"
+            />
+          </span>
           <el-input
+            :id="`artifact-${target.key}`"
             :model-value="drafts[target.key] ?? target.defaultStem"
             maxlength="64"
             @update:model-value="(value: string) => setListName(target, value)"
           />
-          <span class="name-hint">默认 {{ target.defaultStem }}.txt</span>
-        </label>
+        </div>
       </div>
       <p v-else class="muted names__empty">当前没有配置全量列表档位。</p>
     </section>
@@ -147,15 +160,21 @@ function setListName(target: Target, value: string) {
     <section v-if="countryTargets.length" class="names__group">
       <h3 class="names__title">国家列表</h3>
       <div class="name-grid">
-        <label v-for="target in countryTargets" :key="target.key" class="name-field">
-          <span class="name-label">{{ target.label }}</span>
+        <div v-for="target in countryTargets" :key="target.key" class="name-field">
+          <span class="name-label">
+            <label :for="`artifact-${target.key}`">{{ target.label }}</label>
+            <HintIcon
+              :content="`默认 ${target.defaultStem}.txt`"
+              :label="`查看「${target.label}」说明`"
+            />
+          </span>
           <el-input
+            :id="`artifact-${target.key}`"
             :model-value="drafts[target.key] ?? target.defaultStem"
             maxlength="64"
             @update:model-value="(value: string) => setListName(target, value)"
           />
-          <span class="name-hint">默认 {{ target.defaultStem }}.txt</span>
-        </label>
+        </div>
       </div>
     </section>
   </div>
@@ -184,8 +203,8 @@ function setListName(target: Target, value: string) {
 
 .name-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 32px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  column-gap: 24px;
   row-gap: 20px;
 }
 
@@ -197,26 +216,17 @@ function setListName(target: Target, value: string) {
 }
 
 .name-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: var(--text);
   font-size: var(--fs-label);
   font-weight: 600;
   line-height: 20px;
 }
 
-.name-hint {
-  color: var(--text-muted);
-  font-size: var(--fs-meta);
-  line-height: 18px;
-}
-
 .names__empty {
   margin: 0;
   font-size: var(--fs-meta);
-}
-
-@media (max-width: 1023px) {
-  .name-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 </style>

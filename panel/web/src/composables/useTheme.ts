@@ -8,6 +8,9 @@ const theme = ref<Theme>("light");
 function apply(next: Theme) {
   theme.value = next;
   document.documentElement.dataset.theme = next;
+  document
+    .querySelector('meta[name="theme-color"]')
+    ?.setAttribute("content", next === "dark" ? "#0b0d10" : "#f5f6f8");
   try {
     localStorage.setItem(STORAGE_KEY, next);
   } catch {

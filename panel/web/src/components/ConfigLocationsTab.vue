@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { onBeforeRouteLeave } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Check, Connection, Delete, InfoFilled, Plus, RefreshLeft, Search } from "@element-plus/icons-vue";
+import { Check, Connection, Delete, Plus, RefreshLeft, Search } from "@element-plus/icons-vue";
 
 import { ApiError, get, put } from "../api";
 import EmptyState from "./EmptyState.vue";
 import ErrorState from "./ErrorState.vue";
+import HintIcon from "./HintIcon.vue";
 import UnsavedDialog from "./UnsavedDialog.vue";
 import type { LocationEntry, LocationsDocument } from "../types";
 
@@ -59,6 +60,19 @@ const filtered = computed(() => {
     );
 });
 
+/** 一次只渲染一页：311 行 × 两个输入框会拖慢低配设备。 */
+const page = ref(1);
+const pageSize = 60;
+const pageCount = computed(() => Math.max(1, Math.ceil(filtered.value.length / pageSize)));
+const paged = computed(() => {
+  const start = (page.value - 1) * pageSize;
+  return filtered.value.slice(start, start + pageSize);
+});
+
+watch(query, () => {
+  page.value = 1;
+});
+
 function apply(data: LocationsDocument) {
   doc.value = data;
   rows.value = data.entries.map((entry) => ({ ...entry }));
@@ -85,6 +99,7 @@ function updateCell(index: number, field: keyof LocationEntry, value: string | n
 function addRow() {
   rows.value.push({ code: "", country: "" });
   query.value = "";
+  page.value = Math.max(1, Math.ceil(rows.value.length / pageSize));
   void nextTick(() => {
     const inputs = document.querySelectorAll<HTMLInputElement>(".loc-row__code input");
     inputs[inputs.length - 1]?.focus();
@@ -93,6 +108,7 @@ function addRow() {
 
 function removeRow(index: number) {
   rows.value.splice(index, 1);
+  if (page.value > pageCount.value) page.value = pageCount.value;
 }
 
 function restore() {
@@ -171,28 +187,23 @@ onBeforeRouteLeave(async () => {
   <ErrorState v-if="loadError" :message="loadError" @retry="load" />
   <el-skeleton v-else-if="loading" :rows="6" animated />
 
-  <section v-else class="block">
+  <section v-else class="block block--wide">
     <header class="block__head">
       <el-icon><Connection /></el-icon><span>机房映射</span>
+      <HintIcon
+        placement="bottom"
+        label="查看机房映射说明"
+        :paragraphs="[
+          '机房代码 → 国家代码，决定订阅行末尾的国家与国旗标签（如 #SG 🇸🇬）。',
+          '内置映射已覆盖主流 Cloudflare 机房，非必要无需编辑。',
+          '它只影响订阅列表里的国家/国旗标注，不影响扫描、排序与测速结果；留空或写错只会让该机房显示原始代码。',
+        ]"
+      />
+      <span class="block__meta">
+        {{ query ? `匹配 ${filtered.length} / ${rows.length} 条` : `共 ${rows.length} 条` }}
+      </span>
     </header>
     <div class="panel block__card">
-      <div class="loc-meta">
-        <p class="muted loc-card__sub">
-          机房代码 → 国家代码；决定订阅行末尾的国家与国旗标签（如
-          <code class="mono">#SG 🇸🇬</code>）。
-        </p>
-        <span class="muted loc-card__count">共 {{ rows.length }} 条</span>
-      </div>
-
-      <p class="loc-note">
-        <el-icon><InfoFilled /></el-icon>
-        <span>
-          内置映射已覆盖主流 Cloudflare 机房，<strong>非必要无需编辑</strong>。
-          它只影响订阅列表里的国家/国旗标注，不影响扫描、排序与测速结果。
-          留空或写错只会让该机房显示原始代码。
-        </span>
-      </p>
-
       <div class="loc-toolbar">
         <el-input v-model="query" clearable placeholder="搜索机房或国家代码" class="loc-search">
           <template #prefix><el-icon><Search /></el-icon></template>
@@ -221,7 +232,7 @@ onBeforeRouteLeave(async () => {
 
         <div class="loc-table__body">
           <div
-            v-for="{ row, index } in filtered"
+            v-for="{ row, index } in paged"
             :key="index"
             class="loc-row"
             :class="{ 'loc-row--invalid': rowErrors.has(index) }"
@@ -266,6 +277,16 @@ onBeforeRouteLeave(async () => {
         </div>
       </div>
 
+      <el-pagination
+        v-if="filtered.length > pageSize"
+        class="loc-pagination"
+        layout="prev, pager, next"
+        :total="filtered.length"
+        :page-size="pageSize"
+        :current-page="page"
+        @current-change="page = $event"
+      />
+
       <div class="loc-actions">
         <span class="muted">
           {{ invalid ? "有不合法的条目，修正后才能保存" : dirty ? "有未保存的修改" : "没有未保存的修改" }}
@@ -290,60 +311,10 @@ onBeforeRouteLeave(async () => {
 </template>
 
 <style scoped>
-.loc-meta,
-.loc-note,
-.loc-toolbar,
-.loc-table,
-.loc-actions {
-  width: 100%;
-  max-width: 900px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.loc-meta {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.loc-meta p {
-  margin: 0;
-}
-
-.loc-card__sub {
-  font-size: var(--fs-meta);
-}
-
-.loc-card__count {
-  font-size: var(--fs-meta);
-  white-space: nowrap;
-}
-
-.loc-note {
-  display: flex;
-  gap: 8px;
-  margin: var(--space-3) 0 0;
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  color: var(--text-muted);
-  font-size: 12.5px;
-  line-height: 1.7;
-}
-
-.loc-note code {
-  padding: 0 4px;
-  border-radius: 4px;
-  background: var(--surface);
-}
-
 .loc-toolbar {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin-top: var(--space-4);
 }
 
 .loc-search {
@@ -411,6 +382,12 @@ onBeforeRouteLeave(async () => {
   align-items: center;
   gap: var(--space-2);
   margin-top: var(--space-4);
+}
+
+.loc-pagination {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-3);
 }
 
 .field-errors {

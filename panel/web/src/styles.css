@@ -13,6 +13,7 @@ body,
 /* 常驻滚动条槽：无滚动条的页面不再比有滚动条的页面右移 5px，保证所有页面左边缘一致 */
 html {
   scrollbar-gutter: stable;
+  scroll-padding-bottom: 120px;
 }
 
 body {
@@ -22,6 +23,7 @@ body {
   font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.55;
+  caret-color: var(--text);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -150,6 +152,17 @@ a {
 .block__card {
   padding: 22px 24px;
   overflow-x: auto;
+}
+
+/* 卡片按内容收窄并居中：表单类不拉满整行，表格 / 日志等数据区仍占整行 */
+.block--medium {
+  max-width: 700px;
+  margin-inline: auto;
+}
+
+.block--wide {
+  max-width: 1000px;
+  margin-inline: auto;
 }
 
 @media (max-width: 767px) {
@@ -722,6 +735,31 @@ a {
 
 .text-muted {
   color: var(--text-muted);
+}
+
+/* 参数说明 tooltip：跟随主题，限制行宽，长说明自动换行 */
+.param-hint-popper.el-popper {
+  max-width: 360px !important;
+  background: var(--surface-3) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+  font-size: 12px;
+  line-height: 1.65;
+  white-space: normal;
+}
+
+.param-hint-popper.el-popper .el-popper__arrow::before {
+  background: var(--surface-3) !important;
+  border-color: var(--border) !important;
+}
+
+/* 多段说明：段落之间留一点气口，长文不至于糊成一团 */
+.param-hint-popper.el-popper p {
+  margin: 0;
+}
+
+.param-hint-popper.el-popper p + p {
+  margin-top: 6px;
 }
 
 @media (max-width: 1023px) {

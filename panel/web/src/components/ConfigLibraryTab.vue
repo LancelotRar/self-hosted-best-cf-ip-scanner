@@ -6,6 +6,7 @@ import { Check, Connection, RefreshLeft, Star } from "@element-plus/icons-vue";
 
 import { ApiError, get, put } from "../api";
 import ErrorState from "./ErrorState.vue";
+import HintIcon from "./HintIcon.vue";
 import UnsavedDialog from "./UnsavedDialog.vue";
 import type { LibraryDocument } from "../types";
 import { formatCount } from "../utils/format";
@@ -188,24 +189,29 @@ onBeforeRouteLeave(async () => {
       <section class="block">
         <header class="block__head">
           <el-icon><Connection /></el-icon><span>Cloudflare 官方段</span>
+          <HintIcon
+            placement="bottom"
+            label="查看地址库使用说明"
+            :paragraphs="[
+              '行首加 # 即可排除该网段，并写明依据，不建议整行删除。',
+              '要排除部分网段时，另起一行写入网段，同样在行首加 #。',
+              '参与种子采样逻辑：展开后按采样步长抽 1 个代表 IP 进行扫描。',
+            ]"
+          />
         </header>
         <div class="panel block__card">
-          <p class="library-desc">
-            默认地址库，来源 Cloudflare 官方 IPv4 段
-            <a href="https://www.cloudflare.com/ips-v4" target="_blank" rel="noreferrer">
-              https://www.cloudflare.com/ips-v4
+          <p class="library-meta">
+            <span>当前 IP 总量：{{ formatCount(library?.stats.total) }}</span>
+            <a
+              class="library-meta__source"
+              href="https://www.cloudflare.com/ips-v4"
+              target="_blank"
+              rel="noreferrer"
+              title="来源 Cloudflare 官方 IPv4 段"
+            >
+              来源 cloudflare.com/ips-v4
             </a>
           </p>
-          <p class="library-desc">
-            若要排除某个网段，可在行首直接加 <code>#</code> 并写明依据，不建议整行删除
-          </p>
-          <p class="library-desc">
-            若要排除部分网段，手动另起新的一行，写入网段，并在行首加 <code>#</code>
-          </p>
-          <p class="library-desc">
-            参与种子采样逻辑，展开后按采样步长抽 1 个代表 IP 进行扫描。
-          </p>
-          <p class="library-desc">当前 IP 总量：{{ formatCount(library?.stats.total) }}</p>
 
           <el-input
             v-model="draft"
@@ -247,18 +253,17 @@ onBeforeRouteLeave(async () => {
       <section class="block">
         <header class="block__head">
           <el-icon><Star /></el-icon><span>固定保留</span>
+          <HintIcon
+            placement="bottom"
+            label="查看固定保留使用说明"
+            :paragraphs="[
+              '用户希望固定添加的优选 IP：不做探测、不做机房映射，产物单独生成。文件名在「产物定制 · 文件名调整 · 固定保留」中修改。',
+              '格式为 IP 或 IP:端口，可跟 #备注，如 1.2.3.4:443#手动添加；省略端口时按 443。',
+            ]"
+          />
         </header>
         <div class="panel block__card">
           <p class="library-meta">共 {{ formatCount(pinnedCount) }} 条</p>
-
-          <p class="library-desc">
-            此来源为用户希望固定添加的优选 IP。不做探测、不做机房映射，产物单独生成。
-            文件名在「产物与发布 · 产物文件 · 固定保留文件名」中修改。
-          </p>
-          <p class="library-desc">
-            格式，<code>IP</code> 或 <code>IP:端口</code>，可跟 <code>#备注</code>，如
-            <code>1.2.3.4:443#手动添加</code>；省略端口时按 443。
-          </p>
 
           <el-input
             v-model="pinnedDraft"
@@ -312,7 +317,8 @@ onBeforeRouteLeave(async () => {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-5);
-  align-items: stretch;
+  /* 两张卡片各自按内容高度排布：拖动一侧输入框不会把另一侧一起拉高 */
+  align-items: start;
 }
 
 .library-grid .block {
@@ -332,33 +338,25 @@ onBeforeRouteLeave(async () => {
 }
 
 .library-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
   margin: 0 0 var(--space-2);
   font-size: var(--fs-meta);
   color: var(--text-muted);
 }
 
-.library-desc {
-  margin: 0;
-  font-size: 12.5px;
-  line-height: 1.75;
-  color: var(--text-muted);
-}
-
-.library-desc + .library-desc {
-  margin-top: 4px;
-}
-
-.library-desc code {
-  padding: 0 4px;
-  border-radius: 4px;
-  background: var(--surface-2);
-  font-family: var(--font-mono);
-}
-
-.library-desc a {
-  color: var(--text);
+.library-meta__source {
+  color: var(--text-faint);
   text-decoration: underline;
   text-underline-offset: 2px;
+  white-space: nowrap;
+}
+
+.library-meta__source:hover,
+.library-meta__source:focus-visible {
+  color: var(--text);
 }
 
 .library-editor__input {

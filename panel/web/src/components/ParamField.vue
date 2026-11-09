@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
+import HintIcon from "./HintIcon.vue";
 import type { Param } from "../types";
 
 const props = defineProps<{
   param: Param;
   modelValue: unknown;
   disabled?: boolean;
-  /** 同组字段共用一句说明时，隐藏单字段说明，避免重复。 */
-  hideHelp?: boolean;
+  /** 后端字段级校验错误；显示在控件下方。 */
+  error?: string;
 }>();
 
 const emit = defineEmits<{ "update:modelValue": [value: unknown] }>();
@@ -66,6 +67,45 @@ const DEFAULT_BOUNDS = { min: 0, max: 999999, step: 1 };
 /** 数字框统一为窄控件，避免每个字段各自计算宽度导致版式参差。 */
 const bounds = computed(() => NUMERIC_BOUNDS[props.param.name] ?? DEFAULT_BOUNDS);
 
+/** 字段在 12 列栅格里的跨度：数字紧凑、短文本适中、长 URL/令牌整行。 */
+const SPAN_BY_NAME: Record<string, string> = {
+  PROBE_HOST: "field--half",
+  LOCATIONS_FILE: "field--short",
+  LIBRARY_FILE: "field--short",
+  PINNED_FILE: "field--short",
+  DETAIL_CSV_NAME: "field--short",
+  PINNED_OUTPUT_NAME: "field--short",
+  GIT_BRANCH: "field--half",
+  GIT_OUTPUT_SUBDIR: "field--half",
+  TZ: "field--short",
+  GIT_AUTHOR_NAME: "field--medium",
+  GIT_AUTHOR_EMAIL: "field--medium",
+  GIT_REPO_URL: "field--half",
+  GIT_TOKEN: "field--half",
+  HTTP_PROXY: "field--half",
+  HTTPS_PROXY: "field--half",
+  ALL_PROXY: "field--half",
+  NO_PROXY: "field--half",
+  no_proxy: "field--half",
+};
+
+const THIRD_NAMES = new Set([
+  "SAMPLE_STRIDE",
+  "SAMPLE_SEED",
+  "SEED_HOUR_FACTOR",
+]);
+
+const spanClass = computed(() => {
+  const { kind, name } = props.param;
+  if (name === "PROBE_PORTS") return "field--half";
+  if (name === "OVERALL_TOPS") return "field--full";
+  if (name.startsWith("TOP_") || THIRD_NAMES.has(name)) return "field--third";
+  if (kind === "bool" || kind === "cron") return "field--full";
+  if (kind === "int" || kind === "float") return "field--compact";
+  if (kind === "ports" || kind === "csv_int") return "field--half";
+  return SPAN_BY_NAME[name] ?? "field--full";
+});
+
 const disabled = computed(() => props.disabled || props.param.read_only);
 
 const textValue = computed(() => {
@@ -94,10 +134,29 @@ const defaultText = computed(() => {
   return text === "" ? "空" : text;
 });
 
-/** 说明里已经写了默认值时不再重复展示，避免同一行出现两次「默认」。 */
-const showDefault = computed(
-  () => props.param.kind !== "bool" && !props.param.help.includes("默认"),
+/** 说明里已经写了默认值时不再重复展示；空默认值和密钥不显示默认。 */
+const showDefault = computed(() => {
+  const value = props.param.default;
+  const empty =
+    value === "" ||
+    value === null ||
+    value === undefined ||
+    (Array.isArray(value) && value.length === 0);
+  return (
+    props.param.kind !== "bool" &&
+    props.param.kind !== "secret" &&
+    !empty &&
+    !props.param.help.includes("默认")
+  );
+});
+
+const hintText = computed(() =>
+  showDefault.value
+    ? `${props.param.help}（默认 ${defaultText.value}）`
+    : props.param.help,
 );
+
+const hintId = computed(() => `param-${props.param.name}-hint`);
 
 /** 默认生效方式占绝大多数，重复展示只会制造噪音；只在需要额外动作时提示。 */
 const effectTag = computed(() => {
@@ -136,14 +195,19 @@ function onBool(value: string | number | boolean) {
 <template>
   <div
     class="field"
-    :class="{
-      'field--readonly': disabled,
-      'field--wide': param.kind === 'cron' || param.kind === 'ports' || param.kind === 'csv_int',
-      'field--switch': param.kind === 'bool',
-    }"
+    :class="[
+      spanClass,
+      {
+        'field--readonly': disabled,
+        'field--error': Boolean(error),
+        'field--switch': param.kind === 'bool',
+        'field--ports': param.kind === 'ports',
+      },
+    ]"
   >
     <div class="field__head">
       <label class="field__label" :for="`param-${param.name}`">{{ param.label }}</label>
+      <HintIcon :content="hintText" :label="`查看「${param.label}」说明`" />
       <div class="field__tags">
         <span v-if="effectTag" class="tag" :class="`tag--${effectTag.tone}`">{{ effectTag.label }}</span>
         <span v-if="param.read_only" class="tag">只读</span>
@@ -151,7 +215,7 @@ function onBool(value: string | number | boolean) {
           {{ param.configured ? "已配置" : "未配置" }}
         </span>
       </div>
-      <span v-if="showDefault" class="field__default">默认 {{ defaultText }}</span>
+      <span :id="hintId" class="sr-only">{{ hintText }}</span>
     </div>
 
     <div class="field__control">
@@ -160,7 +224,9 @@ function onBool(value: string | number | boolean) {
         :id="`param-${param.name}`"
         :model-value="Boolean(modelValue)"
         :disabled="disabled"
-        :aria-describedby="`param-${param.name}-help`"
+        :aria-label="param.label"
+        :aria-invalid="Boolean(error) || undefined"
+        :aria-describedby="hintId"
         @change="onBool"
       />
 
@@ -175,7 +241,9 @@ function onBool(value: string | number | boolean) {
         :precision="param.kind === 'float' ? 1 : 0"
         controls-position="right"
         :disabled="disabled"
-        :aria-describedby="`param-${param.name}-help`"
+        :aria-label="param.label"
+        :aria-invalid="Boolean(error) || undefined"
+        :aria-describedby="hintId"
         @update:model-value="onNumber"
       />
 
@@ -190,7 +258,9 @@ function onBool(value: string | number | boolean) {
         default-first-option
         :disabled="disabled"
         placeholder="选择或输入端口"
-        :aria-describedby="`param-${param.name}-help`"
+        :aria-label="param.label"
+        :aria-invalid="Boolean(error) || undefined"
+        :aria-describedby="hintId"
         @change="onList"
       >
         <el-option
@@ -212,7 +282,9 @@ function onBool(value: string | number | boolean) {
         default-first-option
         :disabled="disabled"
         placeholder="选择或输入条数"
-        :aria-describedby="`param-${param.name}-help`"
+        :aria-label="param.label"
+        :aria-invalid="Boolean(error) || undefined"
+        :aria-describedby="hintId"
         @change="onList"
       >
         <el-option
@@ -229,7 +301,9 @@ function onBool(value: string | number | boolean) {
           class="mono"
           :model-value="textValue"
           :disabled="disabled"
-          :aria-describedby="`param-${param.name}-help`"
+          :aria-label="param.label"
+        :aria-invalid="Boolean(error) || undefined"
+        :aria-describedby="hintId"
           @input="onText"
         />
         <el-dropdown trigger="click" :disabled="disabled">
@@ -252,14 +326,16 @@ function onBool(value: string | number | boolean) {
       <el-select
         v-else-if="param.name === 'TZ'"
         :id="`param-${param.name}`"
-        class="control control--select control--short"
+        class="control control--select"
         :model-value="textValue"
         filterable
         allow-create
         default-first-option
         :disabled="disabled"
         placeholder="选择时区"
-        :aria-describedby="`param-${param.name}-help`"
+        :aria-label="param.label"
+        :aria-invalid="Boolean(error) || undefined"
+        :aria-describedby="hintId"
         @change="onText"
       >
         <el-option
@@ -273,14 +349,16 @@ function onBool(value: string | number | boolean) {
       <el-select
         v-else-if="param.name === 'GIT_BRANCH'"
         :id="`param-${param.name}`"
-        class="control control--select control--short"
+        class="control control--select"
         :model-value="textValue"
         filterable
         allow-create
         default-first-option
         :disabled="disabled"
         placeholder="选择或输入分支"
-        :aria-describedby="`param-${param.name}-help`"
+        :aria-label="param.label"
+        :aria-invalid="Boolean(error) || undefined"
+        :aria-describedby="hintId"
         @change="onText"
       >
         <el-option
@@ -299,7 +377,9 @@ function onBool(value: string | number | boolean) {
         :model-value="textValue"
         :disabled="disabled"
         :placeholder="param.configured ? '已配置；留空表示不修改' : '未配置'"
-        :aria-describedby="`param-${param.name}-help`"
+        :aria-label="param.label"
+        :aria-invalid="Boolean(error) || undefined"
+        :aria-describedby="hintId"
         @input="onText"
       />
 
@@ -309,14 +389,14 @@ function onBool(value: string | number | boolean) {
         :class="{ mono: param.kind === 'path' }"
         :model-value="textValue"
         :disabled="disabled"
-        :aria-describedby="`param-${param.name}-help`"
+        :aria-label="param.label"
+        :aria-invalid="Boolean(error) || undefined"
+        :aria-describedby="hintId"
         @input="onText"
       />
     </div>
 
-    <p v-show="!hideHelp" :id="`param-${param.name}-help`" class="field__help">
-      {{ param.help }}
-    </p>
+    <p v-if="error" class="field__error" role="alert">{{ error }}</p>
   </div>
 </template>
 
@@ -402,19 +482,29 @@ function onBool(value: string | number | boolean) {
   font-size: var(--fs-micro);
 }
 
-.field__help {
-  margin: 6px 0 0;
-  color: var(--text-muted);
+.field__error {
+  margin: 4px 0 0;
+  color: var(--danger);
   font-size: var(--fs-meta);
   line-height: 18px;
 }
 
-.field__default {
-  margin-left: auto;
-  color: var(--text-faint);
-  font-size: var(--fs-micro);
-  line-height: 20px;
+.field--error :deep(.el-input__wrapper),
+.field--error :deep(.el-textarea__inner),
+.field--error :deep(.el-select__wrapper) {
+  box-shadow: 0 0 0 1px var(--danger) inset;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
   white-space: nowrap;
+  border: 0;
 }
 
 .field__control :deep(.el-input),
@@ -423,20 +513,15 @@ function onBool(value: string | number | boolean) {
   width: 100%;
 }
 
-/* 数字输入统一为窄控件，避免逐字段计算宽度导致参差 */
+/* 控件一律撑满字段宽度：输入框左右顶到卡片边缘，不在卡片里留死角 */
 .field__control :deep(.el-input-number) {
   width: 100%;
-  max-width: 200px;
 }
 
-.field__control :deep(.el-select.control--short) {
-  max-width: 240px;
-}
-
-/* 数字内容居中，配合右侧步进按钮 */
+/* 数字左对齐，配合右侧步进按钮，长输入框里不会出现居中悬浮感 */
 .field__control :deep(.el-input-number .el-input__inner) {
-  text-align: center;
-  padding-left: 4px;
+  text-align: left;
+  padding-left: 12px;
   padding-right: 4px;
   font-variant-numeric: tabular-nums;
 }
@@ -458,11 +543,5 @@ function onBool(value: string | number | boolean) {
   order: 2;
   margin-left: auto;
   min-height: 24px;
-}
-
-.field--switch .field__help {
-  order: 3;
-  flex: 0 0 100%;
-  margin-top: 4px;
 }
 </style>

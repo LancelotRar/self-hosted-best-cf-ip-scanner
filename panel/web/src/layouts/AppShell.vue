@@ -80,6 +80,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="shell">
+    <a class="skip-link" href="#main">跳到主要内容</a>
     <aside class="sidebar">
       <RouterLink :to="{ name: 'overview' }" class="brand" aria-label="回到总览">
         <span class="brand__mark" aria-hidden="true">CF</span>
@@ -127,7 +128,7 @@ onBeforeUnmount(() => {
     </aside>
 
     <div class="content">
-      <main class="main">
+      <main id="main" class="main" tabindex="-1">
         <Suspense>
           <RouterView />
           <template #fallback>
@@ -146,6 +147,32 @@ onBeforeUnmount(() => {
   display: flex;
   min-height: 100vh;
   background: var(--bg);
+}
+
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 100;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: var(--fs-meta);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-160%);
+  transition: transform var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease);
+}
+
+.skip-link:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.main:focus {
+  outline: none;
 }
 
 .sidebar {
@@ -455,16 +482,13 @@ onBeforeUnmount(() => {
     border-top: 0;
   }
 
+  .scanner-state {
+    width: auto;
+  }
+
   .scanner-state__text {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
+    font-size: var(--fs-micro);
     white-space: nowrap;
-    border: 0;
   }
 
   .footer-row {

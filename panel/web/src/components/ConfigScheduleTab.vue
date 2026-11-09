@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { Clock, Timer } from "@element-plus/icons-vue";
 
 import { get } from "../api";
+import HintIcon from "./HintIcon.vue";
 import { useConfigStore } from "../stores/config";
 import type { SchedulePreview } from "../types";
 import { formatMinute } from "../utils/format";
@@ -30,7 +31,7 @@ const cronValue = computed({
 
 const previewRows = computed(() =>
   preview.value.map((run) => {
-    const [date, time] = formatMinute(run).split(" ");
+    const [date, time] = formatMinute(run, timezone.value).split(" ");
     return { date, time };
   }),
 );
@@ -121,16 +122,20 @@ watch(
           </el-button>
         </div>
 
+        <div class="schedule-field__head">
+          <label class="schedule-field__label" for="param-CRON_SCHEDULE">表达式</label>
+          <HintIcon
+            content="5 段：分 时 日 月 周；6 段：再加年；7 段：秒 + 分 时 日 月 周 + 年。"
+            label="查看表达式格式说明"
+          />
+        </div>
         <el-input
           id="param-CRON_SCHEDULE"
           v-model="cronValue"
-          class="mono schedule-input"
+          class="mono"
           placeholder="30 */6 * * *"
         />
         <p v-if="previewError" class="preview-error" role="alert">{{ previewError }}</p>
-        <p v-else class="schedule-help schedule-help--mono">
-          5 段：分 时 日 月 周；6 段：再加年；7 段：秒 + 分 时 日 月 周 + 年。
-        </p>
 
         <p v-if="saveError" class="preview-error" role="alert">{{ saveError }}</p>
 
@@ -162,14 +167,12 @@ watch(
     <section class="block">
       <header class="block__head">
         <el-icon><Clock /></el-icon><span>未来 5 次执行计划</span>
+        <span class="block__meta">保存后自动应用</span>
       </header>
       <div class="panel block__card preview-card">
-        <p class="preview-meta">
-          <span v-if="timezone">
-            <span class="muted">时区</span>
-            <span class="mono preview-meta__value">{{ timezone }}</span>
-          </span>
-          <span class="muted">保存后自动应用</span>
+        <p v-if="timezone" class="preview-meta">
+          <span class="muted">时区</span>
+          <span class="mono preview-meta__value">{{ timezone }}</span>
         </p>
 
         <el-table
@@ -196,9 +199,10 @@ watch(
 <style scoped>
 .schedule-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 420px));
+  justify-content: center;
   gap: var(--space-5);
-  align-items: stretch;
+  align-items: start;
 }
 
 .schedule-grid .block {
@@ -219,8 +223,18 @@ watch(
   line-height: 18px;
 }
 
-.schedule-help--mono {
-  color: var(--text-faint);
+.schedule-field__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 7px;
+}
+
+.schedule-field__label {
+  color: var(--text);
+  font-size: var(--fs-label);
+  font-weight: 550;
+  line-height: 20px;
 }
 
 .preset-row {
@@ -243,18 +257,12 @@ watch(
   background: var(--primary);
 }
 
-.schedule-input {
-  max-width: 420px;
-  margin-bottom: var(--space-2);
-}
 
 .schedule-summary {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-  margin-top: auto;
-  padding-top: var(--space-5);
+  gap: var(--space-2);
+  margin-top: var(--space-4);
   font-size: var(--fs-meta);
 }
 
@@ -280,8 +288,7 @@ watch(
 .preview-meta {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--space-2);
   margin: 0;
   font-size: var(--fs-meta);
 }

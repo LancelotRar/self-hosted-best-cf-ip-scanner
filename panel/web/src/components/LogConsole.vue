@@ -10,10 +10,12 @@ const props = withDefaults(
     lines: string[];
     status: StreamStatus;
     lastReceived: Date | null;
-      height?: string;
+    height?: string;
     ended?: boolean;
+    /** 面板时区；日志时间按它显示，避免与计划时间错位。 */
+    timeZone?: string;
   }>(),
-  { height: "420px", ended: false },
+  { height: "420px", ended: false, timeZone: "" },
 );
 
 const box = ref<HTMLPreElement | null>(null);
@@ -21,7 +23,9 @@ const atBottom = ref(true);
 const pending = ref(0);
 
 /** 每行补本地时间戳（后端已带 docker 的 UTC 时间戳前缀）。 */
-const rendered = computed(() => props.lines.map(formatLogLine).join("\n"));
+const rendered = computed(() =>
+  props.lines.map((line) => formatLogLine(line, props.timeZone)).join("\n"),
+);
 
 const meta = computed(() => {
   if (props.ended) return { tone: "neutral" as const, label: "已结束" };
